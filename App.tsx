@@ -1,3 +1,4 @@
+import { useFonts } from 'expo-font';
 import { StatusBar } from 'expo-status-bar';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
@@ -14,6 +15,7 @@ type Screen = { name: 'home' } | { name: 'rules' } | { name: 'game'; start: Star
 
 export default function App() {
   const [ready, setReady] = useState(false);
+  const [fontsLoaded, fontError] = useFonts({ ChessGlyphs: require('./assets/fonts/ChessGlyphs.ttf') });
   const [config, setConfig] = useState<GameConfig>(DEFAULT_CONFIG);
   const [saved, setSaved] = useState<SavedGame | null>(null);
   const [stats, setStats] = useState<Stats>(EMPTY_STATS);
@@ -72,7 +74,7 @@ export default function App() {
   const goHome = useCallback(() => setScreen({ name: 'home' }), []);
 
   let content: React.ReactNode;
-  if (!ready) {
+  if (!ready || (!fontsLoaded && !fontError)) {
     content = (
       <View style={styles.loading}>
         <ActivityIndicator color={theme.accent} />

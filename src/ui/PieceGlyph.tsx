@@ -37,8 +37,12 @@ export const PieceGlyph = React.memo(function PieceGlyph({ piece, size }: Props)
   );
 });
 
+/** Font family for every chess glyph in the app (bundled, so pieces look the same on every device). */
+export const CHESS_FONT = 'ChessGlyphs';
+
 const styles = StyleSheet.create({
   glyph: {
+    fontFamily: CHESS_FONT,
     textAlign: 'center',
     textShadowOffset: { width: 0, height: 0 },
     textShadowRadius: 3,

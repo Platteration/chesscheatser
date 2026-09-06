@@ -6,6 +6,7 @@ import type { CheatLevel } from '../engine/cheat';
 import type { MaterialMode } from '../engine/setup';
 import { ARMY_SIZES, type ArmySize, type GameConfig, type GameMode, type PlayAs, type Stats } from '../game/config';
 import { Button, Card, Label, Segmented } from './components';
+import { CHESS_FONT } from './PieceGlyph';
 import { theme } from './theme';
 
 interface Props {
@@ -128,7 +129,7 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: theme.bg },
   content: { paddingHorizontal: 16, gap: 12 },
   hero: { alignItems: 'center', marginBottom: 8 },
-  kings: { fontSize: 56, color: theme.accent, lineHeight: 66 },
+  kings: { fontSize: 56, color: theme.accent, lineHeight: 66, fontFamily: CHESS_FONT },
   title: { color: theme.text, fontSize: 30, fontWeight: '800', marginTop: 4 },
   tagline: { color: theme.textMuted, textAlign: 'center', marginTop: 8, fontSize: 14, lineHeight: 20, maxWidth: 340 },
   resume: { marginBottom: 4 },

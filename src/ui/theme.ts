@@ -18,6 +18,7 @@ export const theme = {
     capture: 'rgba(200, 40, 40, 0.55)',
     check: 'rgba(226, 60, 60, 0.85)',
     checkSoft: 'rgba(226, 60, 60, 0.45)',
+    hint: 'rgba(52, 140, 235, 0.9)',
   },
   radius: 12,
 } as const;

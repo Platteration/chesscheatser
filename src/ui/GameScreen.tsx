@@ -3,12 +3,13 @@ import { Modal, ScrollView, StyleSheet, Text, useWindowDimensions, View } from '
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { opposite, squareName } from '../engine/board';
 import { moveToSAN } from '../engine/position';
-import type { Color, PieceType, Square } from '../engine/types';
+import type { Color, Move, PieceType, Square } from '../engine/types';
 import type { GameConfig, SavedGame } from '../game/config';
 import { useGame, type GameState, type StartOptions } from '../game/useGame';
 import { Board } from './Board';
 import { Button } from './components';
-import { GLYPH } from './PieceGlyph';
+import { CHESS_FONT, GLYPH } from './PieceGlyph';
+import { haptics } from '../haptics';
 import { PromotionPicker } from './PromotionPicker';
 import { theme } from './theme';
 
@@ -24,7 +25,8 @@ const DIFFICULTY_LABEL = { easy: 'Easy', medium: 'Medium', hard: 'Hard' } as con
 const MATERIAL_LABEL = { chaos: 'Chaos', fair: 'Fair', mirror: 'Mirror' } as const;
 
 export function GameScreen({ start, onExit, onSave, onFinished }: Props) {
-  const { state, play, accuse, undo, newGame, rematch, resign } = useGame(start, onSave);
+  const { state, play, accuse, undo, newGame, rematch, resign, getHint } = useGame(start, onSave);
+  const [hint, setHint] = useState<Move | null>(null);
   const [selected, setSelected] = useState<Square | null>(null);
   const [pendingPromotion, setPendingPromotion] = useState<{ from: Square; to: Square } | null>(null);
   const [flipped, setFlipped] = useState<boolean | null>(null);
@@ -51,6 +53,39 @@ export function GameScreen({ start, onExit, onSave, onFinished }: Props) {
   useEffect(() => {
     if (state.gameOver) setShowResult(true);
   }, [state.gameOver]);
+
+  // Feedback for whatever just happened, and drop any stale hint.
+  const seen = useRef<string>('');
+  useEffect(() => {
+    setHint(null);
+    const key = `${state.setup.seed}:${state.moves.length}:${state.lastEvent?.type ?? ''}:${state.gameOver}`;
+    if (seen.current === key) return;
+    const first = seen.current === '';
+    seen.current = key;
+    if (first) return;
+    if (state.gameOver) {
+      const winner = winnerOf(state);
+      if (winner === null) haptics.move();
+      else if (state.config.mode === 'local' || winner === state.humanColor) haptics.win();
+      else haptics.loss();
+      return;
+    }
+    const last = state.lastEvent;
+    if (last?.type === 'accuse') {
+      if (last.caught) haptics.caught();
+      else haptics.wrong();
+    } else if (last?.type === 'move') {
+      const moverChecked = state.kingsInDanger.some((k) => state.board[k]?.color === state.turn);
+      if (moverChecked) haptics.check();
+      else if (last.move.captured) haptics.capture();
+      else haptics.move();
+    }
+  }, [state]);
+
+  const onHint = useCallback(() => {
+    const m = getHint();
+    if (m) setHint(m);
+  }, [getHint]);
 
   const targets = useMemo(() => {
     if (selected === null) return [];
@@ -114,6 +149,7 @@ export function GameScreen({ start, onExit, onSave, onFinished }: Props) {
           selected={selected}
           targets={targets}
           lastMove={state.lastMove}
+          hint={hint}
           kingsInDanger={state.kingsInDanger}
           onSquarePress={onSquarePress}
           disabled={state.gameOver || !humanTurn}
@@ -137,6 +173,7 @@ export function GameScreen({ start, onExit, onSave, onFinished }: Props) {
       )}
 
       <View style={styles.controls}>
+        <Button title="Hint" variant="secondary" small onPress={onHint} disabled={state.gameOver || state.thinking || !humanTurn} />
         <Button title="Undo" variant="secondary" small onPress={undo} disabled={state.moves.length === 0 || state.thinking} />
         <Button title="New armies" variant="secondary" small onPress={() => newGame()} />
         {state.gameOver ? (
@@ -282,7 +319,7 @@ function PlayerStrip({ state, color, active }: { state: GameState; color: Color;
         </Text>
         <Text style={styles.stripCaptured} numberOfLines={1}>
           {captured.map((t) => GLYPH[t]).join('') || '—'}
-          {lead > 0 ? `  +${lead}` : ''}
+          {lead > 0 ? <Text style={styles.stripLead}>{`  +${lead}`}</Text> : null}
         </Text>
       </View>
       <View style={styles.kingBadges}>
@@ -338,9 +375,10 @@ const styles = StyleSheet.create({
   },
   stripActive: { borderColor: theme.accent },
   stripName: { color: theme.text, fontWeight: '700', fontSize: 14 },
-  stripCaptured: { color: theme.textMuted, fontSize: 14, marginTop: 1 },
+  stripCaptured: { color: theme.textMuted, fontSize: 14, marginTop: 1, fontFamily: CHESS_FONT },
+  stripLead: { fontFamily: undefined, color: theme.textMuted },
   kingBadges: { flexDirection: 'row', gap: 2 },
-  kingBadge: { color: theme.textMuted, fontSize: 20, opacity: 0.6 },
+  kingBadge: { color: theme.textMuted, fontSize: 20, opacity: 0.6, fontFamily: CHESS_FONT },
   kingBadgeDanger: { color: theme.danger, opacity: 1 },
   statusBox: { paddingHorizontal: 16, paddingTop: 8, minHeight: 44 },
   accuseRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingTop: 6 },

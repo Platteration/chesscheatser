@@ -12,12 +12,13 @@ interface Props {
   selected: Square | null;
   targets: LegalMove[];
   lastMove: Move | null;
+  hint?: Move | null;
   kingsInDanger: Square[];
   onSquarePress: (s: Square) => void;
   disabled?: boolean;
 }
 
-export function Board({ board, size, flipped, selected, targets, lastMove, kingsInDanger, onSquarePress, disabled }: Props) {
+export function Board({ board, size, flipped, selected, targets, lastMove, hint, kingsInDanger, onSquarePress, disabled }: Props) {
   const square = size / 8;
   const targetMap = useMemo(() => {
     const m = new Map<Square, boolean>();
@@ -39,6 +40,7 @@ export function Board({ board, size, flipped, selected, targets, lastMove, kings
       const isLast = !!lastMove && (lastMove.from === s || lastMove.to === s);
       const target = targetMap.get(s);
       const inDanger = danger.has(s);
+      const isHint = !!hint && (hint.from === s || hint.to === s);
       cells.push(
         <Pressable
           key={s}
@@ -53,6 +55,7 @@ export function Board({ board, size, flipped, selected, targets, lastMove, kings
           {isLast && <View style={[StyleSheet.absoluteFill, { backgroundColor: theme.board.lastMove }]} />}
           {inDanger && <View style={[StyleSheet.absoluteFill, styles.check]} />}
           {isSelected && <View style={[StyleSheet.absoluteFill, { backgroundColor: theme.board.selected }]} />}
+          {isHint && <View style={[StyleSheet.absoluteFill, styles.hint, { borderWidth: Math.max(2, square * 0.07) }]} />}
           {col === 0 && (
             <Text style={[styles.coord, styles.rankCoord, { color: isLight ? theme.board.dark : theme.board.light }]}>
               {rank + 1}
@@ -105,6 +108,7 @@ const styles = StyleSheet.create({
   dot: { position: 'absolute', backgroundColor: theme.board.target },
   captureRing: { borderColor: theme.board.capture },
   check: { backgroundColor: theme.board.check },
+  hint: { borderColor: theme.board.hint },
   coord: { position: 'absolute', fontSize: 9, fontWeight: '700', opacity: 0.9 },
   rankCoord: { top: 1, left: 2 },
   fileCoord: { bottom: 0, right: 2 },

@@ -49,7 +49,10 @@ Cheats are revealed at the end of the game.
 ## Features
 
 - Play against the computer (easy / medium / hard, optionally cheating) or pass-and-play on one device.
-- Legal-move hints, last-move and check highlighting, promotion picker, undo, resign.
+- Legal-move dots, last-move and check highlighting, a Hint button, promotion picker, undo, resign.
+- Haptic feedback on moves, captures, checks and accusations (native only).
+- Pieces are drawn with a bundled 17 KB subset of DejaVu Sans (chess glyphs only),
+  so they look identical on every device. See `assets/fonts/LICENSE-DejaVu.txt`.
 - The current game is saved automatically and can be resumed from the home screen.
 - Win/loss/draw record against the computer.
 
@@ -71,7 +74,15 @@ npm run ios        # open on the iOS simulator (macOS)
 npm run web        # run in the browser
 ```
 
-Store builds: `npx eas build --platform ios|android` (requires an Expo account).
+Store builds use EAS (requires an Expo account); profiles live in `eas.json`:
+
+```sh
+npx eas build --profile preview --platform android   # installable APK
+npx eas build --profile production --platform ios
+```
+
+CI (`.github/workflows/ci.yml`) runs the type check, the tests and a Metro
+bundle for Android and web on every push.
 
 ## Tests
 

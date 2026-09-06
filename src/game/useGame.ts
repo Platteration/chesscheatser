@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { opposite } from '../engine/board';
+import { chooseMove } from '../engine/ai';
 import { chooseAction } from '../engine/cheat';
 import { isAttacked, Position } from '../engine/position';
 import { generateSetup, type Setup } from '../engine/setup';
@@ -223,10 +224,16 @@ export function useGame(initial: StartOptions, onSave?: (saved: SavedGame | null
     reset(config, setup.seed, config.mode === 'ai' ? opposite(humanColor) : humanColor);
   }, [config, setup.seed, humanColor, reset]);
 
+  /** A decent legal move for the side to move (uses the medium-strength search). */
+  const getHint = useCallback((): Move | null => {
+    if (state.gameOver) return null;
+    return chooseMove(folded.pos, 'medium')?.move ?? null;
+  }, [folded.pos, state.gameOver]);
+
   const resign = useCallback(() => {
     if (state.gameOver) return;
     setResigned(config.mode === 'ai' ? humanColor : state.turn);
   }, [state.gameOver, state.turn, config.mode, humanColor]);
 
-  return { state, play, accuse, undo, newGame, rematch, resign };
+  return { state, play, accuse, undo, newGame, rematch, resign, getHint };
 }
