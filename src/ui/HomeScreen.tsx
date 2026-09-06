@@ -2,6 +2,7 @@ import React from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Difficulty } from '../engine/ai';
+import type { CheatLevel } from '../engine/cheat';
 import type { MaterialMode } from '../engine/setup';
 import { ARMY_SIZES, type ArmySize, type GameConfig, type GameMode, type PlayAs, type Stats } from '../game/config';
 import { Button, Card, Label, Segmented } from './components';
@@ -15,6 +16,12 @@ interface Props {
   onRules: () => void;
   stats: Stats;
 }
+
+const CHEAT_HINT: Record<CheatLevel, string> = {
+  off: 'The computer plays by the rules.',
+  low: 'Now and then the computer slips in an illegal move. Catch it to undo it and move twice.',
+  high: 'The computer cheats whenever it thinks it can get away with it.',
+};
 
 const MATERIAL_HINT: Record<MaterialMode, string> = {
   fair: 'Different random armies, roughly equal in strength.',
@@ -73,6 +80,16 @@ export function HomeScreen({ config, onChange, onStart, onResume, onRules, stats
                 { value: 'w', label: 'White' },
                 { value: 'b', label: 'Black' },
                 { value: 'random', label: 'Random' },
+              ]}
+            />
+            <Label hint={CHEAT_HINT[config.cheating]}>Computer cheats</Label>
+            <Segmented<CheatLevel>
+              value={config.cheating}
+              onChange={(v) => set('cheating', v)}
+              options={[
+                { value: 'off', label: 'Never' },
+                { value: 'low', label: 'Sometimes' },
+                { value: 'high', label: 'Often' },
               ]}
             />
           </>

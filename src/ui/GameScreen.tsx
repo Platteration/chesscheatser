@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Modal, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Modal, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { opposite, squareName } from '../engine/board';
 import { moveToSAN } from '../engine/position';
@@ -24,7 +24,7 @@ const DIFFICULTY_LABEL = { easy: 'Easy', medium: 'Medium', hard: 'Hard' } as con
 const MATERIAL_LABEL = { chaos: 'Chaos', fair: 'Fair', mirror: 'Mirror' } as const;
 
 export function GameScreen({ start, onExit, onSave, onFinished }: Props) {
-  const { state, play, undo, newGame, rematch, resign } = useGame(start, onSave);
+  const { state, play, accuse, undo, newGame, rematch, resign } = useGame(start, onSave);
   const [selected, setSelected] = useState<Square | null>(null);
   const [pendingPromotion, setPendingPromotion] = useState<{ from: Square; to: Square } | null>(null);
   const [flipped, setFlipped] = useState<boolean | null>(null);
@@ -35,12 +35,12 @@ export function GameScreen({ start, onExit, onSave, onFinished }: Props) {
 
   const boardSize = Math.floor(Math.min(width - 16, height * 0.55));
 
-  const humanTurn = !!state && (state.config.mode === 'local' || state.turn === state.humanColor);
-  const isFlipped = flipped ?? (state ? state.config.mode === 'ai' && state.humanColor === 'b' : false);
+  const humanTurn = state.config.mode === 'local' || state.turn === state.humanColor;
+  const isFlipped = flipped ?? (state.config.mode === 'ai' && state.humanColor === 'b');
 
   // Report the outcome exactly once per finished game (vs computer only).
   useEffect(() => {
-    if (!state || !state.gameOver || state.config.mode !== 'ai') return;
+    if (!state.gameOver || state.config.mode !== 'ai') return;
     const key = `${state.setup.seed}:${state.moves.length}:${state.resigned ?? ''}`;
     if (reported.current === key) return;
     reported.current = key;
@@ -49,17 +49,17 @@ export function GameScreen({ start, onExit, onSave, onFinished }: Props) {
   }, [state, onFinished]);
 
   useEffect(() => {
-    if (state?.gameOver) setShowResult(true);
-  }, [state?.gameOver]);
+    if (state.gameOver) setShowResult(true);
+  }, [state.gameOver]);
 
   const targets = useMemo(() => {
-    if (!state || selected === null) return [];
+    if (selected === null) return [];
     return state.legal.filter((m) => m.from === selected);
   }, [state, selected]);
 
   const onSquarePress = useCallback(
     (s: Square) => {
-      if (!state || state.gameOver || state.thinking || !humanTurn) return;
+      if (state.gameOver || state.thinking || !humanTurn) return;
       if (selected !== null) {
         const candidates = state.legal.filter((m) => m.from === selected && m.to === s);
         if (candidates.length > 0) {
@@ -77,7 +77,7 @@ export function GameScreen({ start, onExit, onSave, onFinished }: Props) {
 
   const onPromote = useCallback(
     (t: PieceType) => {
-      if (!pendingPromotion || !state) return;
+      if (!pendingPromotion) return;
       const m = state.legal.find(
         (x) => x.from === pendingPromotion.from && x.to === pendingPromotion.to && x.promotion === t,
       );
@@ -86,14 +86,6 @@ export function GameScreen({ start, onExit, onSave, onFinished }: Props) {
     },
     [pendingPromotion, state, play],
   );
-
-  if (!state) {
-    return (
-      <View style={[styles.root, styles.center]}>
-        <ActivityIndicator color={theme.accent} />
-      </View>
-    );
-  }
 
   const topColor: Color = isFlipped ? 'w' : 'b';
   const bottomColor: Color = opposite(topColor);
@@ -137,6 +129,13 @@ export function GameScreen({ start, onExit, onSave, onFinished }: Props) {
 
       <MoveList state={state} />
 
+      {state.canAccuse && state.config.cheating !== 'off' && (
+        <View style={styles.accuseRow}>
+          <Button title="Cheater!" small onPress={accuse} style={styles.accuseButton} />
+          <Text style={styles.accuseHint}>Was that last move legal? Call it out before you move.</Text>
+        </View>
+      )}
+
       <View style={styles.controls}>
         <Button title="Undo" variant="secondary" small onPress={undo} disabled={state.moves.length === 0 || state.thinking} />
         <Button title="New armies" variant="secondary" small onPress={() => newGame()} />
@@ -160,6 +159,9 @@ export function GameScreen({ start, onExit, onSave, onFinished }: Props) {
             <Text style={styles.resultTitle}>{resultTitle(state)}</Text>
             <Text style={styles.resultText}>{status.text}</Text>
             {status.detail ? <Text style={styles.resultDetail}>{status.detail}</Text> : null}
+            {state.config.mode === 'ai' && state.config.cheating !== 'off' && (
+              <Text style={styles.resultCheats}>{cheatReport(state)}</Text>
+            )}
             <View style={styles.resultButtons}>
               <Button title="Rematch (same armies)" onPress={() => { setShowResult(false); rematch(); }} />
               <Button title="New armies" variant="secondary" onPress={() => { setShowResult(false); newGame(); }} />
@@ -224,6 +226,11 @@ function describeStatus(state: GameState): { text: string; detail?: string; dang
       const otherChecked = state.kingsInDanger.filter((k) => state.board[k]?.color === other);
       let text = state.thinking ? 'Computer is thinking…' : `${COLOR_NAME[mover]} to move`;
       const details: string[] = [];
+      const notice = cheatNotice(state);
+      if (notice) {
+        text = notice.text;
+        if (notice.detail) details.push(notice.detail);
+      }
       if (moverChecked.length) {
         details.push(`${COLOR_NAME[mover]}'s king on ${moverChecked.map(squareName).join(', ')} is in check. Get both kings checked and you lose!`);
       }
@@ -234,6 +241,32 @@ function describeStatus(state: GameState): { text: string; detail?: string; dang
       return { text, detail: details.join(' '), danger: moverChecked.length > 0 };
     }
   }
+}
+
+function cheatNotice(state: GameState): { text: string; detail?: string } | null {
+  if (state.config.mode !== 'ai') return null;
+  const last = state.lastEvent;
+  const isHuman = state.turn === state.humanColor;
+  if (last?.type === 'accuse') {
+    const name = state.caughtMove ? moveToSAN(state.caughtMove) : 'That move';
+    return last.caught
+      ? { text: 'Caught cheating!', detail: `${name} was illegal. It has been undone and you get two moves in a row.` }
+      : { text: 'That move was legal.', detail: 'False accusation: the computer gets two moves in a row.' };
+  }
+  if (last?.type === 'pass') {
+    return isHuman
+      ? { text: 'Bonus move: your turn again!' }
+      : { text: state.thinking ? 'Computer takes its extra move…' : 'Computer takes an extra move.' };
+  }
+  return null;
+}
+
+function cheatReport(state: GameState): string {
+  const { made, caught, falseAccusations } = state.cheats;
+  const parts: string[] = [];
+  parts.push(made === 0 ? 'The computer never cheated.' : `The computer cheated ${made} time${made === 1 ? '' : 's'} and you caught ${caught}.`);
+  if (falseAccusations) parts.push(`False accusations: ${falseAccusations}.`);
+  return parts.join(' ');
 }
 
 function PlayerStrip({ state, color, active }: { state: GameState; color: Color; active: boolean }) {
@@ -310,6 +343,10 @@ const styles = StyleSheet.create({
   kingBadge: { color: theme.textMuted, fontSize: 20, opacity: 0.6 },
   kingBadgeDanger: { color: theme.danger, opacity: 1 },
   statusBox: { paddingHorizontal: 16, paddingTop: 8, minHeight: 44 },
+  accuseRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingTop: 6 },
+  accuseButton: { backgroundColor: theme.danger },
+  accuseHint: { color: theme.textMuted, fontSize: 12, flex: 1 },
+  resultCheats: { color: theme.accent, fontSize: 13, textAlign: 'center', marginTop: 10 },
   status: { color: theme.text, fontSize: 15, fontWeight: '600', textAlign: 'center' },
   statusDanger: { color: theme.danger },
   statusDetail: { color: theme.textMuted, fontSize: 12, textAlign: 'center', marginTop: 2 },

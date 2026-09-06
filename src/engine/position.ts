@@ -42,6 +42,8 @@ export function hashPosition(board: Board, turn: Color, ep: Square): number {
 
 interface Undo {
   move: Move;
+  /** The piece that moved (null for a pass). */
+  mover: Piece | null;
   captured: Piece | null;
   capturedSquare: Square;
   prevEp: Square;
@@ -256,7 +258,15 @@ export class Position {
   // Make / unmake
   // ---------------------------------------------------------------------------
 
+  /**
+   * Applies a move without checking legality. This is what lets a cheating
+   * opponent play illegal moves through the same path as legal ones.
+   */
   makeMove(m: Move) {
+    if (m.pass) {
+      this.makePass(m);
+      return;
+    }
     const board = this.board;
     const mover = board[m.from];
     if (!mover) throw new Error(`No piece on ${m.from}`);
@@ -266,6 +276,7 @@ export class Position {
 
     this.undoStack.push({
       move: m,
+      mover,
       captured,
       capturedSquare,
       prevEp: this.ep,
@@ -298,25 +309,52 @@ export class Position {
     this.history.push(this.hash);
   }
 
+  private makePass(m: Move) {
+    this.undoStack.push({
+      move: m,
+      mover: null,
+      captured: null,
+      capturedSquare: -1,
+      prevEp: this.ep,
+      prevHalfmove: this.halfmove,
+      prevHash: this.hash,
+    });
+    let h = this.hash;
+    if (this.ep >= 0) h ^= ZOBRIST_EP[fileOf(this.ep)];
+    h ^= ZOBRIST_TURN;
+    this.hash = h | 0;
+    this.ep = -1;
+    this.halfmove++;
+    if (this.turn === 'b') this.fullmove++;
+    this.turn = opposite(this.turn);
+    this.history.push(this.hash);
+  }
+
   unmakeMove() {
     const u = this.undoStack.pop();
     if (!u) throw new Error('Nothing to unmake');
-    const { move: m } = u;
+    const { move: m, mover } = u;
     const board = this.board;
     this.turn = opposite(this.turn);
     if (this.turn === 'b') this.fullmove--;
-    const moved = board[m.to]!;
-    board[m.from] = m.promotion ? { type: 'p', color: moved.color } : moved;
-    board[m.to] = null;
-    board[u.capturedSquare] = u.captured;
-    if (moved.type === 'k') {
-      const ks = this.kings[moved.color];
-      ks[ks.indexOf(m.to)] = m.from;
+    if (mover) {
+      board[m.from] = mover;
+      board[m.to] = null;
+      board[u.capturedSquare] = u.captured;
+      if (mover.type === 'k') {
+        const ks = this.kings[mover.color];
+        ks[ks.indexOf(m.to)] = m.from;
+      }
     }
     this.ep = u.prevEp;
     this.halfmove = u.prevHalfmove;
     this.hash = u.prevHash;
     this.history.pop();
+  }
+
+  /** The last move made on this position, if any. */
+  lastMove(): Move | null {
+    return this.undoStack.length ? this.undoStack[this.undoStack.length - 1].move : null;
   }
 
   get moveCount(): number {
@@ -333,11 +371,11 @@ export class Position {
     return this.kings[this.turn].filter((k) => isAttacked(this.board, k, enemy));
   }
 
-  /** True when the side to move has two or more kings and every one of them is in check. */
-  allKingsInCheck(): boolean {
-    const kings = this.kings[this.turn];
+  /** True when `color` (default: side to move) has two or more kings and every one of them is in check. */
+  allKingsInCheck(color: Color = this.turn): boolean {
+    const kings = this.kings[color];
     if (kings.length < 2) return false;
-    const enemy = opposite(this.turn);
+    const enemy = opposite(color);
     for (let i = 0; i < kings.length; i++) if (!isAttacked(this.board, kings[i], enemy)) return false;
     return true;
   }
@@ -394,12 +432,14 @@ export class Position {
 }
 
 export function moveToString(m: Move): string {
+  if (m.pass) return '--';
   const f = (s: Square) => 'abcdefgh'[fileOf(s)] + (rankOf(s) + 1);
   return f(m.from) + f(m.to) + (m.promotion ?? '');
 }
 
 /** Short algebraic-ish notation for the move list. */
 export function moveToSAN(m: Move): string {
+  if (m.pass) return '(skip)';
   const to = 'abcdefgh'[fileOf(m.to)] + (rankOf(m.to) + 1);
   const cap = m.captured ? 'x' : '';
   if (m.piece === 'p') {

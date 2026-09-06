@@ -27,7 +27,7 @@ export default function App() {
         loadJSON<Stats>(STORAGE_KEYS.stats, EMPTY_STATS),
       ]);
       setConfig(cfg);
-      setSaved(game && Array.isArray(game.moves) && typeof game.seed === 'number' ? game : null);
+      setSaved(game && Array.isArray(game.events) && typeof game.seed === 'number' ? game : null);
       setStats(st);
       setReady(true);
     })();
@@ -64,7 +64,7 @@ export default function App() {
     if (!saved) return;
     setScreen({
       name: 'game',
-      start: { config: saved.config, seed: saved.seed, humanColor: saved.humanColor, moves: saved.moves },
+      start: { config: saved.config, seed: saved.seed, humanColor: saved.humanColor, events: saved.events },
       key: Date.now(),
     });
   }, [saved]);

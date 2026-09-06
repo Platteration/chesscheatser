@@ -40,6 +40,14 @@ const SECTIONS: { title: string; body: string[] }[] = [
     ],
   },
   {
+    title: 'A cheating opponent',
+    body: [
+      'Turn on cheating and the computer will occasionally play a move that is not legal: a rook hopping over a pawn, a bishop sliding sideways, a king stepping two squares, a pawn drifting backwards, or a knight that somehow arrives as a queen.',
+      'Right after the computer moves, press "Cheater!" if you think the move was illegal. If you are right, the move is undone, the computer forfeits that turn, and you get two moves in a row.',
+      'Accuse a legal move and the computer gets two moves in a row instead, so only call it when you are sure. Every cheat is revealed at the end of the game.',
+    ],
+  },
+  {
     title: 'Draws',
     body: [
       'Stalemate (no legal moves and no king in check), fifty moves without a capture or pawn move, or the same position appearing three times.',

@@ -9,15 +9,25 @@ export interface Piece {
 /** Board square index: a1 = 0, h1 = 7, a8 = 56, h8 = 63. */
 export type Square = number;
 
+/** How a move breaks the rules, when the opponent is cheating. */
+export type CheatKind = 'jump' | 'geometry' | 'pawn' | 'upgrade';
+
 export interface Move {
   from: Square;
   to: Square;
   piece: PieceType;
   captured?: PieceType;
+  /** Piece placed on `to` instead of the mover (pawn promotion, or an "upgrade" cheat). */
   promotion?: PieceType;
   enPassant?: boolean;
   doublePush?: boolean;
+  /** Set when the move was an illegal move played by a cheating opponent. */
+  cheat?: CheatKind;
+  /** A null move: the side to move skips its turn. */
+  pass?: true;
 }
+
+export const PASS_MOVE: Move = { from: -1, to: -1, piece: 'k', pass: true };
 
 /**
  * A legal move plus the two-king bookkeeping the rules need:

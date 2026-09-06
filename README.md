@@ -30,9 +30,25 @@ a king already in check are rejected and regenerated.
 
 Setups are seeded, so the seed shown above the board reproduces the same armies.
 
+## A cheating opponent
+
+With cheating enabled (Sometimes / Often), the computer occasionally plays a
+plausible-looking illegal move: a slider jumps over a piece, a piece moves a
+little like a different piece, a pawn drifts sideways or backwards, or a minor
+piece arrives on its square as a queen. It only cheats when the cheat looks
+better than its best legal move, and never with a move that ends the game.
+
+Right after the computer moves you can press **Cheater!**:
+
+- Right: the illegal move is undone, the computer forfeits that turn, and you
+  take **two moves in a row**.
+- Wrong: the computer takes two moves in a row instead.
+
+Cheats are revealed at the end of the game.
+
 ## Features
 
-- Play against the computer (easy / medium / hard) or pass-and-play on one device.
+- Play against the computer (easy / medium / hard, optionally cheating) or pass-and-play on one device.
 - Legal-move hints, last-move and check highlighting, promotion picker, undo, resign.
 - The current game is saved automatically and can be resumed from the home screen.
 - Win/loss/draw record against the computer.
@@ -42,7 +58,7 @@ Setups are seeded, so the seed shown above the board reproduces the same armies.
 - [Expo](https://expo.dev) SDK 57 / React Native, TypeScript. No native code to maintain.
 - `src/engine`: a self-contained chess engine written for this variant
   (move generation, two-king rules, seeded army generator, alpha-beta search AI).
-- `src/game`: game controller hook and persistence.
+- `src/game`: event-sourced game controller (moves, passes, accusations), undo and persistence.
 - `src/ui`: screens and board rendering.
 
 ## Running

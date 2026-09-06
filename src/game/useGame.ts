@@ -1,39 +1,44 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { chooseMove } from '../engine/ai';
 import { opposite } from '../engine/board';
+import { chooseAction } from '../engine/cheat';
 import { isAttacked, Position } from '../engine/position';
 import { generateSetup, type Setup } from '../engine/setup';
 import type { Board, Color, GameResult, LegalMove, Move, PieceType, Square } from '../engine/types';
 import { ARMY_SIZES, type GameConfig, type SavedGame } from './config';
+import { fold, stripMove, undoEvents, type CheatStats, type GameEvent } from './events';
 
 export interface CapturedSummary {
   /** Pieces each colour has captured from the opponent. */
   byWhite: PieceType[];
   byBlack: PieceType[];
-  /** Material lead for white in centipawns (negative = black leads). */
+  /** Material lead for white in pawns (negative = black leads). */
   whiteLead: number;
 }
 
-export interface GameSnapshot {
+export interface GameState {
   board: Board;
   turn: Color;
   legal: LegalMove[];
   result: GameResult;
+  /** Moves for the move list (passes included, caught cheats removed). */
   moves: Move[];
+  /** Last real move on the board, for highlighting. */
   lastMove: Move | null;
   /** Every king on the board currently attacked, regardless of side. */
   kingsInDanger: Square[];
   captured: CapturedSummary;
-  fullmove: number;
-}
-
-export interface GameState extends GameSnapshot {
   setup: Setup;
   humanColor: Color;
   config: GameConfig;
   thinking: boolean;
   resigned: Color | null;
   gameOver: boolean;
+  /** Cheating mechanics. */
+  canAccuse: boolean;
+  bonus: Color | null;
+  lastEvent: GameEvent | null;
+  cheats: CheatStats;
+  caughtMove: Move | null;
 }
 
 const PIECE_VALUES: Record<PieceType, number> = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
@@ -51,47 +56,13 @@ function capturedSummary(start: Board, now: Board): CapturedSummary {
     const after = countPieces(now, victim);
     const list: PieceType[] = [];
     for (const t of order) {
-      // Promotions can make `after` exceed `before` for a piece type; clamp.
       for (let i = 0; i < Math.max(0, before[t] - after[t]); i++) list.push(t);
     }
     return list;
   };
-  const byWhite = summarize('b');
-  const byBlack = summarize('w');
   let lead = 0;
   for (const p of now) if (p) lead += (p.color === 'w' ? 1 : -1) * PIECE_VALUES[p.type];
-  return { byWhite, byBlack, whiteLead: lead };
-}
-
-function snapshot(pos: Position, setup: Setup, moves: Move[]): GameSnapshot {
-  const legal = pos.legalMoves();
-  const result = pos.result(legal);
-  const kingsInDanger: Square[] = [];
-  for (const color of ['w', 'b'] as Color[]) {
-    for (const k of pos.kings[color]) {
-      if (isAttacked(pos.board, k, opposite(color))) kingsInDanger.push(k);
-    }
-  }
-  return {
-    board: pos.board.slice(),
-    turn: pos.turn,
-    legal,
-    result,
-    moves: moves.slice(),
-    lastMove: moves.length ? moves[moves.length - 1] : null,
-    kingsInDanger,
-    captured: capturedSummary(setup.board, pos.board),
-    fullmove: pos.fullmove,
-  };
-}
-
-function stripMove(m: Move): Move {
-  const out: Move = { from: m.from, to: m.to, piece: m.piece };
-  if (m.captured) out.captured = m.captured;
-  if (m.promotion) out.promotion = m.promotion;
-  if (m.enPassant) out.enPassant = true;
-  if (m.doublePush) out.doublePush = true;
-  return out;
+  return { byWhite: summarize('b'), byBlack: summarize('w'), whiteLead: lead };
 }
 
 function resolveHumanColor(config: GameConfig): Color {
@@ -103,140 +74,159 @@ export interface StartOptions {
   config: GameConfig;
   seed?: number;
   humanColor?: Color;
-  moves?: Move[];
+  events?: GameEvent[];
+}
+
+function buildSetup(config: GameConfig, seed?: number): Setup {
+  const size = ARMY_SIZES[config.armySize];
+  return generateSetup({ mode: config.material, seed, minPieces: size.min, maxPieces: size.max });
+}
+
+/** Replays saved events defensively: anything that fails to apply is dropped. */
+function sanitizeEvents(setup: Setup, events: GameEvent[] | undefined, aiColor: Color | null): GameEvent[] {
+  if (!events || !events.length) return [];
+  for (let n = events.length; n > 0; n--) {
+    try {
+      fold(setup, events.slice(0, n), aiColor);
+      return events.slice(0, n);
+    } catch {
+      // try a shorter prefix
+    }
+  }
+  return [];
 }
 
 export function useGame(initial: StartOptions, onSave?: (saved: SavedGame | null) => void) {
-  const posRef = useRef<Position | null>(null);
-  const movesRef = useRef<Move[]>([]);
-  const [setup, setSetup] = useState<Setup>(() => buildSetup(initial));
   const [config, setConfig] = useState<GameConfig>(initial.config);
   const [humanColor, setHumanColor] = useState<Color>(initial.humanColor ?? resolveHumanColor(initial.config));
-  const [snap, setSnap] = useState<GameSnapshot | null>(null);
+  const [setup, setSetup] = useState<Setup>(() => buildSetup(initial.config, initial.seed));
+  const aiColor: Color | null = config.mode === 'ai' ? opposite(humanColor) : null;
+  const [events, setEvents] = useState<GameEvent[]>(() =>
+    initial.seed === undefined ? [] : sanitizeEvents(buildSetup(initial.config, initial.seed), initial.events, aiColor),
+  );
   const [thinking, setThinking] = useState(false);
   const [resigned, setResigned] = useState<Color | null>(null);
   const aiTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  /** Moves to replay into the very first setup (resuming a saved game). Consumed once. */
-  const replayRef = useRef<{ seed: number | undefined; moves: Move[] } | null>(
-    initial.moves && initial.moves.length ? { seed: initial.seed, moves: initial.moves } : null,
-  );
 
-  const refresh = useCallback(
-    (pos: Position, s: Setup) => {
-      const next = snapshot(pos, s, movesRef.current);
-      setSnap(next);
-      return next;
-    },
-    [],
-  );
+  const folded = useMemo(() => fold(setup, events, aiColor), [setup, events, aiColor]);
 
-  // (Re)initialise the position whenever the setup changes.
-  useEffect(() => {
-    const pos = new Position(setup.board);
-    posRef.current = pos;
-    movesRef.current = [];
-    const replay = replayRef.current;
-    replayRef.current = null;
-    const toReplay = replay && replay.seed === setup.seed ? replay.moves : [];
-    for (const m of toReplay) {
-      const legal = pos.legalMoves().find((x) => x.from === m.from && x.to === m.to && x.promotion === m.promotion);
-      if (!legal) break;
-      pos.makeMove(legal);
-      movesRef.current.push(stripMove(legal));
+  const state: GameState = useMemo(() => {
+    const pos = folded.pos;
+    const legal = pos.legalMoves();
+    const result = pos.result(legal);
+    const kingsInDanger: Square[] = [];
+    for (const color of ['w', 'b'] as Color[]) {
+      for (const k of pos.kings[color]) if (isAttacked(pos.board, k, opposite(color))) kingsInDanger.push(k);
     }
-    setResigned(null);
-    refresh(pos, setup);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setup]);
-
-  const gameOver = !!snap && (snap.result.kind !== 'ongoing' || resigned !== null);
+    let lastMove: Move | null = null;
+    for (let i = folded.moveList.length - 1; i >= 0; i--) {
+      if (!folded.moveList[i].pass) {
+        lastMove = folded.moveList[i];
+        break;
+      }
+    }
+    const gameOver = result.kind !== 'ongoing' || resigned !== null;
+    return {
+      board: pos.board.slice(),
+      turn: pos.turn,
+      legal,
+      result,
+      moves: folded.moveList,
+      lastMove,
+      kingsInDanger,
+      captured: capturedSummary(setup.board, pos.board),
+      setup,
+      humanColor,
+      config,
+      thinking,
+      resigned,
+      gameOver,
+      canAccuse: folded.canAccuse && !gameOver,
+      bonus: folded.bonus,
+      lastEvent: folded.lastEvent,
+      cheats: folded.cheats,
+      caughtMove: folded.caughtMove,
+    };
+  }, [folded, setup, humanColor, config, thinking, resigned]);
 
   // Persist after every change.
   useEffect(() => {
-    if (!snap || !onSave) return;
-    if (gameOver) onSave(null);
-    else onSave({ config, seed: setup.seed, humanColor, moves: movesRef.current.slice() });
-  }, [snap, gameOver, onSave, config, setup.seed, humanColor]);
+    if (!onSave) return;
+    if (state.gameOver) onSave(null);
+    else onSave({ config, seed: setup.seed, humanColor, events });
+  }, [state.gameOver, onSave, config, setup.seed, humanColor, events]);
 
-  const play = useCallback(
-    (m: Move) => {
-      const pos = posRef.current;
-      if (!pos) return;
-      const legal = pos.legalMoves().find((x) => x.from === m.from && x.to === m.to && x.promotion === m.promotion);
-      if (!legal) return;
-      pos.makeMove(legal);
-      movesRef.current.push(stripMove(legal));
-      refresh(pos, setup);
-    },
-    [refresh, setup],
-  );
+  const append = useCallback((e: GameEvent) => setEvents((prev) => [...prev, e]), []);
 
-  // Computer moves.
-  const aiColor: Color | null = config.mode === 'ai' ? opposite(humanColor) : null;
+  // Drive the game forward: bonus passes and computer moves.
   useEffect(() => {
-    if (!snap || gameOver || aiColor === null || snap.turn !== aiColor) return;
+    if (state.gameOver) return;
+    const last = folded.lastEvent;
+    // The side that just moved holds a bonus: the other side skips.
+    if (last?.type === 'move' && folded.bonus !== null && folded.lastBy === folded.bonus) {
+      append({ type: 'pass' });
+      return;
+    }
+    if (aiColor === null || state.turn !== aiColor) return;
     setThinking(true);
     aiTimer.current = setTimeout(() => {
-      const pos = posRef.current;
-      if (!pos) return;
-      const res = chooseMove(pos, config.difficulty);
+      const action = chooseAction(folded.pos, config.difficulty, config.cheating);
       setThinking(false);
-      if (res) play(res.move);
+      if (action) append({ type: 'move', move: stripMove(action.move) });
     }, 120);
     return () => {
       if (aiTimer.current) clearTimeout(aiTimer.current);
       setThinking(false);
     };
-  }, [snap, gameOver, aiColor, config.difficulty, play]);
+  }, [folded, state.gameOver, state.turn, aiColor, config.difficulty, config.cheating, append]);
+
+  const play = useCallback(
+    (m: Move) => {
+      const legal = state.legal.find((x) => x.from === m.from && x.to === m.to && x.promotion === m.promotion);
+      if (!legal || state.gameOver) return;
+      append({ type: 'move', move: stripMove(legal) });
+    },
+    [state.legal, state.gameOver, append],
+  );
+
+  /** Call out the computer's last move as a cheat. */
+  const accuse = useCallback(() => {
+    if (!state.canAccuse) return;
+    const last = folded.lastEvent;
+    const caught = last?.type === 'move' && !!last.move.cheat;
+    append({ type: 'accuse', caught });
+  }, [state.canAccuse, folded.lastEvent, append]);
 
   const undo = useCallback(() => {
-    const pos = posRef.current;
-    if (!pos || movesRef.current.length === 0) return;
-    // Against the computer, take back the pair of moves so it is the human's turn again.
-    let plies = 1;
-    if (aiColor !== null) {
-      plies = pos.turn === humanColor ? 2 : 1;
-    }
-    plies = Math.min(plies, movesRef.current.length);
-    for (let i = 0; i < plies; i++) {
-      pos.unmakeMove();
-      movesRef.current.pop();
-    }
     setResigned(null);
-    refresh(pos, setup);
-  }, [aiColor, humanColor, refresh, setup]);
+    setEvents((prev) => undoEvents(setup, prev, aiColor));
+  }, [setup, aiColor]);
+
+  const reset = useCallback((cfg: GameConfig, seed: number | undefined, color: Color) => {
+    setConfig(cfg);
+    setHumanColor(color);
+    setSetup(buildSetup(cfg, seed));
+    setEvents([]);
+    setResigned(null);
+  }, []);
 
   const newGame = useCallback(
     (nextConfig?: GameConfig, seed?: number) => {
       const cfg = nextConfig ?? config;
-      setConfig(cfg);
-      setHumanColor(resolveHumanColor(cfg));
-      setSetup(buildSetup({ config: cfg, seed }));
+      reset(cfg, seed, resolveHumanColor(cfg));
     },
-    [config],
+    [config, reset],
   );
 
-  /** Same seed and armies; the human takes the other colour. */
+  /** Same seed and armies; against the computer the human takes the other colour. */
   const rematch = useCallback(() => {
-    setHumanColor((c) => (config.mode === 'ai' ? opposite(c) : c));
-    // A fresh Setup object (same seed) forces the position to reinitialise.
-    setSetup(buildSetup({ config, seed: setup.seed }));
-  }, [config, setup.seed]);
+    reset(config, setup.seed, config.mode === 'ai' ? opposite(humanColor) : humanColor);
+  }, [config, setup.seed, humanColor, reset]);
 
   const resign = useCallback(() => {
-    if (!snap || gameOver) return;
-    setResigned(config.mode === 'ai' ? humanColor : snap.turn);
-  }, [snap, gameOver, config.mode, humanColor]);
+    if (state.gameOver) return;
+    setResigned(config.mode === 'ai' ? humanColor : state.turn);
+  }, [state.gameOver, state.turn, config.mode, humanColor]);
 
-  const state: GameState | null = useMemo(() => {
-    if (!snap) return null;
-    return { ...snap, setup, humanColor, config, thinking, resigned, gameOver };
-  }, [snap, setup, humanColor, config, thinking, resigned, gameOver]);
-
-  return { state, play, undo, newGame, rematch, resign };
-}
-
-function buildSetup(opts: StartOptions): Setup {
-  const size = ARMY_SIZES[opts.config.armySize];
-  return generateSetup({ mode: opts.config.material, seed: opts.seed, minPieces: size.min, maxPieces: size.max });
+  return { state, play, accuse, undo, newGame, rematch, resign };
 }

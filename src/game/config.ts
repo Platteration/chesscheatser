@@ -1,6 +1,8 @@
 import type { Difficulty } from '../engine/ai';
+import type { CheatLevel } from '../engine/cheat';
 import type { MaterialMode } from '../engine/setup';
-import type { Color, Move } from '../engine/types';
+import type { Color } from '../engine/types';
+import type { GameEvent } from './events';
 
 export type GameMode = 'ai' | 'local';
 export type PlayAs = 'w' | 'b' | 'random';
@@ -12,6 +14,8 @@ export interface GameConfig {
   material: MaterialMode;
   playAs: PlayAs;
   armySize: ArmySize;
+  /** How often the computer plays an illegal move it hopes you will miss. */
+  cheating: CheatLevel;
 }
 
 export const DEFAULT_CONFIG: GameConfig = {
@@ -20,6 +24,7 @@ export const DEFAULT_CONFIG: GameConfig = {
   material: 'fair',
   playAs: 'random',
   armySize: 'any',
+  cheating: 'low',
 };
 
 export const ARMY_SIZES: Record<ArmySize, { label: string; min: number; max: number }> = {
@@ -34,7 +39,7 @@ export interface SavedGame {
   config: GameConfig;
   seed: number;
   humanColor: Color;
-  moves: Move[];
+  events: GameEvent[];
 }
 
 export interface Stats {
