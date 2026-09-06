@@ -274,7 +274,7 @@ function describeStatus(state: GameState): { text: string; detail?: string; dang
       if (otherChecked.length) {
         details.push(`${COLOR_NAME[other]} left a king in check on ${otherChecked.map(squareName).join(', ')}.`);
       }
-      if (moverChecked.length && !state.thinking) text += ' — check!';
+      if (moverChecked.length && !state.thinking && !notice) text += ' — check!';
       return { text, detail: details.join(' '), danger: moverChecked.length > 0 };
     }
   }

@@ -203,23 +203,39 @@ class Searcher {
     return best;
   }
 
-  /** Searches every root move with a full window so the scores are exact. */
+  /** Scores one root move at `depth` given the best score found so far. */
+  rootMove(depth: number, m: LegalMove, alpha: number): number {
+    this.pos.makeMove(m);
+    try {
+      return -this.search(depth - 1, -INF, -alpha, 1);
+    } finally {
+      this.pos.unmakeMove();
+    }
+  }
+
+  /** Searches every root move; the best move's score is exact, the rest are upper bounds. */
   rootScores(depth: number, legal: LegalMove[], previousBest?: LegalMove): { move: LegalMove; score: number }[] {
     const out: { move: LegalMove; score: number }[] = [];
     let alpha = -INF;
     for (const m of this.order(legal, previousBest)) {
-      this.pos.makeMove(m);
-      let score: number;
-      try {
-        score = -this.search(depth - 1, -INF, -alpha, 1);
-      } finally {
-        this.pos.unmakeMove();
-      }
+      const score = this.rootMove(depth, m, alpha);
       out.push({ move: m, score });
       if (score > alpha) alpha = score;
     }
     return out;
   }
+}
+
+type Scored = { move: LegalMove; score: number }[];
+
+function pickFromScores(best: Scored, profile: Profile, rng: ReturnType<typeof createRng>): { move: LegalMove; score: number } {
+  // With alpha-beta at the root only the best move's score is exact; the rest
+  // are upper bounds. That is good enough for "pick among near-equal moves".
+  const top = best[0].score;
+  const candidates = best.filter((x) => top - x.score <= profile.slack);
+  const withNoise = candidates.map((c) => ({ ...c, score: c.score + (rng.next() - 0.5) * 2 * profile.noise }));
+  withNoise.sort((a, b) => b.score - a.score);
+  return withNoise[0];
 }
 
 export function chooseMove(position: Position, difficulty: Difficulty, seed = randomSeed()): SearchResult | null {
@@ -247,13 +263,7 @@ export function chooseMove(position: Position, difficulty: Difficulty, seed = ra
     }
   }
 
-  // With alpha-beta at the root only the best move's score is exact; the rest
-  // are upper bounds. That is good enough for "pick among near-equal moves".
-  const top = best[0].score;
-  const candidates = best.filter((x) => top - x.score <= profile.slack);
-  const withNoise = candidates.map((c) => ({ ...c, score: c.score + (rng.next() - 0.5) * 2 * profile.noise }));
-  withNoise.sort((a, b) => b.score - a.score);
-  const pick = withNoise[0];
+  const pick = pickFromScores(best, profile, rng);
   return {
     move: pick.move,
     score: pick.score,
@@ -261,6 +271,60 @@ export function chooseMove(position: Position, difficulty: Difficulty, seed = ra
     nodes: searcher.nodes,
     timeMs: Date.now() - started,
   };
+}
+
+const yieldToUI = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+/**
+ * Same search as `chooseMove`, but hands control back to the UI thread between
+ * root moves (at most every ~40ms) so spinners keep animating and taps register.
+ * Resolves to null when `shouldAbort()` becomes true (e.g. the game was reset).
+ */
+export async function chooseMoveAsync(
+  position: Position,
+  difficulty: Difficulty,
+  seed = randomSeed(),
+  shouldAbort: () => boolean = () => false,
+): Promise<SearchResult | null> {
+  const started = Date.now();
+  const profile = PROFILES[difficulty];
+  const rng = createRng(seed);
+  const pos = position.clone();
+  const legal = pos.legalMoves();
+  if (legal.length === 0) return null;
+
+  const searcher = new Searcher(pos, profile.timeMs);
+  let best: Scored = legal.map((move) => ({ move, score: 0 }));
+  let completedDepth = 0;
+  let lastYield = Date.now();
+
+  outer: for (let depth = 1; depth <= profile.maxDepth; depth++) {
+    const scores: Scored = [];
+    let alpha = -INF;
+    for (const m of searcher.order(legal, best[0]?.move)) {
+      if (Date.now() - lastYield > 40) {
+        await yieldToUI();
+        lastYield = Date.now();
+        if (shouldAbort()) return null;
+      }
+      let score: number;
+      try {
+        score = searcher.rootMove(depth, m, alpha);
+      } catch (e) {
+        if (e instanceof TimeUp) break outer;
+        throw e;
+      }
+      scores.push({ move: m, score });
+      if (score > alpha) alpha = score;
+    }
+    scores.sort((a, b) => b.score - a.score);
+    best = scores;
+    completedDepth = depth;
+    if (Math.abs(scores[0].score) >= MATE - 100) break;
+  }
+
+  const pick = pickFromScores(best, profile, rng);
+  return { move: pick.move, score: pick.score, depth: completedDepth, nodes: searcher.nodes, timeMs: Date.now() - started };
 }
 
 export { MATE };

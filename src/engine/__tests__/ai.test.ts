@@ -51,3 +51,30 @@ describe('ai', () => {
     expect(parseSquare('d5')).toBe(res.move.to);
   });
 });
+
+describe('chooseMoveAsync', () => {
+  it('finds the same instant win as the synchronous search and can be aborted', async () => {
+    const { chooseMoveAsync } = await import('../ai');
+    const pos = new Position(boardFromString('k1k5/8/8/8/8/8/8/1R2K3'), 'w');
+    const res = (await chooseMoveAsync(pos, 'hard', 1))!;
+    expect(squareName(res.move.from)).toBe('b1');
+    expect(squareName(res.move.to)).toBe('b8');
+    expect(pos.moveCount).toBe(0);
+
+    // The normal opening position has no quick win, so the search runs its full budget.
+    const busy = new Position(boardFromString('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR'));
+    let calls = 0;
+    const aborted = await chooseMoveAsync(busy, 'hard', 1, () => ++calls > 0);
+    expect(aborted).toBeNull();
+  });
+
+  it('yields to the event loop while searching', async () => {
+    const { chooseMoveAsync } = await import('../ai');
+    const busy = new Position(boardFromString('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR'));
+    let ticks = 0;
+    const ticker = setInterval(() => ticks++, 10);
+    await chooseMoveAsync(busy, 'hard', 3);
+    clearInterval(ticker);
+    expect(ticks).toBeGreaterThan(3);
+  });
+});

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { opposite } from '../engine/board';
 import { chooseMove } from '../engine/ai';
-import { chooseAction } from '../engine/cheat';
+import { chooseActionAsync } from '../engine/cheat';
 import { isAttacked, Position } from '../engine/position';
 import { generateSetup, type Setup } from '../engine/setup';
 import type { Board, Color, GameResult, LegalMove, Move, PieceType, Square } from '../engine/types';
@@ -169,13 +169,21 @@ export function useGame(initial: StartOptions, onSave?: (saved: SavedGame | null
       return;
     }
     if (aiColor === null || state.turn !== aiColor) return;
+    let cancelled = false;
     setThinking(true);
     aiTimer.current = setTimeout(() => {
-      const action = chooseAction(folded.pos, config.difficulty, config.cheating);
-      setThinking(false);
-      if (action) append({ type: 'move', move: stripMove(action.move) });
-    }, 120);
+      chooseActionAsync(folded.pos, config.difficulty, config.cheating, undefined, () => cancelled)
+        .then((action) => {
+          if (cancelled) return;
+          setThinking(false);
+          if (action) append({ type: 'move', move: stripMove(action.move) });
+        })
+        .catch(() => {
+          if (!cancelled) setThinking(false);
+        });
+    }, 60);
     return () => {
+      cancelled = true;
       if (aiTimer.current) clearTimeout(aiTimer.current);
       setThinking(false);
     };

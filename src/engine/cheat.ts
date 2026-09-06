@@ -1,4 +1,4 @@
-import { chooseMove, evaluate, type Difficulty } from './ai';
+import { chooseMove, chooseMoveAsync, evaluate, type Difficulty, type SearchResult } from './ai';
 import { fileOf, offset, rankOf } from './board';
 import { Position } from './position';
 import { createRng, randomSeed, type Rng } from './random';
@@ -145,8 +145,24 @@ export interface Action {
  * illegal move instead, but only when that looks better than its best legal option.
  */
 export function chooseAction(position: Position, difficulty: Difficulty, level: CheatLevel, seed = randomSeed()): Action | null {
+  return decide(position, chooseMove(position, difficulty, seed), level, seed);
+}
+
+/** Async variant that keeps the UI responsive while the computer thinks. */
+export async function chooseActionAsync(
+  position: Position,
+  difficulty: Difficulty,
+  level: CheatLevel,
+  seed = randomSeed(),
+  shouldAbort: () => boolean = () => false,
+): Promise<Action | null> {
+  const legal = await chooseMoveAsync(position, difficulty, seed, shouldAbort);
+  if (shouldAbort()) return null;
+  return decide(position, legal, level, seed);
+}
+
+function decide(position: Position, legal: SearchResult | null, level: CheatLevel, seed: number): Action | null {
   const rng = createRng(seed);
-  const legal = chooseMove(position, difficulty, seed);
   if (!legal) return null;
   const p = CHEAT_PROBABILITY[level];
   if (p > 0 && rng.next() < p) {
