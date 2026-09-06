@@ -82,9 +82,12 @@ export function GameScreen({ start, onExit, onSave, onFinished }: Props) {
     }
   }, [state]);
 
+  const [hinting, setHinting] = useState(false);
   const onHint = useCallback(() => {
-    const m = getHint();
-    if (m) setHint(m);
+    setHinting(true);
+    getHint()
+      .then((m) => setHint(m))
+      .finally(() => setHinting(false));
   }, [getHint]);
 
   const targets = useMemo(() => {
@@ -173,7 +176,7 @@ export function GameScreen({ start, onExit, onSave, onFinished }: Props) {
       )}
 
       <View style={styles.controls}>
-        <Button title="Hint" variant="secondary" small onPress={onHint} disabled={state.gameOver || state.thinking || !humanTurn} />
+        <Button title={hinting ? '…' : 'Hint'} variant="secondary" small onPress={onHint} disabled={state.gameOver || state.thinking || hinting || !humanTurn} />
         <Button title="Undo" variant="secondary" small onPress={undo} disabled={state.moves.length === 0 || state.thinking} />
         <Button title="New armies" variant="secondary" small onPress={() => newGame()} />
         {state.gameOver ? (
@@ -298,11 +301,20 @@ function cheatNotice(state: GameState): { text: string; detail?: string } | null
   return null;
 }
 
+const CHEAT_LABEL: Record<NonNullable<Move['cheat']>, string> = {
+  jump: 'jumped over a piece',
+  geometry: 'moved like a different piece',
+  pawn: 'pawn trick',
+  upgrade: 'arrived as a queen',
+};
+
 function cheatReport(state: GameState): string {
   const { made, caught, falseAccusations } = state.cheats;
   const parts: string[] = [];
   parts.push(made === 0 ? 'The computer never cheated.' : `The computer cheated ${made} time${made === 1 ? '' : 's'} and you caught ${caught}.`);
-  if (falseAccusations) parts.push(`False accusations: ${falseAccusations}.`);
+  const missed = state.moves.filter((m) => m.cheat).map((m) => `${moveToSAN(m)} (${CHEAT_LABEL[m.cheat!]})`);
+  if (missed.length) parts.push(`Got away with: ${missed.join(', ')}.`);
+  if (falseAccusations) parts.push(`False accusation${falseAccusations === 1 ? '' : 's'}: ${falseAccusations}.`);
   return parts.join(' ');
 }
 

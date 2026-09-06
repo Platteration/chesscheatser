@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { opposite } from '../engine/board';
-import { chooseMove } from '../engine/ai';
+import { chooseMoveAsync } from '../engine/ai';
 import { chooseActionAsync } from '../engine/cheat';
 import { isAttacked, Position } from '../engine/position';
 import { generateSetup, type Setup } from '../engine/setup';
@@ -171,8 +171,11 @@ export function useGame(initial: StartOptions, onSave?: (saved: SavedGame | null
     if (aiColor === null || state.turn !== aiColor) return;
     let cancelled = false;
     setThinking(true);
+    // Only the computer's *last* move can be called out, so the first half of a
+    // double move is always played honestly.
+    const cheating = folded.bonus === aiColor ? 'off' : config.cheating;
     aiTimer.current = setTimeout(() => {
-      chooseActionAsync(folded.pos, config.difficulty, config.cheating, undefined, () => cancelled)
+      chooseActionAsync(folded.pos, config.difficulty, cheating, undefined, () => cancelled)
         .then((action) => {
           if (cancelled) return;
           setThinking(false);
@@ -232,10 +235,11 @@ export function useGame(initial: StartOptions, onSave?: (saved: SavedGame | null
     reset(config, setup.seed, config.mode === 'ai' ? opposite(humanColor) : humanColor);
   }, [config, setup.seed, humanColor, reset]);
 
-  /** A decent legal move for the side to move (uses the medium-strength search). */
-  const getHint = useCallback((): Move | null => {
+  /** A decent legal move for the side to move (medium-strength search, UI-yielding). */
+  const getHint = useCallback(async (): Promise<Move | null> => {
     if (state.gameOver) return null;
-    return chooseMove(folded.pos, 'medium')?.move ?? null;
+    const res = await chooseMoveAsync(folded.pos, 'medium');
+    return res?.move ?? null;
   }, [folded.pos, state.gameOver]);
 
   const resign = useCallback(() => {

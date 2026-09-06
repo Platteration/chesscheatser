@@ -1,0 +1,33 @@
+# Two Kings Chess
+
+Expo (React Native, TypeScript) app for a chess variant: two kings per side,
+randomly generated armies, and an optional cheating computer opponent.
+
+## Commands
+
+- `npm install`
+- `npm start` — Expo dev server (Expo Go on a phone, or `npm run web`)
+- `npm test` — Vitest suite for the engine and game layer
+- `npm run typecheck` — `tsc --noEmit`
+- `CI=1 npx expo export --platform web|android --output-dir <dir>` — Metro bundle check
+
+## Layout
+
+- `src/engine/` — pure TypeScript, no React. `position.ts` holds the board,
+  move generation, make/unmake and the variant's game-result rules.
+  `setup.ts` generates seeded random armies. `ai.ts` is the alpha-beta search
+  (sync `chooseMove`, UI-yielding `chooseMoveAsync`). `cheat.ts` generates
+  illegal-but-plausible moves and decides when the computer plays one.
+- `src/game/` — `events.ts` folds an append-only event log (move / pass /
+  accuse) onto a setup; `useGame.ts` is the React hook that drives a game.
+- `src/ui/` — screens and the board. Pieces are text glyphs in the bundled
+  `assets/fonts/ChessGlyphs.ttf` (DejaVu subset).
+
+## Rules of the variant (keep tests in sync)
+
+- A move is legal unless it leaves *all* of the mover's kings in check.
+- You lose when all your kings are in check at the start of your turn, or a
+  king in check has no rescuing move (checkmate). Kings are never captured.
+- No castling. En passant, promotion, 50-move and threefold repetition apply.
+- Caught cheat: move undone, computer skips, human moves twice. False
+  accusation: computer moves twice.
