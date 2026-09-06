@@ -1,0 +1,23 @@
+export const theme = {
+  bg: '#15161a',
+  surface: '#22242b',
+  surfaceAlt: '#2c2f38',
+  border: '#3a3e4a',
+  text: '#f2f2f4',
+  textMuted: '#a1a5b3',
+  accent: '#e4b95b',
+  accentText: '#1a1300',
+  danger: '#e25555',
+  success: '#5ccc82',
+  board: {
+    light: '#f0d9b5',
+    dark: '#b58863',
+    selected: 'rgba(255, 221, 66, 0.75)',
+    lastMove: 'rgba(255, 221, 66, 0.35)',
+    target: 'rgba(20, 20, 20, 0.28)',
+    capture: 'rgba(200, 40, 40, 0.55)',
+    check: 'rgba(226, 60, 60, 0.85)',
+    checkSoft: 'rgba(226, 60, 60, 0.45)',
+  },
+  radius: 12,
+} as const;

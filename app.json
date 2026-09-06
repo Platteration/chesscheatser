@@ -1,0 +1,34 @@
+{
+  "expo": {
+    "name": "Two Kings Chess",
+    "slug": "two-kings-chess",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#15161a",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#15161a"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.platteration.twokingschess"
+    },
+    "android": {
+      "package": "com.platteration.twokingschess",
+      "adaptiveIcon": {
+        "backgroundColor": "#15161a",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    }
+  }
+}
