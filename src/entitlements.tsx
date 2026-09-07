@@ -25,9 +25,9 @@ export interface StoreProvider {
 }
 
 export const PRO_FEATURES = [
-  'Unlimited hints and undo (free: 3 hints per game)',
+  'Unlimited hints (free: 3 per game)',
   'Every board theme and piece style',
-  'Game review after every game',
+  'Step through the game while it is still going',
   'Support an indie chess variant',
 ];
 

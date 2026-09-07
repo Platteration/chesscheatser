@@ -19,7 +19,13 @@ randomly generated armies, and an optional cheating computer opponent.
   (sync `chooseMove`, UI-yielding `chooseMoveAsync`). `cheat.ts` generates
   illegal-but-plausible moves and decides when the computer plays one.
 - `src/game/` — `events.ts` folds an append-only event log (move / pass /
-  accuse) onto a setup; `useGame.ts` is the React hook that drives a game.
+  accuse, with `by: 'ai'` for the computer catching the human) onto a setup;
+  `useGame.ts` is the React hook that drives a game. `daily.ts`, `ladder.ts`
+  and `puzzles.ts` hold the mode-specific logic.
+- `src/settings.tsx` (appearance/feedback settings) and `src/entitlements.tsx`
+  (Pro unlock behind a `StoreProvider`; bundled provider is a local mock).
+- `scripts/mine-puzzles.ts` regenerates `assets/puzzles.json`
+  (`npx tsx scripts/mine-puzzles.ts 25 1000 12`; takes a while).
 - `src/ui/` — screens and the board. Pieces are text glyphs in the bundled
   `assets/fonts/ChessGlyphs.ttf` (DejaVu subset).
 
@@ -30,4 +36,7 @@ randomly generated armies, and an optional cheating computer opponent.
   king in check has no rescuing move (checkmate). Kings are never captured.
 - No castling. En passant, promotion, 50-move and threefold repetition apply.
 - Caught cheat: move undone, computer skips, human moves twice. False
-  accusation: computer moves twice.
+  accusation: computer moves twice. The computer never cheats on the first
+  half of a double move (only its last move can be accused).
+- Human cheat (one per game) caught by the computer: move undone, human
+  skips, computer moves twice.

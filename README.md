@@ -46,10 +46,19 @@ Right after the computer moves you can press **Cheater!**:
 
 Cheats are revealed at the end of the game.
 
+## Modes
+
+- **Quick game** against the computer (easy / medium / hard) with any army settings, or pass-and-play on one device with an optional clock.
+- **Daily challenge**: one seeded set of armies per calendar day, with streaks and a shareable result.
+- **Ranked ladder**: win to climb, lose to drop. Rank drives the computer's strength, how much it cheats and how much material it gets (you start with the bigger army).
+- **Puzzles**: double check in one, mate in one, and forced win in two, mined from random games by `scripts/mine-puzzles.ts` into `assets/puzzles.json`.
+- **You can cheat too**: one illegal move per game for the player; the computer notices more often on harder levels and for blatant cheats.
+
 ## Features
 
 - Play against the computer (easy / medium / hard, optionally cheating) or pass-and-play on one device.
-- Legal-move dots, last-move and check highlighting, a Hint button, promotion picker, undo, resign.
+- Legal-move dots, last-move and check highlighting, a Hint button, promotion picker, undo, resign, move animation, and a scrubber to review any position.
+- Gold and silver crown marks tell each side's two kings apart; the computer has a face that reacts to the game.
 - Sound effects (synthesized, see `assets/sounds`) and haptic feedback on moves,
   captures, checks and accusations, each switchable.
 - Light/dark/system theme, five board colour sets, solid or classic-print pieces.
