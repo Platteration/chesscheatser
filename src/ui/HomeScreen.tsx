@@ -74,7 +74,11 @@ export function HomeScreen({ config, onChange, onStart, onDaily, daily, onRanked
       <DailyCard daily={daily} onDaily={onDaily} />
       <LadderCard ladder={ladder} onRanked={onRanked} />
 
+      <Button title={config.mode === 'ai' ? 'Play the computer' : 'Pass & play'} onPress={onStart} />
+      <Text style={styles.summary}>{summarize(config)}</Text>
+
       <Card>
+        <Text style={styles.cardTitle}>Game settings</Text>
         <Label>Opponent</Label>
         <Segmented<GameMode>
           value={config.mode}
@@ -207,7 +211,7 @@ export function HomeScreen({ config, onChange, onStart, onDaily, daily, onRanked
         />
       </Card>
 
-      <Button title="New game" onPress={onStart} style={styles.start} />
+      <Button title="New game with these settings" variant="secondary" onPress={onStart} style={styles.start} />
       <Button title={`Puzzles · ${puzzlesSolved}/${puzzleCount} solved`} variant="secondary" onPress={onPuzzles} />
       <Button title="How to play" variant="secondary" onPress={onRules} />
       <Button title={isPro ? 'Two Kings Pro ✓' : 'Two Kings Pro'} variant="ghost" onPress={onPro} />
@@ -215,6 +219,22 @@ export function HomeScreen({ config, onChange, onStart, onDaily, daily, onRanked
       <Button title={`Stats · ${stats.wins} W · ${stats.losses} L · ${stats.draws} D`} variant="ghost" onPress={onStats} />
     </ScrollView>
   );
+}
+
+/** One line describing the current game settings under the main Play button. */
+function summarize(config: GameConfig): string {
+  const parts: string[] = [];
+  if (config.mode === 'ai') {
+    parts.push({ easy: 'Easy', medium: 'Medium', hard: 'Hard' }[config.difficulty]);
+    parts.push(config.playAs === 'random' ? 'random colour' : config.playAs === 'w' ? 'you play White' : 'you play Black');
+    if (config.cheating !== 'off') parts.push(config.cheating === 'low' ? 'computer cheats sometimes' : 'computer cheats often');
+    if (config.playerCheats) parts.push('you may cheat once');
+  } else if (config.clock) {
+    parts.push(`${config.clock} min clock`);
+  }
+  parts.push(`${{ fair: 'fair', mirror: 'mirror', chaos: 'chaos', handicap: 'ranked' }[config.material]} armies`);
+  parts.push(`${ARMY_SIZES[config.armySize].label.toLowerCase()} size`);
+  return parts.join(' · ');
 }
 
 function DailyCard({ daily, onDaily }: { daily: DailyState; onDaily: () => void }) {
@@ -281,6 +301,8 @@ const useStyles = themedStyles((theme) => ({
   title: { color: theme.text, fontSize: 30, fontWeight: '800', marginTop: 4 },
   tagline: { color: theme.textMuted, textAlign: 'center', marginTop: 8, fontSize: 14, lineHeight: 20, maxWidth: 340 },
   resume: { marginBottom: 4 },
+  summary: { color: theme.textMuted, fontSize: 12, textAlign: 'center', marginTop: -4 },
+  cardTitle: { color: theme.text, fontSize: 16, fontWeight: '800' },
   start: { marginTop: 8 },
   stats: { color: theme.textMuted, textAlign: 'center', marginTop: 12, fontSize: 13 },
 }));

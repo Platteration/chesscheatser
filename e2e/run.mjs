@@ -30,7 +30,7 @@ const scenarios = {
     const { page, context, errors } = await openApp(browser, url);
     await exact(page, 'White').first().click();
     await exact(page, 'Never').click();
-    await exact(page, 'New game').click();
+    await exact(page, 'New game with these settings').click();
     await page.waitForTimeout(500);
     assert(await makeAnyMove(page), 'human move played');
     await waitHuman(page);
@@ -58,7 +58,7 @@ const scenarios = {
     await exact(page, 'White').first().click();
     await exact(page, 'Often').click();
     await exact(page, 'Chaos').click();
-    await exact(page, 'New game').click();
+    await exact(page, 'New game with these settings').click();
     await page.waitForTimeout(500);
     const outcomes = new Set();
     for (let turn = 0; turn < 30; turn++) {
@@ -90,7 +90,7 @@ const scenarios = {
     await exact(page, 'White').first().click();
     await exact(page, 'Yes, once per game').click();
     await exact(page, 'Never').click();
-    await exact(page, 'New game').click();
+    await exact(page, 'New game with these settings').click();
     await page.waitForTimeout(500);
     await exact(page, 'Cheat').click();
     await page.waitForTimeout(150);
@@ -152,7 +152,7 @@ const scenarios = {
     await unlockPro(page);
     await exact(page, 'Pass & play').click();
     await exact(page, '1').click();
-    await exact(page, 'New game').click();
+    await exact(page, 'New game with these settings').click();
     await page.waitForTimeout(400);
     assert(await makeAnyMove(page), 'first ply');
     assert(await makeAnyMove(page), 'second ply');
@@ -171,14 +171,14 @@ const scenarios = {
 
   async 'first-run tip shows once'(browser) {
     const { page, context, errors } = await openApp(browser, url, undefined, { intro: true });
-    await exact(page, 'New game').click();
+    await exact(page, 'New game with these settings').click();
     await page.waitForTimeout(500);
     assert((await text(page, '/Two kings, one rule/')) !== null, 'tip shown on first game');
     await exact(page, 'Got it').click();
     await page.waitForTimeout(300);
     await page.getByText('‹ Home').click();
     await page.waitForTimeout(300);
-    await exact(page, 'New game').click();
+    await exact(page, 'New game with these settings').click();
     await page.waitForTimeout(500);
     assert((await page.locator('text=/Two kings, one rule/').count()) === 0, 'tip not shown again');
     assert(errors.length === 0, errors.join('\n'));
@@ -188,7 +188,7 @@ const scenarios = {
   async 'landscape layout'(browser) {
     const { page, context, errors } = await openApp(browser, url, { width: 844, height: 390 });
     await exact(page, 'White').first().click();
-    await exact(page, 'New game').click();
+    await exact(page, 'New game with these settings').click();
     await page.waitForTimeout(500);
     assert((await text(page, '/White to move/')) !== null, 'status visible');
     if (shots) await page.screenshot({ path: `${shots}/landscape.png` });
