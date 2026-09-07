@@ -60,6 +60,24 @@ export interface Stats {
   wins: number;
   losses: number;
   draws: number;
+  /** Cumulative cheating record against the computer. */
+  cheatsCaught: number;
+  cheatsMissed: number;
+  falseAccusations: number;
+  /** Your own cheats: attempted and caught. */
+  ownCheats: number;
+  ownCheatsCaught: number;
+  gamesPlayed: number;
 }
 
-export const EMPTY_STATS: Stats = { wins: 0, losses: 0, draws: 0 };
+export const EMPTY_STATS: Stats = {
+  wins: 0,
+  losses: 0,
+  draws: 0,
+  cheatsCaught: 0,
+  cheatsMissed: 0,
+  falseAccusations: 0,
+  ownCheats: 0,
+  ownCheatsCaught: 0,
+  gamesPlayed: 0,
+};

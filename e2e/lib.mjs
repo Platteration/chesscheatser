@@ -22,8 +22,18 @@ export async function launch() {
 }
 
 /** Fresh page at the app root with console/page errors collected. */
-export async function openApp(browser, url, viewport = { width: 390, height: 844 }) {
+export async function openApp(browser, url, viewport = { width: 390, height: 844 }, { intro = false } = {}) {
   const context = await browser.newContext({ viewport, deviceScaleFactor: 1 });
+  if (!intro) {
+    // Skip the one-time explanation unless a scenario wants to test it.
+    await context.addInitScript(() => {
+      try {
+        if (!localStorage.getItem('twokings.appsettings.v1')) {
+          localStorage.setItem('twokings.appsettings.v1', JSON.stringify({ seenIntro: true }));
+        }
+      } catch {}
+    });
+  }
   const page = await context.newPage();
   const errors = [];
   page.on('pageerror', (e) => errors.push('pageerror: ' + e.message));
@@ -40,8 +50,9 @@ export const cellCounts = (page) =>
   page.$$eval('[aria-label]', (els) => {
     const out = {};
     for (const el of els) {
-      const l = el.getAttribute('aria-label');
-      if (/^[a-h][1-8]$/.test(l)) out[l] = el.childElementCount;
+      const l = el.getAttribute('aria-label') || '';
+      const m = /^([a-h][1-8])(,|$)/.exec(l);
+      if (m) out[m[1]] = el.childElementCount;
     }
     return out;
   });
@@ -60,27 +71,30 @@ export const gameOver = (page) => page.locator('text=/Rematch/').count().then((n
 export async function makeAnyMove(page) {
   const base = await cellCounts(page);
   for (const label of Object.keys(base)) {
-    await page.locator(`[aria-label="${label}"]`).click();
+    await sq(page, label).click();
     await page.waitForTimeout(30);
     const now = await cellCounts(page);
     const targets = Object.keys(now).filter((l) => l !== label && now[l] > base[l]);
     if (targets.length) {
-      await page.locator(`[aria-label="${targets[Math.floor(Math.random() * targets.length)]}"]`).click({ timeout: 3000 });
+      await sq(page, targets[Math.floor(Math.random() * targets.length)]).click({ timeout: 3000 });
       await page.waitForTimeout(250);
       if (await page.getByText('Promote to').count()) {
         await page.locator('text=Promote to').locator('..').locator('div').nth(2).click().catch(() => {});
       }
       return true;
     }
-    await page.locator(`[aria-label="${label}"]`).click().catch(() => {});
+    await sq(page, label).click().catch(() => {});
   }
   return false;
 }
 
+/** Locator for a board square by name; labels read "e2" or "e2, white pawn". */
+export const sq = (page, name) => page.locator(`[aria-label="${name}"], [aria-label^="${name},"]`).first();
+
 export async function clickSquares(page, from, to) {
-  await page.locator(`[aria-label="${from}"]`).click();
+  await sq(page, from).click();
   await page.waitForTimeout(100);
-  await page.locator(`[aria-label="${to}"]`).click();
+  await sq(page, to).click();
   await page.waitForTimeout(300);
 }
 

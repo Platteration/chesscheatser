@@ -13,6 +13,8 @@ export interface AppSettings {
   pieceStyle: PieceStyle;
   sounds: boolean;
   haptics: boolean;
+  /** The first-game explanation has been dismissed. */
+  seenIntro: boolean;
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -21,6 +23,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   pieceStyle: 'solid',
   sounds: true,
   haptics: true,
+  seenIntro: false,
 };
 
 const KEY = 'twokings.appsettings.v1';

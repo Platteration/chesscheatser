@@ -166,6 +166,47 @@ const scenarios = {
     await context.close();
   },
 
+  async 'first-run tip shows once'(browser) {
+    const { page, context, errors } = await openApp(browser, url, undefined, { intro: true });
+    await exact(page, 'New game').click();
+    await page.waitForTimeout(500);
+    assert((await text(page, '/Two kings, one rule/')) !== null, 'tip shown on first game');
+    await exact(page, 'Got it').click();
+    await page.waitForTimeout(300);
+    await page.getByText('‹ Home').click();
+    await page.waitForTimeout(300);
+    await exact(page, 'New game').click();
+    await page.waitForTimeout(500);
+    assert((await page.locator('text=/Two kings, one rule/').count()) === 0, 'tip not shown again');
+    assert(errors.length === 0, errors.join('\n'));
+    await context.close();
+  },
+
+  async 'landscape layout'(browser) {
+    const { page, context, errors } = await openApp(browser, url, { width: 844, height: 390 });
+    await exact(page, 'White').first().click();
+    await exact(page, 'New game').click();
+    await page.waitForTimeout(500);
+    assert((await text(page, '/White to move/')) !== null, 'status visible');
+    if (shots) await page.screenshot({ path: `${shots}/landscape.png` });
+    const box = await page.locator('[aria-label^="a1"]').boundingBox();
+    assert(box && box.y + box.height <= 390 && box.x + box.width <= 844, 'board fits the landscape viewport: ' + JSON.stringify(box));
+    assert(await makeAnyMove(page), 'move in landscape');
+    assert(errors.length === 0, errors.join('\n'));
+    await context.close();
+  },
+
+  async 'stats screen'(browser) {
+    const { page, context, errors } = await openApp(browser, url);
+    await page.locator('text=/^Stats ·/').click();
+    await page.waitForTimeout(300);
+    for (const h of ['Versus computer', 'Cheat detection', 'Ranked ladder', 'Daily challenge', 'Puzzles']) {
+      assert((await exact(page, h).count()) === 1, 'stats section ' + h);
+    }
+    assert(errors.length === 0, errors.join('\n'));
+    await context.close();
+  },
+
   async 'pro gating'(browser) {
     const { page, context, errors } = await openApp(browser, url);
     assert((await exact(page, 'Neon 🔒').count()) === 1, 'neon locked');

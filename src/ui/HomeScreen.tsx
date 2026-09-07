@@ -26,6 +26,7 @@ interface Props {
   onRules: () => void;
   onPuzzles: () => void;
   onPro: () => void;
+  onStats: () => void;
   puzzlesSolved: number;
   puzzleCount: number;
   stats: Stats;
@@ -46,7 +47,7 @@ const MATERIAL_HINT: Record<MaterialMode, string> = {
 
 const PRO_BOARDS: BoardTheme[] = ['slate', 'neon'];
 
-export function HomeScreen({ config, onChange, onStart, onDaily, daily, onRanked, ladder, onResume, onRules, onPuzzles, onPro, puzzlesSolved, puzzleCount, stats }: Props) {
+export function HomeScreen({ config, onChange, onStart, onDaily, daily, onRanked, ladder, onResume, onRules, onPuzzles, onPro, onStats, puzzlesSolved, puzzleCount, stats }: Props) {
   const styles = useStyles();
   const theme = useTheme();
   const insets = useSafeAreaInsets();
@@ -211,9 +212,7 @@ export function HomeScreen({ config, onChange, onStart, onDaily, daily, onRanked
       <Button title="How to play" variant="secondary" onPress={onRules} />
       <Button title={isPro ? 'Two Kings Pro ✓' : 'Two Kings Pro'} variant="ghost" onPress={onPro} />
 
-      <Text style={styles.stats}>
-        Versus computer: {stats.wins} W · {stats.losses} L · {stats.draws} D
-      </Text>
+      <Button title={`Stats · ${stats.wins} W · ${stats.losses} L · ${stats.draws} D`} variant="ghost" onPress={onStats} />
     </ScrollView>
   );
 }

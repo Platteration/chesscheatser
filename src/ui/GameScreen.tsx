@@ -11,6 +11,7 @@ import { Board } from './Board';
 import { Button } from './components';
 import { CHESS_FONT, GLYPH } from './PieceGlyph';
 import { FREE_HINTS_PER_GAME, useEntitlements } from '../entitlements';
+import { useSettings } from '../settings';
 import { haptics } from '../haptics';
 import { playSound } from '../sounds';
 import { PromotionPicker } from './PromotionPicker';
@@ -32,6 +33,8 @@ export interface GameOutcome {
   cheatsCaught: number;
   cheatsMissed: number;
   falseAccusations: number;
+  ownCheats: number;
+  ownCheatsCaught: number;
   daily: string | null;
   ranked: number | null;
 }
@@ -58,7 +61,9 @@ export function GameScreen({ start, onExit, onSave, onFinished, dailyStreak = 0,
   const insets = useSafeAreaInsets();
   const reported = useRef<string | null>(null);
 
-  const boardSize = Math.floor(Math.min(width - 16, height * 0.55));
+  const landscape = width > height;
+  // Landscape: leave room for the top bar (~48) and margins; portrait: leave the lower half for controls.
+  const boardSize = Math.floor(landscape ? Math.min(height - insets.top - insets.bottom - 72, width * 0.55) : Math.min(width - 16, height * 0.55));
 
   const humanTurn = state.config.mode === 'local' || state.turn === state.humanColor;
   const isFlipped = flipped ?? (state.config.mode === 'ai' && state.humanColor === 'b');
@@ -217,7 +222,9 @@ export function GameScreen({ start, onExit, onSave, onFinished, dailyStreak = 0,
         <Button title="Flip" variant="ghost" small onPress={() => setFlipped(!isFlipped)} />
       </View>
 
-      <PlayerStrip state={state} color={topColor} active={state.turn === topColor && !state.gameOver} />
+      <View style={landscape ? styles.landscape : undefined}>
+      <View style={landscape ? styles.landscapeBoard : undefined}>
+      {!landscape && <PlayerStrip state={state} color={topColor} active={state.turn === topColor && !state.gameOver} />}
 
       <View style={styles.boardWrap}>
         <Board
@@ -238,7 +245,12 @@ export function GameScreen({ start, onExit, onSave, onFinished, dailyStreak = 0,
         />
       </View>
 
-      <PlayerStrip state={state} color={bottomColor} active={state.turn === bottomColor && !state.gameOver} />
+      {!landscape && <PlayerStrip state={state} color={bottomColor} active={state.turn === bottomColor && !state.gameOver} />}
+      </View>
+
+      <View style={landscape ? styles.landscapeSide : undefined}>
+      {landscape && <PlayerStrip state={state} color={topColor} active={state.turn === topColor && !state.gameOver} />}
+      {landscape && <PlayerStrip state={state} color={bottomColor} active={state.turn === bottomColor && !state.gameOver} />}
 
       <View style={styles.statusBox}>
         <Text style={[styles.status, status.danger && styles.statusDanger]}>{status.text}</Text>
@@ -306,6 +318,11 @@ export function GameScreen({ start, onExit, onSave, onFinished, dailyStreak = 0,
         )}
       </View>
 
+      </View>
+      </View>
+
+      <IntroTip />
+
       <PromotionPicker
         visible={pendingPromotion !== null}
         color={state.turn}
@@ -345,6 +362,28 @@ export function GameScreen({ start, onExit, onSave, onFinished, dailyStreak = 0,
   );
 }
 
+/** One-time explanation of the two rules that surprise new players. */
+function IntroTip() {
+  const styles = useStyles();
+  const { settings, update } = useSettings();
+  if (settings.seenIntro) return null;
+  return (
+    <Modal transparent animationType="fade" onRequestClose={() => update({ seenIntro: true })}>
+      <View style={styles.overlay}>
+        <View style={styles.resultCard}>
+          <Text style={styles.resultTitle}>Two kings, one rule</Text>
+          <Text style={styles.tipText}>You lose when both of your kings are in check at once, or when one of them is checkmated.</Text>
+          <Text style={styles.tipText}>So you may leave one king in check, and even walk into it, as long as the other is safe. Kings are never captured.</Text>
+          <Text style={styles.tipText}>If the computer cheats, press Cheater! right after its move. Catch it and you move twice. Cry wolf and it moves twice.</Text>
+          <View style={styles.resultButtons}>
+            <Button title="Got it" onPress={() => update({ seenIntro: true })} />
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 function outcomeOf(state: GameState): GameOutcome {
   const winner = winnerOf(state);
   return {
@@ -353,6 +392,8 @@ function outcomeOf(state: GameState): GameOutcome {
     cheatsCaught: state.cheats.caught,
     cheatsMissed: state.cheats.made - state.cheats.caught,
     falseAccusations: state.cheats.falseAccusations,
+    ownCheats: state.cheats.humanMade,
+    ownCheatsCaught: state.cheats.humanCaught,
     daily: state.daily,
     ranked: state.ranked,
   };
@@ -562,6 +603,9 @@ function MoveList({ state }: { state: GameState }) {
 
 const useStyles = themedStyles((theme) => ({
   root: { flex: 1, backgroundColor: theme.bg },
+  landscape: { flex: 1, flexDirection: 'row', alignItems: 'flex-start' },
+  landscapeBoard: { justifyContent: 'center' },
+  landscapeSide: { flex: 1, paddingTop: 6 },
   center: { alignItems: 'center', justifyContent: 'center' },
   topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 4 },
   titleBlock: { alignItems: 'center' },
@@ -625,6 +669,7 @@ const useStyles = themedStyles((theme) => ({
   resultText: { color: theme.text, fontSize: 16, textAlign: 'center', marginTop: 8 },
   resultDetail: { color: theme.textMuted, fontSize: 13, textAlign: 'center', marginTop: 4 },
   resultButtons: { marginTop: 18, gap: 10 },
+  tipText: { color: theme.text, fontSize: 15, lineHeight: 22, textAlign: 'center', marginTop: 10 },
 }));
 
 export type { GameConfig };

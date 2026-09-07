@@ -16,6 +16,7 @@ import { RulesScreen } from './src/ui/RulesScreen';
 import { EntitlementsProvider } from './src/entitlements';
 import { SettingsProvider, useSettings } from './src/settings';
 import { ProScreen } from './src/ui/ProScreen';
+import { StatsScreen } from './src/ui/StatsScreen';
 import { useTheme } from './src/ui/theme';
 
 type Screen =
@@ -23,6 +24,7 @@ type Screen =
   | { name: 'rules' }
   | { name: 'puzzles' }
   | { name: 'pro' }
+  | { name: 'stats' }
   | { name: 'game'; start: StartOptions; key: number };
 
 const PUZZLES = loadPuzzles();
@@ -85,10 +87,17 @@ function Root() {
 
   const onFinished = useCallback((o: GameOutcome) => {
     setStats((s) => {
-      const next = {
+      const next: Stats = {
+        ...s,
         wins: s.wins + (o.outcome === 'win' ? 1 : 0),
         losses: s.losses + (o.outcome === 'loss' ? 1 : 0),
         draws: s.draws + (o.outcome === 'draw' ? 1 : 0),
+        cheatsCaught: s.cheatsCaught + o.cheatsCaught,
+        cheatsMissed: s.cheatsMissed + o.cheatsMissed,
+        falseAccusations: s.falseAccusations + o.falseAccusations,
+        ownCheats: s.ownCheats + o.ownCheats,
+        ownCheatsCaught: s.ownCheatsCaught + o.ownCheatsCaught,
+        gamesPlayed: s.gamesPlayed + 1,
       };
       void saveJSON(STORAGE_KEYS.stats, next);
       return next;
@@ -181,6 +190,10 @@ function Root() {
     );
   } else if (screen.name === 'rules') {
     content = <RulesScreen onBack={goHome} />;
+  } else if (screen.name === 'stats') {
+    content = (
+      <StatsScreen stats={stats} daily={daily} ladder={ladder} puzzlesSolved={puzzleProgress.solved.length} puzzleCount={PUZZLES.length} onBack={goHome} />
+    );
   } else if (screen.name === 'pro') {
     content = <ProScreen onBack={goHome} />;
   } else if (screen.name === 'puzzles') {
@@ -199,6 +212,7 @@ function Root() {
         onRules={() => setScreen({ name: 'rules' })}
         onPuzzles={() => setScreen({ name: 'puzzles' })}
         onPro={() => setScreen({ name: 'pro' })}
+        onStats={() => setScreen({ name: 'stats' })}
         puzzlesSolved={puzzleProgress.solved.length}
         puzzleCount={PUZZLES.length}
         stats={stats}

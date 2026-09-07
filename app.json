@@ -3,7 +3,7 @@
     "name": "Two Kings Chess",
     "slug": "two-kings-chess",
     "version": "1.0.0",
-    "orientation": "portrait",
+    "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "backgroundColor": "#15161a",

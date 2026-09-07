@@ -26,6 +26,13 @@ interface Props {
 }
 
 const ANIM_MS = 170;
+const PIECE_NAME: Record<Piece['type'], string> = { k: 'king', q: 'queen', r: 'rook', b: 'bishop', n: 'knight', p: 'pawn' };
+
+/** "e2" or "e2, white pawn" — the square name always comes first. */
+export function describeSquare(file: number, rank: number, piece: Piece | null): string {
+  const name = `${'abcdefgh'[file]}${rank + 1}`;
+  return piece ? `${name}, ${piece.color === 'w' ? 'white' : 'black'} ${PIECE_NAME[piece.type]}` : name;
+}
 
 export function Board({ board, size, flipped, selected, targets, cheatMode, lastMove, hint, kingsInDanger, kingMarks, onSquarePress, disabled, animate, animationKey }: Props) {
   const styles = useStyles();
@@ -88,7 +95,9 @@ export function Board({ board, size, flipped, selected, targets, cheatMode, last
             styles.cell,
             { width: square, height: square, backgroundColor: isLight ? theme.board.light : theme.board.dark },
           ]}
-          accessibilityLabel={`${'abcdefgh'[file]}${rank + 1}`}
+          accessibilityRole="button"
+          accessibilityLabel={describeSquare(file, rank, piece)}
+          accessibilityState={{ selected: isSelected, disabled: !!disabled }}
         >
           {isLast && <View style={[StyleSheet.absoluteFill, { backgroundColor: theme.board.lastMove }]} />}
           {inDanger && <View style={[StyleSheet.absoluteFill, styles.check]} />}
