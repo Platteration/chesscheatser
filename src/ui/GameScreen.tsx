@@ -41,7 +41,9 @@ const MATERIAL_LABEL = { chaos: 'Chaos', fair: 'Fair', mirror: 'Mirror', handica
 export function GameScreen({ start, onExit, onSave, onFinished, dailyStreak = 0 }: Props) {
   const styles = useStyles();
   const theme = useTheme();
-  const { state, play, accuse, undo, newGame, rematch, resign, getHint } = useGame(start, onSave);
+  const { state, play, playCheat, accuse, undo, newGame, rematch, resign, getHint } = useGame(start, onSave);
+  const [cheatMode, setCheatMode] = useState(false);
+  useEffect(() => setCheatMode(false), [state.moves.length, state.turn]);
   const [hint, setHint] = useState<Move | null>(null);
   const [selected, setSelected] = useState<Square | null>(null);
   const [pendingPromotion, setPendingPromotion] = useState<{ from: Square; to: Square } | null>(null);
@@ -139,25 +141,36 @@ export function GameScreen({ start, onExit, onSave, onFinished, dailyStreak = 0 
 
   const targets = useMemo(() => {
     if (selected === null) return [];
+    if (cheatMode) return state.cheatMoves.filter((m) => m.from === selected);
     return state.legal.filter((m) => m.from === selected);
-  }, [state, selected]);
+  }, [state, selected, cheatMode]);
 
   const onSquarePress = useCallback(
     (s: Square) => {
       if (state.gameOver || state.thinking || !humanTurn) return;
       if (selected !== null) {
-        const candidates = state.legal.filter((m) => m.from === selected && m.to === s);
-        if (candidates.length > 0) {
-          setSelected(null);
-          if (candidates[0].promotion) setPendingPromotion({ from: selected, to: s });
-          else play(candidates[0]);
-          return;
+        if (cheatMode) {
+          const cheat = state.cheatMoves.find((m) => m.from === selected && m.to === s);
+          if (cheat) {
+            setSelected(null);
+            setCheatMode(false);
+            playCheat(cheat);
+            return;
+          }
+        } else {
+          const candidates = state.legal.filter((m) => m.from === selected && m.to === s);
+          if (candidates.length > 0) {
+            setSelected(null);
+            if (candidates[0].promotion) setPendingPromotion({ from: selected, to: s });
+            else play(candidates[0]);
+            return;
+          }
         }
       }
       const p = state.board[s];
       setSelected(p && p.color === state.turn && s !== selected ? s : null);
     },
-    [state, selected, humanTurn, play],
+    [state, selected, humanTurn, play, playCheat, cheatMode],
   );
 
   const onPromote = useCallback(
@@ -174,7 +187,7 @@ export function GameScreen({ start, onExit, onSave, onFinished, dailyStreak = 0 
 
   const topColor: Color = isFlipped ? 'w' : 'b';
   const bottomColor: Color = opposite(topColor);
-  const status = describeStatus(state);
+  const status = describeStatus(state, cheatMode);
 
   return (
     <View style={[styles.root, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
@@ -204,6 +217,7 @@ export function GameScreen({ start, onExit, onSave, onFinished, dailyStreak = 0 
           flipped={isFlipped}
           selected={reviewing ? null : selected}
           targets={reviewing ? [] : targets}
+          cheatMode={cheatMode}
           lastMove={reviewing ? null : state.lastMove}
           hint={reviewing ? null : hint}
           kingsInDanger={reviewing ? [] : state.kingsInDanger}
@@ -253,6 +267,18 @@ export function GameScreen({ start, onExit, onSave, onFinished, dailyStreak = 0 
       )}
 
       <View style={styles.controls}>
+        {state.config.playerCheats && state.config.mode === 'ai' && state.humanCheatsLeft > 0 && !state.gameOver && (
+          <Button
+            title={cheatMode ? 'Cancel' : 'Cheat'}
+            variant={cheatMode ? 'secondary' : 'primary'}
+            small
+            onPress={() => {
+              setSelected(null);
+              setCheatMode((c) => !c);
+            }}
+            disabled={state.thinking || !humanTurn || reviewing}
+          />
+        )}
         <Button title={hinting ? '…' : 'Hint'} variant="secondary" small onPress={onHint} disabled={state.gameOver || state.thinking || hinting || !humanTurn} />
         <Button title="Undo" variant="secondary" small onPress={undo} disabled={state.moves.length === 0 || state.thinking} />
         <Button title="New armies" variant="secondary" small onPress={() => newGame()} />
@@ -285,7 +311,7 @@ export function GameScreen({ start, onExit, onSave, onFinished, dailyStreak = 0 
             )}
             <Text style={styles.resultText}>{status.text}</Text>
             {status.detail ? <Text style={styles.resultDetail}>{status.detail}</Text> : null}
-            {state.config.mode === 'ai' && state.config.cheating !== 'off' && (
+            {state.config.mode === 'ai' && (state.config.cheating !== 'off' || state.config.playerCheats) && (
               <Text style={styles.resultCheats}>{cheatReport(state)}</Text>
             )}
             <View style={styles.resultButtons}>
@@ -343,7 +369,7 @@ function resultTitle(state: GameState): string {
   return `${COLOR_NAME[winner]} wins!`;
 }
 
-function describeStatus(state: GameState): { text: string; detail?: string; danger: boolean } {
+function describeStatus(state: GameState, cheatMode = false): { text: string; detail?: string; danger: boolean } {
   const r = state.result;
   if (state.flagged) {
     return { text: `${COLOR_NAME[state.flagged]} ran out of time. ${COLOR_NAME[opposite(state.flagged)]} wins.`, danger: false };
@@ -377,7 +403,7 @@ function describeStatus(state: GameState): { text: string; detail?: string; dang
       const otherChecked = state.kingsInDanger.filter((k) => state.board[k]?.color === other);
       let text = state.thinking ? 'Computer is thinking…' : `${COLOR_NAME[mover]} to move`;
       const details: string[] = [];
-      const notice = cheatNotice(state);
+      const notice = cheatMode ? { text: 'Cheat mode', detail: 'Pick a piece and slide it somewhere it cannot go. The computer might notice…' } : cheatNotice(state);
       if (notice) {
         text = notice.text;
         if (notice.detail) details.push(notice.detail);
@@ -398,6 +424,10 @@ function cheatNotice(state: GameState): { text: string; detail?: string } | null
   if (state.config.mode !== 'ai') return null;
   const last = state.lastEvent;
   const isHuman = state.turn === state.humanColor;
+  if (last?.type === 'accuse' && last.by === 'ai') {
+    const name = state.caughtMove ? moveToSAN(state.caughtMove) : 'Your move';
+    return { text: 'Busted!', detail: `The computer spotted that ${name} was illegal. It is undone, you skip, and the computer moves twice.` };
+  }
   if (last?.type === 'accuse') {
     const name = state.caughtMove ? moveToSAN(state.caughtMove) : 'That move';
     return last.caught
@@ -429,7 +459,7 @@ function avatarFor(state: GameState): string {
   }
   if (state.thinking) return '🤔';
   const last = state.lastEvent;
-  if (last?.type === 'accuse') return last.caught ? '😳' : '😏';
+  if (last?.type === 'accuse') return last.by === 'ai' ? '🧐' : last.caught ? '😳' : '😏';
   if (last?.type === 'pass' && state.turn !== state.humanColor) return '😈';
   const humanChecked = state.kingsInDanger.some((k) => state.board[k]?.color === state.humanColor);
   if (humanChecked && state.turn === state.humanColor) return '😼';
@@ -443,6 +473,8 @@ function cheatReport(state: GameState): string {
   const missed = state.moves.filter((m) => m.cheat).map((m) => `${moveToSAN(m)} (${CHEAT_LABEL[m.cheat!]})`);
   if (missed.length) parts.push(`Got away with: ${missed.join(', ')}.`);
   if (falseAccusations) parts.push(`False accusation${falseAccusations === 1 ? '' : 's'}: ${falseAccusations}.`);
+  const { humanMade, humanCaught } = state.cheats;
+  if (humanMade) parts.push(humanCaught ? 'You cheated and got caught.' : 'You cheated and got away with it.');
   return parts.join(' ');
 }
 
@@ -550,6 +582,7 @@ const useStyles = themedStyles((theme) => ({
   moveItem: { color: theme.textMuted, fontSize: 12, fontVariant: ['tabular-nums'] },
   controls: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'center',
     gap: 10,
     paddingHorizontal: 12,

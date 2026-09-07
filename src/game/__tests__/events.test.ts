@@ -37,7 +37,7 @@ describe('fold', () => {
     expect(f.pos.board[parseSquare('e4')]).toBeNull();
     expect(f.pos.turn).toBe('w');
     expect(f.bonus).toBe('w');
-    expect(f.cheats).toEqual({ made: 1, caught: 1, falseAccusations: 0 });
+    expect(f.cheats).toEqual({ made: 1, caught: 1, falseAccusations: 0, humanMade: 0, humanCaught: 0 });
     expect(f.caughtMove).toEqual(cheat.type === 'move' ? cheat.move : null);
     expect(f.moveList.map((m) => !!m.pass)).toEqual([false, true]);
     expect(f.boards).toHaveLength(3);
@@ -59,6 +59,31 @@ describe('fold', () => {
     expect(f.bonus).toBe('b');
     expect(f.cheats.falseAccusations).toBe(1);
     expect(f.pos.board[parseSquare('e6')]?.type).toBe('p');
+  });
+});
+
+describe('human cheating', () => {
+  const ai = 'b';
+  it('a human cheat that goes unnoticed simply stands', () => {
+    const events: GameEvent[] = [mv('e2', 'e5', 'p', { cheat: 'pawn' })];
+    const f = fold(setup, events, ai);
+    expect(f.pos.board[parseSquare('e5')]?.type).toBe('p');
+    expect(f.cheats.humanMade).toBe(1);
+    expect(f.cheats.made).toBe(0);
+    expect(f.pos.turn).toBe('b');
+  });
+
+  it('a caught human cheat is undone, the human skips, and the computer gets the bonus', () => {
+    const events: GameEvent[] = [mv('e2', 'e5', 'p', { cheat: 'pawn' }), { type: 'accuse', caught: true, by: 'ai' }];
+    const f = fold(setup, events, ai);
+    expect(f.pos.board[parseSquare('e5')]).toBeNull();
+    expect(f.pos.board[parseSquare('e2')]?.type).toBe('p');
+    expect(f.pos.turn).toBe('b');
+    expect(f.bonus).toBe('b');
+    expect(f.cheats).toMatchObject({ humanMade: 1, humanCaught: 1 });
+    expect(f.canAccuse).toBe(false);
+    // Undo rolls the whole thing back.
+    expect(undoEvents(setup, events, ai)).toHaveLength(0);
   });
 });
 

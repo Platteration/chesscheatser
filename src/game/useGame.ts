@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { opposite } from '../engine/board';
 import { chooseMoveAsync } from '../engine/ai';
-import { chooseActionAsync } from '../engine/cheat';
+import { cheatCandidates, chooseActionAsync } from '../engine/cheat';
 import { isAttacked, Position } from '../engine/position';
 import { generateSetup, type Setup } from '../engine/setup';
 import type { Board, Color, GameResult, LegalMove, Move, PieceType, Square } from '../engine/types';
@@ -50,6 +50,18 @@ export interface GameState {
   caughtMove: Move | null;
   daily: string | null;
   ranked: number | null;
+  /** Illegal moves the human may play right now (empty unless player cheating is on and unused). */
+  cheatMoves: Move[];
+  humanCheatsLeft: number;
+}
+
+export const HUMAN_CHEATS_PER_GAME = 1;
+
+/** Chance the computer notices a human cheat, by difficulty and how blatant the cheat is. */
+export function detectionChance(difficulty: GameConfig['difficulty'], cheat: NonNullable<Move['cheat']>): number {
+  const base = { easy: 0.3, medium: 0.55, hard: 0.8 }[difficulty];
+  const blatant = cheat === 'jump' || cheat === 'resurrect' || cheat === 'upgrade' ? 0.15 : 0;
+  return Math.min(0.95, base + blatant);
 }
 
 const PIECE_VALUES: Record<PieceType, number> = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
@@ -153,6 +165,17 @@ export function useGame(initial: StartOptions, onSave?: (saved: SavedGame | null
       }
     }
     const gameOver = result.kind !== 'ongoing' || resigned !== null || flagged !== null;
+    const humanCheatsLeft = Math.max(0, HUMAN_CHEATS_PER_GAME - folded.cheats.humanMade);
+    let cheatMoves: Move[] = [];
+    if (config.playerCheats && aiColor !== null && pos.turn === humanColor && humanCheatsLeft > 0 && !gameOver) {
+      const me = pos.turn;
+      cheatMoves = cheatCandidates(pos).filter((m) => {
+        pos.makeMove(m);
+        const ok = !pos.allKingsInCheck(me);
+        pos.unmakeMove();
+        return ok;
+      });
+    }
     return {
       board: pos.board.slice(),
       turn: pos.turn,
@@ -179,8 +202,10 @@ export function useGame(initial: StartOptions, onSave?: (saved: SavedGame | null
       caughtMove: folded.caughtMove,
       daily,
       ranked,
+      cheatMoves,
+      humanCheatsLeft,
     };
-  }, [folded, setup, humanColor, config, thinking, resigned, flagged, clocks, daily, ranked]);
+  }, [folded, setup, humanColor, config, thinking, resigned, flagged, clocks, daily, ranked, aiColor]);
 
   // Pass-and-play clock: runs for the side to move once the first move has been made.
   const clockActive = (config.clock ?? 0) > 0 && config.mode === 'local' && !state.gameOver && events.length > 0;
@@ -253,6 +278,21 @@ export function useGame(initial: StartOptions, onSave?: (saved: SavedGame | null
     [state.legal, state.gameOver, append],
   );
 
+  /** Play one of `state.cheatMoves`; the computer may notice and punish it. */
+  const playCheat = useCallback(
+    (m: Move) => {
+      const found = state.cheatMoves.find((x) => x.from === m.from && x.to === m.to && x.promotion === m.promotion && x.piece === m.piece);
+      if (!found || state.gameOver) return;
+      const noticed = Math.random() < detectionChance(config.difficulty, found.cheat!);
+      setEvents((prev) => {
+        const next: GameEvent[] = [...prev, { type: 'move', move: stripMove(found) }];
+        if (noticed) next.push({ type: 'accuse', caught: true, by: 'ai' });
+        return next;
+      });
+    },
+    [state.cheatMoves, state.gameOver, config.difficulty],
+  );
+
   /** Call out the computer's last move as a cheat. */
   const accuse = useCallback(() => {
     if (!state.canAccuse) return;
@@ -304,5 +344,5 @@ export function useGame(initial: StartOptions, onSave?: (saved: SavedGame | null
     setResigned(config.mode === 'ai' ? humanColor : state.turn);
   }, [state.gameOver, state.turn, config.mode, humanColor]);
 
-  return { state, play, accuse, undo, newGame, rematch, resign, getHint };
+  return { state, play, playCheat, accuse, undo, newGame, rematch, resign, getHint };
 }

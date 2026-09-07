@@ -6,6 +6,7 @@ export const STORAGE_KEYS = {
   stats: 'twokings.stats.v1',
   daily: 'twokings.daily.v1',
   ladder: 'twokings.ladder.v1',
+  puzzles: 'twokings.puzzles.v1',
 } as const;
 
 export async function loadJSON<T>(key: string, fallback: T): Promise<T> {

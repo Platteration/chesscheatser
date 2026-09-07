@@ -18,6 +18,8 @@ export interface GameConfig {
   cheating: CheatLevel;
   /** Minutes per side for pass-and-play; 0 = no clock. */
   clock?: ClockMinutes;
+  /** Whether the human may play one illegal move per game (the computer may notice). */
+  playerCheats?: boolean;
 }
 
 export type ClockMinutes = 0 | 1 | 3 | 5 | 10;

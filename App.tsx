@@ -6,6 +6,8 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { DEFAULT_CONFIG, EMPTY_STATS, type GameConfig, type SavedGame, type Stats } from './src/game/config';
 import { DAILY_CONFIG, dailySeed, EMPTY_DAILY, recordDaily, todayKey, type DailyState } from './src/game/daily';
 import { applyLadderResult, EMPTY_LADDER, ladderConfig, ladderParams, type LadderState } from './src/game/ladder';
+import { EMPTY_PUZZLE_PROGRESS, loadPuzzles, type PuzzleProgress } from './src/game/puzzles';
+import { PuzzleScreen } from './src/ui/PuzzleScreen';
 import type { StartOptions } from './src/game/useGame';
 import { loadJSON, remove, saveJSON, STORAGE_KEYS } from './src/storage';
 import { GameScreen, type GameOutcome } from './src/ui/GameScreen';
@@ -14,7 +16,9 @@ import { RulesScreen } from './src/ui/RulesScreen';
 import { SettingsProvider, useSettings } from './src/settings';
 import { useTheme } from './src/ui/theme';
 
-type Screen = { name: 'home' } | { name: 'rules' } | { name: 'game'; start: StartOptions; key: number };
+type Screen = { name: 'home' } | { name: 'rules' } | { name: 'puzzles' } | { name: 'game'; start: StartOptions; key: number };
+
+const PUZZLES = loadPuzzles();
 
 export default function App() {
   return (
@@ -36,19 +40,22 @@ function Root() {
   const [stats, setStats] = useState<Stats>(EMPTY_STATS);
   const [daily, setDaily] = useState<DailyState>(EMPTY_DAILY);
   const [ladder, setLadder] = useState<LadderState>(EMPTY_LADDER);
+  const [puzzleProgress, setPuzzleProgress] = useState<PuzzleProgress>(EMPTY_PUZZLE_PROGRESS);
   const [screen, setScreen] = useState<Screen>({ name: 'home' });
 
   useEffect(() => {
     (async () => {
-      const [cfg, game, st, dy, ld] = await Promise.all([
+      const [cfg, game, st, dy, ld, pz] = await Promise.all([
         loadJSON<GameConfig>(STORAGE_KEYS.settings, DEFAULT_CONFIG),
         loadJSON<SavedGame | null>(STORAGE_KEYS.game, null),
         loadJSON<Stats>(STORAGE_KEYS.stats, EMPTY_STATS),
         loadJSON<DailyState>(STORAGE_KEYS.daily, EMPTY_DAILY),
         loadJSON<LadderState>(STORAGE_KEYS.ladder, EMPTY_LADDER),
+        loadJSON<PuzzleProgress>(STORAGE_KEYS.puzzles, EMPTY_PUZZLE_PROGRESS),
       ]);
       setDaily(dy);
       setLadder(ld);
+      setPuzzleProgress(pz);
       setConfig(cfg);
       setSaved(game && Array.isArray(game.events) && typeof game.seed === 'number' ? game : null);
       setStats(st);
@@ -135,6 +142,15 @@ function Root() {
 
   const goHome = useCallback(() => setScreen({ name: 'home' }), []);
 
+  const onPuzzleSolved = useCallback((id: string) => {
+    setPuzzleProgress((p) => {
+      if (p.solved.includes(id)) return p;
+      const next = { solved: [...p.solved, id] };
+      void saveJSON(STORAGE_KEYS.puzzles, next);
+      return next;
+    });
+  }, []);
+
   let content: React.ReactNode;
   if (!ready || !settingsLoaded || (!fontsLoaded && !fontError)) {
     content = (
@@ -148,6 +164,8 @@ function Root() {
     );
   } else if (screen.name === 'rules') {
     content = <RulesScreen onBack={goHome} />;
+  } else if (screen.name === 'puzzles') {
+    content = <PuzzleScreen puzzles={PUZZLES} progress={puzzleProgress} onSolved={onPuzzleSolved} onBack={goHome} />;
   } else {
     content = (
       <HomeScreen
@@ -160,6 +178,9 @@ function Root() {
         ladder={ladder}
         onResume={saved ? resume : undefined}
         onRules={() => setScreen({ name: 'rules' })}
+        onPuzzles={() => setScreen({ name: 'puzzles' })}
+        puzzlesSolved={puzzleProgress.solved.length}
+        puzzleCount={PUZZLES.length}
         stats={stats}
       />
     );

@@ -23,6 +23,9 @@ interface Props {
   ladder: LadderState;
   onResume?: () => void;
   onRules: () => void;
+  onPuzzles: () => void;
+  puzzlesSolved: number;
+  puzzleCount: number;
   stats: Stats;
 }
 
@@ -39,7 +42,7 @@ const MATERIAL_HINT: Record<MaterialMode, string> = {
   handicap: 'Used by the ranked ladder.',
 };
 
-export function HomeScreen({ config, onChange, onStart, onDaily, daily, onRanked, ladder, onResume, onRules, stats }: Props) {
+export function HomeScreen({ config, onChange, onStart, onDaily, daily, onRanked, ladder, onResume, onRules, onPuzzles, puzzlesSolved, puzzleCount, stats }: Props) {
   const styles = useStyles();
   const theme = useTheme();
   const insets = useSafeAreaInsets();
@@ -96,6 +99,15 @@ export function HomeScreen({ config, onChange, onStart, onDaily, daily, onRanked
                 { value: 'w', label: 'White' },
                 { value: 'b', label: 'Black' },
                 { value: 'random', label: 'Random' },
+              ]}
+            />
+            <Label hint="One illegal move per game. If the computer notices, your move is undone and it moves twice.">You can cheat</Label>
+            <Segmented<'on' | 'off'>
+              value={config.playerCheats ? 'on' : 'off'}
+              onChange={(v) => set('playerCheats', v === 'on')}
+              options={[
+                { value: 'off', label: 'No' },
+                { value: 'on', label: 'Yes, once per game' },
               ]}
             />
             <Label hint={CHEAT_HINT[config.cheating]}>Computer cheats</Label>
@@ -187,6 +199,7 @@ export function HomeScreen({ config, onChange, onStart, onDaily, daily, onRanked
       </Card>
 
       <Button title="New game" onPress={onStart} style={styles.start} />
+      <Button title={`Puzzles · ${puzzlesSolved}/${puzzleCount} solved`} variant="secondary" onPress={onPuzzles} />
       <Button title="How to play" variant="secondary" onPress={onRules} />
 
       <Text style={styles.stats}>

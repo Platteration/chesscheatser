@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { fileOf, rankOf, sq } from '../engine/board';
-import type { Board as BoardType, LegalMove, Move, Piece, Square } from '../engine/types';
+import type { Board as BoardType, Move, Piece, Square } from '../engine/types';
 import { PieceGlyph } from './PieceGlyph';
 import { themedStyles, useTheme } from './theme';
 
@@ -10,7 +10,9 @@ interface Props {
   size: number;
   flipped: boolean;
   selected: Square | null;
-  targets: LegalMove[];
+  targets: Move[];
+  /** Style targets as cheat moves (purple) instead of legal moves. */
+  cheatMode?: boolean;
   lastMove: Move | null;
   hint?: Move | null;
   kingsInDanger: Square[];
@@ -25,7 +27,7 @@ interface Props {
 
 const ANIM_MS = 170;
 
-export function Board({ board, size, flipped, selected, targets, lastMove, hint, kingsInDanger, kingMarks, onSquarePress, disabled, animate, animationKey }: Props) {
+export function Board({ board, size, flipped, selected, targets, cheatMode, lastMove, hint, kingsInDanger, kingMarks, onSquarePress, disabled, animate, animationKey }: Props) {
   const styles = useStyles();
   const theme = useTheme();
   const square = size / 8;
@@ -120,11 +122,14 @@ export function Board({ board, size, flipped, selected, targets, lastMove, hint,
                 style={[
                   StyleSheet.absoluteFill,
                   styles.captureRing,
+                  cheatMode && styles.cheatRing,
                   { borderRadius: square / 2, borderWidth: square * 0.09 },
                 ]}
               />
             ) : (
-              <View style={[styles.dot, { width: square * 0.3, height: square * 0.3, borderRadius: square * 0.15 }]} />
+              <View
+                style={[styles.dot, cheatMode && styles.cheatDot, { width: square * 0.3, height: square * 0.3, borderRadius: square * 0.15 }]}
+              />
             ))}
         </Pressable>,
       );
@@ -178,6 +183,8 @@ const useStyles = themedStyles((theme) => ({
   cell: { alignItems: 'center', justifyContent: 'center' },
   dot: { position: 'absolute', backgroundColor: theme.board.target },
   captureRing: { borderColor: theme.board.capture },
+  cheatRing: { borderColor: 'rgba(160, 60, 220, 0.75)' },
+  cheatDot: { backgroundColor: 'rgba(160, 60, 220, 0.6)' },
   check: { backgroundColor: theme.board.check },
   hint: { borderColor: theme.board.hint },
   crown: { position: 'absolute', top: 2, right: 2, borderWidth: 1, borderColor: 'rgba(0,0,0,0.5)' },

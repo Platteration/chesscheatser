@@ -10,12 +10,17 @@ import { PASS_MOVE, type Board, type Color, type Move } from '../engine/types';
 export type GameEvent =
   | { type: 'move'; move: Move }
   | { type: 'pass' }
-  | { type: 'accuse'; caught: boolean };
+  /** The human calls out the computer's last move (default), or the computer catches the human's (`by: 'ai'`). */
+  | { type: 'accuse'; caught: boolean; by?: 'ai' };
 
 export interface CheatStats {
+  /** Computer cheats played / caught by the human. */
   made: number;
   caught: number;
   falseAccusations: number;
+  /** Human cheats played / caught by the computer. */
+  humanMade: number;
+  humanCaught: number;
 }
 
 export interface Folded {
@@ -41,7 +46,7 @@ export function fold(setup: Setup, events: GameEvent[], aiColor: Color | null): 
   const moveList: Move[] = [];
   const boards: Board[] = [pos.board.slice()];
   const snap = () => boards.push(pos.board.slice());
-  const cheats: CheatStats = { made: 0, caught: 0, falseAccusations: 0 };
+  const cheats: CheatStats = { made: 0, caught: 0, falseAccusations: 0, humanMade: 0, humanCaught: 0 };
   let bonus: Color | null = null;
   let lastBy: Color | null = null;
   let caughtMove: Move | null = null;
@@ -53,7 +58,10 @@ export function fold(setup: Setup, events: GameEvent[], aiColor: Color | null): 
         pos.makeMove(e.move);
         moveList.push(e.move);
         snap();
-        if (e.move.cheat) cheats.made++;
+        if (e.move.cheat) {
+          if (aiColor !== null && lastBy !== aiColor) cheats.humanMade++;
+          else cheats.made++;
+        }
         break;
       case 'pass':
         pos.makeMove(PASS_MOVE);
@@ -63,6 +71,20 @@ export function fold(setup: Setup, events: GameEvent[], aiColor: Color | null): 
         break;
       case 'accuse':
         if (aiColor === null) break;
+        if (e.by === 'ai') {
+          // The computer caught the human cheating: the move comes off, the human skips, the computer moves twice.
+          if (e.caught) {
+            pos.unmakeMove();
+            caughtMove = moveList.pop() ?? null;
+            boards.pop();
+            pos.makeMove(PASS_MOVE);
+            moveList.push(PASS_MOVE);
+            snap();
+            cheats.humanCaught++;
+            bonus = aiColor;
+          }
+          break;
+        }
         if (e.caught) {
           // The illegal move comes off the board and the cheater forfeits its turn.
           pos.unmakeMove();

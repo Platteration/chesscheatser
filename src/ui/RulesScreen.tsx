@@ -46,6 +46,7 @@ const SECTIONS: { title: string; body: string[] }[] = [
       'Right after the computer moves, press "Cheater!" if you think the move was illegal. If you are right, the move is undone, the computer forfeits that turn, and you get two moves in a row.',
       'Accuse a legal move and the computer gets two moves in a row instead, so only call it when you are sure. Every cheat is revealed at the end of the game.',
       'Only the computer\'s most recent move can be called out, so it never cheats on the first half of a double move.',
+      'Turn on "You can cheat" and you get one illegal move per game. Press Cheat, pick a piece, and slide it somewhere it cannot go. The computer notices more often on harder levels and for blatant cheats; if it does, your move is undone, you skip a turn, and it moves twice.',
     ],
   },
   {
