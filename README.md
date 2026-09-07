@@ -58,6 +58,16 @@ Cheats are revealed at the end of the game.
 - The current game is saved automatically and can be resumed from the home screen.
 - Win/loss/draw record against the computer.
 
+## Monetization (scaffold)
+
+`src/entitlements.tsx` holds a small entitlement layer behind a `StoreProvider`
+interface. The bundled provider is a **local mock** (purchases are recorded on
+the device only) so the UI can be built and tested; swap in a real store
+provider (e.g. `react-native-iap` / `expo-iap` with App Store and Google Play
+products) before release. Pro is a one-time unlock covering unlimited hints,
+all board and piece styles, and mid-game review. It never affects the
+computer's strength.
+
 ## Tech
 
 - [Expo](https://expo.dev) SDK 57 / React Native, TypeScript. No native code to maintain.

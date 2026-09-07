@@ -13,19 +13,28 @@ import { loadJSON, remove, saveJSON, STORAGE_KEYS } from './src/storage';
 import { GameScreen, type GameOutcome } from './src/ui/GameScreen';
 import { HomeScreen } from './src/ui/HomeScreen';
 import { RulesScreen } from './src/ui/RulesScreen';
+import { EntitlementsProvider } from './src/entitlements';
 import { SettingsProvider, useSettings } from './src/settings';
+import { ProScreen } from './src/ui/ProScreen';
 import { useTheme } from './src/ui/theme';
 
-type Screen = { name: 'home' } | { name: 'rules' } | { name: 'puzzles' } | { name: 'game'; start: StartOptions; key: number };
+type Screen =
+  | { name: 'home' }
+  | { name: 'rules' }
+  | { name: 'puzzles' }
+  | { name: 'pro' }
+  | { name: 'game'; start: StartOptions; key: number };
 
 const PUZZLES = loadPuzzles();
 
 export default function App() {
   return (
     <SettingsProvider>
-      <SafeAreaProvider>
-        <Root />
-      </SafeAreaProvider>
+      <EntitlementsProvider>
+        <SafeAreaProvider>
+          <Root />
+        </SafeAreaProvider>
+      </EntitlementsProvider>
     </SettingsProvider>
   );
 }
@@ -160,10 +169,20 @@ function Root() {
     );
   } else if (screen.name === 'game') {
     content = (
-      <GameScreen key={screen.key} start={screen.start} onExit={goHome} onSave={onSave} onFinished={onFinished} dailyStreak={daily.streak} />
+      <GameScreen
+        key={screen.key}
+        start={screen.start}
+        onExit={goHome}
+        onSave={onSave}
+        onFinished={onFinished}
+        dailyStreak={daily.streak}
+        onPro={() => setScreen({ name: 'pro' })}
+      />
     );
   } else if (screen.name === 'rules') {
     content = <RulesScreen onBack={goHome} />;
+  } else if (screen.name === 'pro') {
+    content = <ProScreen onBack={goHome} />;
   } else if (screen.name === 'puzzles') {
     content = <PuzzleScreen puzzles={PUZZLES} progress={puzzleProgress} onSolved={onPuzzleSolved} onBack={goHome} />;
   } else {
@@ -179,6 +198,7 @@ function Root() {
         onResume={saved ? resume : undefined}
         onRules={() => setScreen({ name: 'rules' })}
         onPuzzles={() => setScreen({ name: 'puzzles' })}
+        onPro={() => setScreen({ name: 'pro' })}
         puzzlesSolved={puzzleProgress.solved.length}
         puzzleCount={PUZZLES.length}
         stats={stats}

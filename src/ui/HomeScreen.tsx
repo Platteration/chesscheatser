@@ -7,6 +7,7 @@ import type { MaterialMode } from '../engine/setup';
 import { ARMY_SIZES, type ArmySize, type ClockMinutes, type GameConfig, type GameMode, type PlayAs, type Stats } from '../game/config';
 import { todayKey, type DailyState } from '../game/daily';
 import { ladderParams, type LadderState } from '../game/ladder';
+import { useEntitlements } from '../entitlements';
 import { useSettings, type BoardTheme, type ColorSchemeSetting, type PieceStyle } from '../settings';
 import { Button, Card, Label, Segmented } from './components';
 import { BOARD_THEMES } from './theme';
@@ -24,6 +25,7 @@ interface Props {
   onResume?: () => void;
   onRules: () => void;
   onPuzzles: () => void;
+  onPro: () => void;
   puzzlesSolved: number;
   puzzleCount: number;
   stats: Stats;
@@ -42,11 +44,14 @@ const MATERIAL_HINT: Record<MaterialMode, string> = {
   handicap: 'Used by the ranked ladder.',
 };
 
-export function HomeScreen({ config, onChange, onStart, onDaily, daily, onRanked, ladder, onResume, onRules, onPuzzles, puzzlesSolved, puzzleCount, stats }: Props) {
+const PRO_BOARDS: BoardTheme[] = ['slate', 'neon'];
+
+export function HomeScreen({ config, onChange, onStart, onDaily, daily, onRanked, ladder, onResume, onRules, onPuzzles, onPro, puzzlesSolved, puzzleCount, stats }: Props) {
   const styles = useStyles();
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const { settings, update } = useSettings();
+  const { isPro } = useEntitlements();
   const set = <K extends keyof GameConfig>(key: K, value: GameConfig[K]) => onChange({ ...config, [key]: value });
   const size = ARMY_SIZES[config.armySize];
 
@@ -170,19 +175,22 @@ export function HomeScreen({ config, onChange, onStart, onDaily, daily, onRanked
             { value: 'light', label: 'Light' },
           ]}
         />
-        <Label>Board</Label>
+        <Label hint={isPro ? undefined : 'Slate, Neon and Classic print are part of Pro.'}>Board</Label>
         <Segmented<BoardTheme>
           value={settings.boardTheme}
-          onChange={(v) => update({ boardTheme: v })}
-          options={(Object.keys(BOARD_THEMES) as BoardTheme[]).map((k) => ({ value: k, label: BOARD_THEMES[k].label }))}
+          onChange={(v) => (isPro || !PRO_BOARDS.includes(v) ? update({ boardTheme: v }) : onPro())}
+          options={(Object.keys(BOARD_THEMES) as BoardTheme[]).map((k) => ({
+            value: k,
+            label: BOARD_THEMES[k].label + (!isPro && PRO_BOARDS.includes(k) ? ' 🔒' : ''),
+          }))}
         />
         <Label>Pieces</Label>
         <Segmented<PieceStyle>
           value={settings.pieceStyle}
-          onChange={(v) => update({ pieceStyle: v })}
+          onChange={(v) => (isPro || v === 'solid' ? update({ pieceStyle: v }) : onPro())}
           options={[
             { value: 'solid', label: 'Solid' },
-            { value: 'classic', label: 'Classic print' },
+            { value: 'classic', label: isPro ? 'Classic print' : 'Classic print 🔒' },
           ]}
         />
         <Label>Feedback</Label>
@@ -201,6 +209,7 @@ export function HomeScreen({ config, onChange, onStart, onDaily, daily, onRanked
       <Button title="New game" onPress={onStart} style={styles.start} />
       <Button title={`Puzzles · ${puzzlesSolved}/${puzzleCount} solved`} variant="secondary" onPress={onPuzzles} />
       <Button title="How to play" variant="secondary" onPress={onRules} />
+      <Button title={isPro ? 'Two Kings Pro ✓' : 'Two Kings Pro'} variant="ghost" onPress={onPro} />
 
       <Text style={styles.stats}>
         Versus computer: {stats.wins} W · {stats.losses} L · {stats.draws} D

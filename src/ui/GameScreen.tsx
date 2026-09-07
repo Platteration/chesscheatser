@@ -10,6 +10,7 @@ import { useGame, type GameState, type StartOptions } from '../game/useGame';
 import { Board } from './Board';
 import { Button } from './components';
 import { CHESS_FONT, GLYPH } from './PieceGlyph';
+import { FREE_HINTS_PER_GAME, useEntitlements } from '../entitlements';
 import { haptics } from '../haptics';
 import { playSound } from '../sounds';
 import { PromotionPicker } from './PromotionPicker';
@@ -22,6 +23,7 @@ interface Props {
   onFinished: (outcome: GameOutcome) => void;
   /** Current daily streak, shown when sharing a daily result. */
   dailyStreak?: number;
+  onPro?: () => void;
 }
 
 export interface GameOutcome {
@@ -38,7 +40,10 @@ const COLOR_NAME: Record<Color, string> = { w: 'White', b: 'Black' };
 const DIFFICULTY_LABEL = { easy: 'Easy', medium: 'Medium', hard: 'Hard' } as const;
 const MATERIAL_LABEL = { chaos: 'Chaos', fair: 'Fair', mirror: 'Mirror', handicap: 'Ranked' } as const;
 
-export function GameScreen({ start, onExit, onSave, onFinished, dailyStreak = 0 }: Props) {
+export function GameScreen({ start, onExit, onSave, onFinished, dailyStreak = 0, onPro }: Props) {
+  const { isPro } = useEntitlements();
+  const [hintsUsed, setHintsUsed] = useState(0);
+  useEffect(() => setHintsUsed(0), [start]);
   const styles = useStyles();
   const theme = useTheme();
   const { state, play, playCheat, accuse, undo, newGame, rematch, resign, getHint } = useGame(start, onSave);
@@ -132,12 +137,18 @@ export function GameScreen({ start, onExit, onSave, onFinished, dailyStreak = 0 
   useEffect(() => setViewPly(null), [state.moves.length]);
   const reviewing = viewPly !== null && viewPly < state.boards.length - 1;
   const shownBoard = reviewing ? state.boards[viewPly] : state.board;
+  const hintsLeft = isPro ? Infinity : Math.max(0, FREE_HINTS_PER_GAME - hintsUsed);
   const onHint = useCallback(() => {
+    if (hintsLeft <= 0) {
+      onPro?.();
+      return;
+    }
     setHinting(true);
+    setHintsUsed((n) => n + 1);
     getHint()
       .then((m) => setHint(m))
       .finally(() => setHinting(false));
-  }, [getHint]);
+  }, [getHint, hintsLeft, onPro]);
 
   const targets = useMemo(() => {
     if (selected === null) return [];
@@ -235,7 +246,7 @@ export function GameScreen({ start, onExit, onSave, onFinished, dailyStreak = 0 
       </View>
 
       <MoveList state={state} />
-      {state.moves.length > 0 && (
+      {state.moves.length > 0 && (isPro || state.gameOver) && (
         <View style={styles.scrubber}>
           <Button title="⏮" variant="ghost" small onPress={() => setViewPly(0)} disabled={viewPly === 0} />
           <Button
@@ -279,7 +290,13 @@ export function GameScreen({ start, onExit, onSave, onFinished, dailyStreak = 0 
             disabled={state.thinking || !humanTurn || reviewing}
           />
         )}
-        <Button title={hinting ? '…' : 'Hint'} variant="secondary" small onPress={onHint} disabled={state.gameOver || state.thinking || hinting || !humanTurn} />
+        <Button
+          title={hinting ? '…' : isPro ? 'Hint' : `Hint (${hintsLeft})`}
+          variant="secondary"
+          small
+          onPress={onHint}
+          disabled={state.gameOver || state.thinking || hinting || !humanTurn}
+        />
         <Button title="Undo" variant="secondary" small onPress={undo} disabled={state.moves.length === 0 || state.thinking} />
         <Button title="New armies" variant="secondary" small onPress={() => newGame()} />
         {state.gameOver ? (
