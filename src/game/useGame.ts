@@ -53,6 +53,7 @@ export interface GameState {
   /** Illegal moves the human may play right now (empty unless player cheating is on and unused). */
   cheatMoves: Move[];
   humanCheatsLeft: number;
+  gameId: number;
 }
 
 export const HUMAN_CHEATS_PER_GAME = 1;
@@ -129,11 +130,14 @@ function sanitizeEvents(setup: Setup, events: GameEvent[] | undefined, aiColor: 
 export function useGame(initial: StartOptions, onSave?: (saved: SavedGame | null) => void) {
   const [config, setConfig] = useState<GameConfig>(initial.config);
   const [humanColor, setHumanColor] = useState<Color>(initial.humanColor ?? resolveHumanColor(initial.config));
+  const [handicap, setHandicap] = useState<number | undefined>(initial.handicap);
   const [setup, setSetup] = useState<Setup>(() => buildSetup(initial.config, initial.seed, initial.handicap));
   const aiColor: Color | null = config.mode === 'ai' ? opposite(humanColor) : null;
   const [events, setEvents] = useState<GameEvent[]>(() =>
-    initial.seed === undefined ? [] : sanitizeEvents(buildSetup(initial.config, initial.seed, initial.handicap), initial.events, aiColor),
+    initial.seed === undefined ? [] : sanitizeEvents(setup, initial.events, aiColor),
   );
+  /** Increments on every new game or rematch, so callers can tell games with the same seed apart. */
+  const [gameId, setGameId] = useState(0);
   const [thinking, setThinking] = useState(false);
   const [resigned, setResigned] = useState<Color | null>(null);
   const [daily, setDaily] = useState<string | null>(initial.daily ?? null);
@@ -147,7 +151,8 @@ export function useGame(initial: StartOptions, onSave?: (saved: SavedGame | null
   // Depends only on the position, so effects can use it without churning on unrelated state changes.
   const captured = useMemo(() => capturedSummary(setup.board, folded.pos.board), [setup, folded]);
 
-  const state: GameState = useMemo(() => {
+  // Everything that derives from the position alone.
+  const derived = useMemo(() => {
     const pos = folded.pos;
     const legal = pos.legalMoves();
     const result = pos.result(legal);
@@ -166,10 +171,10 @@ export function useGame(initial: StartOptions, onSave?: (saved: SavedGame | null
         break;
       }
     }
-    const gameOver = result.kind !== 'ongoing' || resigned !== null || flagged !== null;
+    const positionOver = result.kind !== 'ongoing';
     const humanCheatsLeft = Math.max(0, HUMAN_CHEATS_PER_GAME - folded.cheats.humanMade);
     let cheatMoves: Move[] = [];
-    if (config.playerCheats && aiColor !== null && pos.turn === humanColor && humanCheatsLeft > 0 && !gameOver) {
+    if (config.playerCheats && aiColor !== null && pos.turn === humanColor && humanCheatsLeft > 0 && !positionOver) {
       const me = pos.turn;
       cheatMoves = cheatCandidates(pos).filter((m) => {
         pos.makeMove(m);
@@ -183,11 +188,23 @@ export function useGame(initial: StartOptions, onSave?: (saved: SavedGame | null
       turn: pos.turn,
       legal,
       result,
+      positionOver,
       moves: folded.moveList,
       boards: folded.boards,
       lastMove,
       kingsInDanger,
       kingMarks,
+      cheatMoves,
+      humanCheatsLeft,
+    };
+  }, [folded, config.playerCheats, humanColor, aiColor]);
+
+  const state: GameState = useMemo(() => {
+    const gameOver = derived.positionOver || resigned !== null || flagged !== null;
+    const { positionOver: _ignored, ...rest } = derived;
+    return {
+      ...rest,
+      cheatMoves: gameOver ? [] : derived.cheatMoves,
       captured,
       setup,
       humanColor,
@@ -204,10 +221,9 @@ export function useGame(initial: StartOptions, onSave?: (saved: SavedGame | null
       caughtMove: folded.caughtMove,
       daily,
       ranked,
-      cheatMoves,
-      humanCheatsLeft,
+      gameId,
     };
-  }, [folded, captured, setup, humanColor, config, thinking, resigned, flagged, clocks, daily, ranked, aiColor]);
+  }, [derived, folded, captured, setup, humanColor, config, thinking, resigned, flagged, clocks, daily, ranked, gameId]);
 
   // Pass-and-play clock: runs for the side to move once the first move has been made.
   const clockActive = (config.clock ?? 0) > 0 && config.mode === 'local' && !state.gameOver && events.length > 0;
@@ -227,12 +243,24 @@ export function useGame(initial: StartOptions, onSave?: (saved: SavedGame | null
     if (clockActive && clocks[state.turn] <= 0) setFlagged(state.turn);
   }, [clockActive, clocks, state.turn]);
 
-  // Persist after every change.
+  // Persist after every change. Clock time is read through a ref so the 200ms
+  // tick does not rewrite the whole game; it is saved whenever the turn changes.
+  const clocksRef = useRef(clocks);
+  clocksRef.current = clocks;
   useEffect(() => {
     if (!onSave) return;
     if (state.gameOver) onSave(null);
-    else onSave({ config, seed: setup.seed, humanColor, events, daily: daily ?? undefined, ranked: ranked ?? undefined, clocks: config.clock ? clocks : undefined });
-  }, [state.gameOver, onSave, config, setup.seed, humanColor, events, daily, ranked, clocks]);
+    else
+      onSave({
+        config,
+        seed: setup.seed,
+        humanColor,
+        events,
+        daily: daily ?? undefined,
+        ranked: ranked ?? undefined,
+        clocks: config.clock ? clocksRef.current : undefined,
+      });
+  }, [state.gameOver, onSave, config, setup.seed, humanColor, events, daily, ranked]);
 
   const append = useCallback((e: GameEvent) => setEvents((prev) => [...prev, e]), []);
 
@@ -303,14 +331,20 @@ export function useGame(initial: StartOptions, onSave?: (saved: SavedGame | null
   }, [state.canAccuse, folded.lastEvent, append]);
 
   const undo = useCallback(() => {
+    if (flagged) return; // a lost clock cannot be wound back
     setResigned(null);
     setEvents((prev) => undoEvents(setup, prev, aiColor));
-  }, [setup, aiColor]);
+  }, [setup, aiColor, flagged]);
 
-  const reset = useCallback((cfg: GameConfig, seed: number | undefined, color: Color) => {
-    setConfig(cfg);
+  const reset = useCallback((cfg: GameConfig, seed: number | undefined, color: Color, nextHandicap?: number) => {
+    // A ranked (handicap) army set only makes sense with its ratio; new armies fall back to fair play.
+    const material = cfg.material === 'handicap' && nextHandicap === undefined ? 'fair' : cfg.material;
+    const finalCfg = material === cfg.material ? cfg : { ...cfg, material };
+    setConfig(finalCfg);
     setHumanColor(color);
-    setSetup(buildSetup(cfg, seed));
+    setHandicap(nextHandicap);
+    setSetup(buildSetup(finalCfg, seed, nextHandicap));
+    setGameId((n) => n + 1);
     setEvents([]);
     setResigned(null);
     setFlagged(null);
@@ -330,8 +364,8 @@ export function useGame(initial: StartOptions, onSave?: (saved: SavedGame | null
 
   /** Same seed and armies; against the computer the human takes the other colour. */
   const rematch = useCallback(() => {
-    reset(config, setup.seed, config.mode === 'ai' ? opposite(humanColor) : humanColor);
-  }, [config, setup.seed, humanColor, reset]);
+    reset(config, setup.seed, config.mode === 'ai' ? opposite(humanColor) : humanColor, handicap);
+  }, [config, setup.seed, humanColor, handicap, reset]);
 
   /** A decent legal move for the side to move (medium-strength search, UI-yielding). */
   const getHint = useCallback(async (): Promise<Move | null> => {

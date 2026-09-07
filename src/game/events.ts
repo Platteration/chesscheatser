@@ -138,6 +138,9 @@ export function undoEvents(setup: Setup, events: GameEvent[], aiColor: Color | n
     const last = evs[evs.length - 1];
     evs = evs.slice(0, -1);
     if (last.type === 'move' && before.lastBy === human) poppedHumanMove = true;
+    // Popping an accusation exposes the move it judged; keep going until a
+    // further human move is gone so that exchange cannot be replayed.
+    if (last.type === 'accuse') poppedHumanMove = false;
     const after = fold(setup, evs, aiColor);
     if (poppedHumanMove && after.pos.turn === human && after.lastEvent?.type !== 'accuse') break;
   }

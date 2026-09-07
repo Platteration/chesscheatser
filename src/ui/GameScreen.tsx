@@ -46,7 +46,7 @@ export function GameScreen({ start, onExit, onSave, onFinished, dailyStreak = 0,
   const styles = useStyles();
   const theme = useTheme();
   const { state, play, playCheat, accuse, undo, newGame, rematch, resign, getHint } = useGame(start, onSave);
-  useEffect(() => setHintsUsed(0), [state.setup.seed, state.humanColor]);
+  useEffect(() => setHintsUsed(0), [state.gameId]);
   const [cheatMode, setCheatMode] = useState(false);
   useEffect(() => setCheatMode(false), [state.moves.length, state.turn]);
   const [hint, setHint] = useState<Move | null>(null);
@@ -66,7 +66,7 @@ export function GameScreen({ start, onExit, onSave, onFinished, dailyStreak = 0,
   // Report the outcome exactly once per finished game (vs computer only).
   useEffect(() => {
     if (!state.gameOver || state.config.mode !== 'ai') return;
-    const key = `${state.setup.seed}:${state.moves.length}:${state.resigned ?? ''}`;
+    const key = `${state.gameId}:${state.setup.seed}:${state.moves.length}:${state.resigned ?? ''}:${state.flagged ?? ''}`;
     if (reported.current === key) return;
     reported.current = key;
     onFinished(outcomeOf(state));
@@ -297,7 +297,7 @@ export function GameScreen({ start, onExit, onSave, onFinished, dailyStreak = 0,
           onPress={onHint}
           disabled={state.gameOver || state.thinking || hinting || !humanTurn}
         />
-        <Button title="Undo" variant="secondary" small onPress={undo} disabled={state.moves.length === 0 || state.thinking} />
+        <Button title="Undo" variant="secondary" small onPress={undo} disabled={state.moves.length === 0 || state.thinking || state.flagged !== null} />
         <Button title="New armies" variant="secondary" small onPress={() => newGame()} />
         {state.gameOver ? (
           <Button title="Result" variant="secondary" small onPress={() => setShowResult(true)} />
@@ -487,7 +487,11 @@ function cheatReport(state: GameState): string {
   const { made, caught, falseAccusations } = state.cheats;
   const parts: string[] = [];
   parts.push(made === 0 ? 'The computer never cheated.' : `The computer cheated ${made} time${made === 1 ? '' : 's'} and you caught ${caught}.`);
-  const missed = state.moves.filter((m) => m.cheat).map((m) => `${moveToSAN(m)} (${CHEAT_LABEL[m.cheat!]})`);
+  // Every move-list entry flips the turn, so the mover of entry i is white for even i.
+  const aiColor = opposite(state.humanColor);
+  const missed = state.moves
+    .filter((m, i) => m.cheat && (i % 2 === 0 ? 'w' : 'b') === aiColor)
+    .map((m) => `${moveToSAN(m)} (${CHEAT_LABEL[m.cheat!]})`);
   if (missed.length) parts.push(`Got away with: ${missed.join(', ')}.`);
   if (falseAccusations) parts.push(`False accusation${falseAccusations === 1 ? '' : 's'}: ${falseAccusations}.`);
   const { humanMade, humanCaught } = state.cheats;

@@ -48,7 +48,7 @@ export interface DailyState {
 
 export const EMPTY_DAILY: DailyState = { results: {}, streak: 0, lastPlayed: null };
 
-function previousDay(key: string): string {
+export function previousDay(key: string): string {
   const [y, m, d] = key.split('-').map(Number);
   return todayKey(new Date(y, m - 1, d - 1));
 }
@@ -57,6 +57,12 @@ export function recordDaily(state: DailyState, rec: DailyRecord): DailyState {
   if (state.results[rec.date]) return state; // first result of the day stands
   const streak = state.lastPlayed === previousDay(rec.date) ? state.streak + 1 : 1;
   return { results: { ...state.results, [rec.date]: rec }, streak, lastPlayed: rec.date };
+}
+
+/** The streak as it should be displayed today: only alive if the last daily was today or yesterday. */
+export function liveStreak(state: DailyState, today = todayKey()): number {
+  if (state.lastPlayed === today || state.lastPlayed === previousDay(today)) return state.streak;
+  return 0;
 }
 
 /** Text for the share sheet. */

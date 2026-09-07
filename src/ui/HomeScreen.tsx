@@ -5,7 +5,7 @@ import type { Difficulty } from '../engine/ai';
 import type { CheatLevel } from '../engine/cheat';
 import type { MaterialMode } from '../engine/setup';
 import { ARMY_SIZES, type ArmySize, type ClockMinutes, type GameConfig, type GameMode, type PlayAs, type Stats } from '../game/config';
-import { todayKey, type DailyState } from '../game/daily';
+import { liveStreak, todayKey, type DailyState } from '../game/daily';
 import { ladderParams, type LadderState } from '../game/ladder';
 import { useEntitlements } from '../entitlements';
 import { useSettings, type BoardTheme, type ColorSchemeSetting, type PieceStyle } from '../settings';
@@ -229,7 +229,7 @@ function DailyCard({ daily, onDaily }: { daily: DailyState; onDaily: () => void 
         ? `Lost today after ${rec.moves} moves`
         : `Drew today after ${rec.moves} moves`
     : 'Same armies for everyone, once a day. Fair, medium, occasional cheating.';
-  const streak = daily.lastPlayed === today || daily.streak > 0 ? daily.streak : 0;
+  const streak = liveStreak(daily, today);
   return (
     <View style={styles.dailyCard}>
       <View style={{ flex: 1 }}>

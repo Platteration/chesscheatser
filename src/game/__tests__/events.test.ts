@@ -118,6 +118,34 @@ describe('undoEvents', () => {
     expect(fold(setup, after, ai).pos.turn).toBe('w');
   });
 
+  it('never lands on an already-judged cheat, even two undos later', () => {
+    const events: GameEvent[] = [
+      mv('e2', 'e3'),
+      mv('e7', 'e4', 'p', { cheat: 'pawn' }),
+      { type: 'accuse', caught: true },
+      mv('d2', 'd3'),
+      { type: 'pass' },
+      mv('c2', 'c3'),
+      mv('a7', 'a6'),
+    ];
+    const once = undoEvents(setup, events, ai);
+    expect(once).toHaveLength(5);
+    const twice = undoEvents(setup, once, ai);
+    expect(twice).toHaveLength(0);
+    expect(fold(setup, twice, ai).canAccuse).toBe(false);
+  });
+
+  it('rolls a caught human cheat and the computer double move back as a unit', () => {
+    const events: GameEvent[] = [
+      mv('e2', 'e5', 'p', { cheat: 'pawn' }),
+      { type: 'accuse', caught: true, by: 'ai' },
+      mv('e7', 'e6'),
+      { type: 'pass' },
+      mv('d7', 'd6'),
+    ];
+    expect(undoEvents(setup, events, ai)).toHaveLength(0);
+  });
+
   it('pass-and-play undoes a single ply', () => {
     const events: GameEvent[] = [mv('e2', 'e3'), mv('e7', 'e6')];
     expect(undoEvents(setup, events, null)).toHaveLength(1);

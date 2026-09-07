@@ -53,7 +53,8 @@ function PuzzlePlayer({ puzzles, progress, onSolved, onBack }: Props) {
   const firstUnsolved = Math.max(0, puzzles.findIndex((p) => !solved.has(p.id)));
   const [index, setIndex] = useState(firstUnsolved);
   const puzzle = puzzles[index];
-  const posRef = useRef<Position>(puzzlePosition(puzzle));
+  const posRef = useRef<Position | null>(null);
+  if (posRef.current === null) posRef.current = puzzlePosition(puzzle);
   const [tick, setTick] = useState(0);
   const [phase, setPhase] = useState<Phase>('solve');
   const [selected, setSelected] = useState<Square | null>(null);
@@ -75,7 +76,7 @@ function PuzzlePlayer({ puzzles, progress, onSolved, onBack }: Props) {
 
   useEffect(() => reset(index), [index, reset]);
 
-  const pos = posRef.current;
+  const pos = posRef.current!;
   const legal = useMemo(() => (phase === 'solve' || phase === 'finish' ? pos.legalMoves() : []), [pos, phase, tick]);
   const targets = useMemo(() => (selected === null ? [] : legal.filter((m) => m.from === selected)), [legal, selected]);
   const kingMarks = useMemo(() => {
@@ -91,7 +92,7 @@ function PuzzlePlayer({ puzzles, progress, onSolved, onBack }: Props) {
 
   const apply = useCallback(
     (m: LegalMove) => {
-      const p = posRef.current;
+      const p = posRef.current!;
       setSelected(null);
       if (phase === 'solve') {
         if (!isSolution(puzzle, p, m)) {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dailySeed, EMPTY_DAILY, recordDaily, shareText, todayKey } from '../daily';
+import { dailySeed, EMPTY_DAILY, liveStreak, recordDaily, shareText, todayKey } from '../daily';
 
 describe('daily challenge', () => {
   it('derives a stable seed from the date', () => {
@@ -18,5 +18,12 @@ describe('daily challenge', () => {
     expect(s.streak).toBe(1);
     expect(shareText(s.results['2026-09-06'], 2)).toContain('missed: 1');
     expect(shareText(s.results['2026-09-06'], 2)).toContain('2-day streak');
+  });
+
+  it('only shows a streak that is still alive', () => {
+    const s = { ...EMPTY_DAILY, streak: 5, lastPlayed: '2026-08-20' };
+    expect(liveStreak(s, '2026-09-07')).toBe(0);
+    expect(liveStreak(s, '2026-08-21')).toBe(5);
+    expect(liveStreak(s, '2026-08-20')).toBe(5);
   });
 });
