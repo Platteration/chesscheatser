@@ -127,6 +127,7 @@ function Root() {
         daily: saved.daily,
         ranked: saved.ranked,
         handicap: saved.ranked ? ladderParams(saved.ranked).handicap : undefined,
+        clocks: saved.clocks,
       },
       key: Date.now(),
     });

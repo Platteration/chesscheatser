@@ -121,3 +121,30 @@ describe('chooseCheat / chooseAction', () => {
     expect(pos.moveCount).toBe(0);
   });
 });
+
+describe('resurrect and hop cheats', () => {
+  it('spawns a captured piece on an empty home square and unmakes cleanly', () => {
+    const pos = new Position(boardFromString('k6k/8/8/8/8/8/8/K6K'), 'w');
+    const key = pos.key();
+    const cands = cheatCandidates(pos, ['q', 'p', 'k']);
+    const spawns = cands.filter((c) => c.cheat === 'resurrect');
+    expect(spawns.length).toBeGreaterThan(0);
+    expect(spawns.every((c) => c.from === -1 && c.piece !== 'k')).toBe(true);
+    // Pawns only on rank 2, queens on ranks 1-2, never on occupied squares.
+    expect(spawns.filter((c) => c.piece === 'p').every((c) => c.to >= 8 && c.to < 16)).toBe(true);
+    expect(spawns.some((c) => c.to === parseSquare('a1'))).toBe(false);
+    const q = spawns.find((c) => c.piece === 'q' && c.to === parseSquare('d1'))!;
+    pos.makeMove(q);
+    expect(pos.board[q.to]).toEqual({ type: 'q', color: 'w' });
+    expect(pos.turn).toBe('b');
+    pos.unmakeMove();
+    expect(pos.key()).toBe(key);
+    expect(cheatCandidates(pos).some((c) => c.cheat === 'resurrect')).toBe(false);
+  });
+
+  it('lets a king hop over a neighbouring piece', () => {
+    const pos = new Position(boardFromString('k6k/8/8/8/8/8/4P3/4K2K'), 'w');
+    const hop = cheatCandidates(pos).find((c) => c.piece === 'k' && c.from === parseSquare('e1') && c.to === parseSquare('e3'));
+    expect(hop?.cheat).toBe('jump');
+  });
+});

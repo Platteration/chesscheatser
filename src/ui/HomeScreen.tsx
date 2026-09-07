@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Difficulty } from '../engine/ai';
 import type { CheatLevel } from '../engine/cheat';
 import type { MaterialMode } from '../engine/setup';
-import { ARMY_SIZES, type ArmySize, type GameConfig, type GameMode, type PlayAs, type Stats } from '../game/config';
+import { ARMY_SIZES, type ArmySize, type ClockMinutes, type GameConfig, type GameMode, type PlayAs, type Stats } from '../game/config';
 import { todayKey, type DailyState } from '../game/daily';
 import { ladderParams, type LadderState } from '../game/ladder';
 import { useSettings, type BoardTheme, type ColorSchemeSetting, type PieceStyle } from '../settings';
@@ -106,6 +106,23 @@ export function HomeScreen({ config, onChange, onStart, onDaily, daily, onRanked
                 { value: 'off', label: 'Never' },
                 { value: 'low', label: 'Sometimes' },
                 { value: 'high', label: 'Often' },
+              ]}
+            />
+          </>
+        )}
+
+        {config.mode === 'local' && (
+          <>
+            <Label hint="Minutes per side. Run out of time and you lose.">Clock</Label>
+            <Segmented<string>
+              value={String(config.clock ?? 0)}
+              onChange={(v) => set('clock', Number(v) as ClockMinutes)}
+              options={[
+                { value: '0', label: 'None' },
+                { value: '1', label: '1' },
+                { value: '3', label: '3' },
+                { value: '5', label: '5' },
+                { value: '10', label: '10' },
               ]}
             />
           </>

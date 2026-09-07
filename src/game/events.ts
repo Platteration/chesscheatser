@@ -1,7 +1,7 @@
 import { opposite } from '../engine/board';
 import { Position } from '../engine/position';
 import type { Setup } from '../engine/setup';
-import { PASS_MOVE, type Color, type Move } from '../engine/types';
+import { PASS_MOVE, type Board, type Color, type Move } from '../engine/types';
 
 /**
  * A game is an append-only list of events replayed onto the starting setup.
@@ -26,6 +26,8 @@ export interface Folded {
   canAccuse: boolean;
   /** Moves as they should appear in the move list (a caught cheat is removed). */
   moveList: Move[];
+  /** Board after each entry of `moveList`; index 0 is the starting position. */
+  boards: Board[];
   /** Who played the most recent 'move' event. */
   lastBy: Color | null;
   lastEvent: GameEvent | null;
@@ -37,6 +39,8 @@ export interface Folded {
 export function fold(setup: Setup, events: GameEvent[], aiColor: Color | null): Folded {
   const pos = new Position(setup.board);
   const moveList: Move[] = [];
+  const boards: Board[] = [pos.board.slice()];
+  const snap = () => boards.push(pos.board.slice());
   const cheats: CheatStats = { made: 0, caught: 0, falseAccusations: 0 };
   let bonus: Color | null = null;
   let lastBy: Color | null = null;
@@ -48,11 +52,13 @@ export function fold(setup: Setup, events: GameEvent[], aiColor: Color | null): 
         lastBy = pos.turn;
         pos.makeMove(e.move);
         moveList.push(e.move);
+        snap();
         if (e.move.cheat) cheats.made++;
         break;
       case 'pass':
         pos.makeMove(PASS_MOVE);
         moveList.push(PASS_MOVE);
+        snap();
         bonus = null;
         break;
       case 'accuse':
@@ -61,8 +67,10 @@ export function fold(setup: Setup, events: GameEvent[], aiColor: Color | null): 
           // The illegal move comes off the board and the cheater forfeits its turn.
           pos.unmakeMove();
           caughtMove = moveList.pop() ?? null;
+          boards.pop();
           pos.makeMove(PASS_MOVE);
           moveList.push(PASS_MOVE);
+          snap();
           cheats.caught++;
           bonus = opposite(aiColor);
         } else {
@@ -75,7 +83,7 @@ export function fold(setup: Setup, events: GameEvent[], aiColor: Color | null): 
 
   const lastEvent = events.length ? events[events.length - 1] : null;
   const canAccuse = aiColor !== null && lastEvent?.type === 'move' && lastBy === aiColor;
-  return { pos, bonus, canAccuse, moveList, lastBy, lastEvent, cheats, caughtMove };
+  return { pos, bonus, canAccuse, moveList, boards, lastBy, lastEvent, cheats, caughtMove };
 }
 
 /** Strips a move down to the fields worth persisting. */

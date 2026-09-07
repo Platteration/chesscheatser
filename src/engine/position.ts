@@ -267,6 +267,10 @@ export class Position {
       this.makePass(m);
       return;
     }
+    if (m.from < 0) {
+      this.makeSpawn(m);
+      return;
+    }
     const board = this.board;
     const mover = board[m.from];
     if (!mover) throw new Error(`No piece on ${m.from}`);
@@ -309,6 +313,31 @@ export class Position {
     this.history.push(this.hash);
   }
 
+  /** A piece materialises on an empty square (the "resurrect" cheat). Never a king. */
+  private makeSpawn(m: Move) {
+    if (this.board[m.to] || m.piece === 'k') throw new Error('Bad spawn');
+    const placed: Piece = { type: m.piece, color: this.turn };
+    this.undoStack.push({
+      move: m,
+      mover: null,
+      captured: null,
+      capturedSquare: -1,
+      prevEp: this.ep,
+      prevHalfmove: this.halfmove,
+      prevHash: this.hash,
+    });
+    let h = this.hash ^ pieceHash(placed, m.to);
+    if (this.ep >= 0) h ^= ZOBRIST_EP[fileOf(this.ep)];
+    h ^= ZOBRIST_TURN;
+    this.hash = h | 0;
+    this.board[m.to] = placed;
+    this.ep = -1;
+    this.halfmove = 0;
+    if (this.turn === 'b') this.fullmove++;
+    this.turn = opposite(this.turn);
+    this.history.push(this.hash);
+  }
+
   private makePass(m: Move) {
     this.undoStack.push({
       move: m,
@@ -337,6 +366,9 @@ export class Position {
     const board = this.board;
     this.turn = opposite(this.turn);
     if (this.turn === 'b') this.fullmove--;
+    if (!mover && m.from < 0 && !m.pass) {
+      board[m.to] = null; // undo a spawn
+    }
     if (mover) {
       board[m.from] = mover;
       board[m.to] = null;
@@ -433,6 +465,7 @@ export class Position {
 
 export function moveToString(m: Move): string {
   if (m.pass) return '--';
+  if (m.from < 0) return m.piece.toUpperCase() + '@' + 'abcdefgh'[fileOf(m.to)] + (rankOf(m.to) + 1);
   const f = (s: Square) => 'abcdefgh'[fileOf(s)] + (rankOf(s) + 1);
   return f(m.from) + f(m.to) + (m.promotion ?? '');
 }
@@ -440,6 +473,7 @@ export function moveToString(m: Move): string {
 /** Short algebraic-ish notation for the move list. */
 export function moveToSAN(m: Move): string {
   if (m.pass) return '(skip)';
+  if (m.from < 0) return m.piece.toUpperCase() + '@' + 'abcdefgh'[fileOf(m.to)] + (rankOf(m.to) + 1);
   const to = 'abcdefgh'[fileOf(m.to)] + (rankOf(m.to) + 1);
   const cap = m.captured ? 'x' : '';
   if (m.piece === 'p') {

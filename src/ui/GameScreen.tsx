@@ -125,6 +125,11 @@ export function GameScreen({ start, onExit, onSave, onFinished, dailyStreak = 0 
   }, [state]);
 
   const [hinting, setHinting] = useState(false);
+  /** Index into state.boards while reviewing; null = live position. */
+  const [viewPly, setViewPly] = useState<number | null>(null);
+  useEffect(() => setViewPly(null), [state.moves.length]);
+  const reviewing = viewPly !== null && viewPly < state.boards.length - 1;
+  const shownBoard = reviewing ? state.boards[viewPly] : state.board;
   const onHint = useCallback(() => {
     setHinting(true);
     getHint()
@@ -192,17 +197,19 @@ export function GameScreen({ start, onExit, onSave, onFinished, dailyStreak = 0 
 
       <View style={styles.boardWrap}>
         <Board
-          board={state.board}
+          board={shownBoard}
+          animate={reviewing ? null : state.lastMove}
+          animationKey={state.moves.length}
           size={boardSize}
           flipped={isFlipped}
-          selected={selected}
-          targets={targets}
-          lastMove={state.lastMove}
-          hint={hint}
-          kingsInDanger={state.kingsInDanger}
-          kingMarks={state.kingMarks}
+          selected={reviewing ? null : selected}
+          targets={reviewing ? [] : targets}
+          lastMove={reviewing ? null : state.lastMove}
+          hint={reviewing ? null : hint}
+          kingsInDanger={reviewing ? [] : state.kingsInDanger}
+          kingMarks={reviewing ? undefined : state.kingMarks}
           onSquarePress={onSquarePress}
-          disabled={state.gameOver || !humanTurn}
+          disabled={reviewing || state.gameOver || !humanTurn}
         />
       </View>
 
@@ -214,6 +221,29 @@ export function GameScreen({ start, onExit, onSave, onFinished, dailyStreak = 0 
       </View>
 
       <MoveList state={state} />
+      {state.moves.length > 0 && (
+        <View style={styles.scrubber}>
+          <Button title="⏮" variant="ghost" small onPress={() => setViewPly(0)} disabled={viewPly === 0} />
+          <Button
+            title="◀"
+            variant="ghost"
+            small
+            onPress={() => setViewPly(Math.max(0, (viewPly ?? state.boards.length - 1) - 1))}
+            disabled={viewPly === 0}
+          />
+          <Text style={styles.scrubberText}>
+            {reviewing ? `Reviewing ${viewPly}/${state.boards.length - 1}` : `Move ${state.boards.length - 1}`}
+          </Text>
+          <Button
+            title="▶"
+            variant="ghost"
+            small
+            onPress={() => setViewPly(Math.min(state.boards.length - 1, (viewPly ?? state.boards.length - 1) + 1))}
+            disabled={!reviewing}
+          />
+          <Button title="⏭" variant="ghost" small onPress={() => setViewPly(null)} disabled={!reviewing} />
+        </View>
+      )}
 
       {state.canAccuse && state.config.cheating !== 'off' && (
         <View style={styles.accuseRow}>
@@ -285,7 +315,15 @@ function outcomeOf(state: GameState): GameOutcome {
   };
 }
 
+function formatClock(ms: number): string {
+  const total = Math.ceil(ms / 1000);
+  const m = Math.floor(total / 60);
+  const sec = total % 60;
+  return `${m}:${String(sec).padStart(2, '0')}`;
+}
+
 function winnerOf(state: GameState): Color | null {
+  if (state.flagged) return opposite(state.flagged);
   if (state.resigned) return opposite(state.resigned);
   const r = state.result;
   if (r.kind === 'checkmate' || r.kind === 'both-in-check') return r.winner;
@@ -307,6 +345,9 @@ function resultTitle(state: GameState): string {
 
 function describeStatus(state: GameState): { text: string; detail?: string; danger: boolean } {
   const r = state.result;
+  if (state.flagged) {
+    return { text: `${COLOR_NAME[state.flagged]} ran out of time. ${COLOR_NAME[opposite(state.flagged)]} wins.`, danger: false };
+  }
   if (state.resigned) {
     return { text: `${COLOR_NAME[state.resigned]} resigned. ${COLOR_NAME[opposite(state.resigned)]} wins.`, danger: false };
   }
@@ -376,6 +417,7 @@ const CHEAT_LABEL: Record<NonNullable<Move['cheat']>, string> = {
   geometry: 'moved like a different piece',
   pawn: 'pawn trick',
   upgrade: 'arrived as a queen',
+  resurrect: 'came back from the dead',
 };
 
 /** The computer's face: reacts to thinking, being caught, and the result. */
@@ -422,6 +464,9 @@ function PlayerStrip({ state, color, active }: { state: GameState; color: Color;
           {lead > 0 ? <Text style={styles.stripLead}>{`  +${lead}`}</Text> : null}
         </Text>
       </View>
+      {(state.config.clock ?? 0) > 0 && state.config.mode === 'local' && (
+        <Text style={[styles.clock, { color: state.clocks[color] < 20_000 ? theme.danger : theme.text }]}>{formatClock(state.clocks[color])}</Text>
+      )}
       <View style={styles.kingBadges}>
         {kingSquares.map(([sq, idx]) => (
           <Text
@@ -498,6 +543,9 @@ const useStyles = themedStyles((theme) => ({
   statusDanger: { color: theme.danger },
   statusDetail: { color: theme.textMuted, fontSize: 12, textAlign: 'center', marginTop: 2 },
   moves: { maxHeight: 28, marginTop: 4 },
+  scrubber: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 2 },
+  scrubberText: { color: theme.textMuted, fontSize: 12, minWidth: 110, textAlign: 'center' },
+  clock: { fontSize: 18, fontWeight: '800', fontVariant: ['tabular-nums'], marginLeft: 10 },
   movesContent: { paddingHorizontal: 12, alignItems: 'center', gap: 12 },
   moveItem: { color: theme.textMuted, fontSize: 12, fontVariant: ['tabular-nums'] },
   controls: {

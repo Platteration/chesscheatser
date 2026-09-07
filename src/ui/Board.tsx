@@ -1,7 +1,7 @@
-import React, { useMemo } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { fileOf, rankOf, sq } from '../engine/board';
-import type { Board as BoardType, LegalMove, Move, Square } from '../engine/types';
+import type { Board as BoardType, LegalMove, Move, Piece, Square } from '../engine/types';
 import { PieceGlyph } from './PieceGlyph';
 import { themedStyles, useTheme } from './theme';
 
@@ -18,12 +18,41 @@ interface Props {
   kingMarks?: Map<Square, number>;
   onSquarePress: (s: Square) => void;
   disabled?: boolean;
+  /** Move to animate (piece glides from `from` to `to`); re-triggered when `animationKey` changes. */
+  animate?: Move | null;
+  animationKey?: number;
 }
 
-export function Board({ board, size, flipped, selected, targets, lastMove, hint, kingsInDanger, kingMarks, onSquarePress, disabled }: Props) {
+const ANIM_MS = 170;
+
+export function Board({ board, size, flipped, selected, targets, lastMove, hint, kingsInDanger, kingMarks, onSquarePress, disabled, animate, animationKey }: Props) {
   const styles = useStyles();
   const theme = useTheme();
   const square = size / 8;
+
+  // Glide the moved piece between squares. Passes and spawns (from < 0) are not animated.
+  const progress = useRef(new Animated.Value(1)).current;
+  const [anim, setAnim] = useState<{ move: Move; piece: Piece } | null>(null);
+  const lastKey = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    if (animationKey === lastKey.current) return;
+    const first = lastKey.current === undefined;
+    lastKey.current = animationKey;
+    if (first || !animate || animate.from < 0 || animate.pass) return;
+    const piece = board[animate.to];
+    if (!piece) return;
+    setAnim({ move: animate, piece });
+    progress.setValue(0);
+    Animated.timing(progress, { toValue: 1, duration: ANIM_MS, useNativeDriver: true }).start(({ finished }) => {
+      if (finished) setAnim(null);
+    });
+  }, [animationKey, animate, board, progress]);
+
+  const px = (s: Square) => {
+    const col = flipped ? 7 - fileOf(s) : fileOf(s);
+    const row = flipped ? rankOf(s) : 7 - rankOf(s);
+    return { x: col * square, y: row * square };
+  };
   const targetMap = useMemo(() => {
     const m = new Map<Square, boolean>();
     for (const t of targets) m.set(t.to, !!t.captured);
@@ -45,6 +74,7 @@ export function Board({ board, size, flipped, selected, targets, lastMove, hint,
       const target = targetMap.get(s);
       const inDanger = danger.has(s);
       const isHint = !!hint && (hint.from === s || hint.to === s);
+      const hidden = !!anim && anim.move.to === s;
       cells.push(
         <Pressable
           key={s}
@@ -70,7 +100,7 @@ export function Board({ board, size, flipped, selected, targets, lastMove, hint,
               {'abcdefgh'[file]}
             </Text>
           )}
-          {piece && <PieceGlyph piece={piece} size={square} />}
+          {piece && !hidden && <PieceGlyph piece={piece} size={square} />}
           {piece?.type === 'k' && kingMarks?.has(s) && (
             <View
               style={[
@@ -106,9 +136,34 @@ export function Board({ board, size, flipped, selected, targets, lastMove, hint,
     );
   }
 
+  let overlay: React.ReactNode = null;
+  if (anim) {
+    const a = px(anim.move.from);
+    const b = px(anim.move.to);
+    overlay = (
+      <Animated.View
+        pointerEvents="none"
+        style={{
+          position: 'absolute',
+          width: square,
+          height: square,
+          alignItems: 'center',
+          justifyContent: 'center',
+          transform: [
+            { translateX: progress.interpolate({ inputRange: [0, 1], outputRange: [a.x, b.x] }) },
+            { translateY: progress.interpolate({ inputRange: [0, 1], outputRange: [a.y, b.y] }) },
+          ],
+        }}
+      >
+        <PieceGlyph piece={anim.piece} size={square} />
+      </Animated.View>
+    );
+  }
+
   return (
     <View style={[styles.board, { width: size, height: size, borderColor: theme.board.border }]}>
       {rows}
+      {overlay}
     </View>
   );
 }

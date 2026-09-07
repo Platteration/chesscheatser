@@ -23,6 +23,8 @@ export interface GameState {
   result: GameResult;
   /** Moves for the move list (passes included, caught cheats removed). */
   moves: Move[];
+  /** Board after each move-list entry (index 0 = start), for reviewing. */
+  boards: Board[];
   /** Last real move on the board, for highlighting. */
   lastMove: Move | null;
   /** Every king on the board currently attacked, regardless of side. */
@@ -35,6 +37,10 @@ export interface GameState {
   config: GameConfig;
   thinking: boolean;
   resigned: Color | null;
+  /** Side whose clock ran out. */
+  flagged: Color | null;
+  /** Remaining time per side in ms (only meaningful when config.clock > 0). */
+  clocks: Record<Color, number>;
   gameOver: boolean;
   /** Cheating mechanics. */
   canAccuse: boolean;
@@ -86,6 +92,7 @@ export interface StartOptions {
   ranked?: number;
   /** Extra generator options (ranked handicap). */
   handicap?: number;
+  clocks?: Record<Color, number>;
 }
 
 function buildSetup(config: GameConfig, seed?: number, handicap?: number): Setup {
@@ -119,6 +126,9 @@ export function useGame(initial: StartOptions, onSave?: (saved: SavedGame | null
   const [resigned, setResigned] = useState<Color | null>(null);
   const [daily, setDaily] = useState<string | null>(initial.daily ?? null);
   const [ranked, setRanked] = useState<number | null>(initial.ranked ?? null);
+  const clockMs = (initial.config.clock ?? 0) * 60_000;
+  const [clocks, setClocks] = useState<Record<Color, number>>(initial.clocks ?? { w: clockMs, b: clockMs });
+  const [flagged, setFlagged] = useState<Color | null>(null);
   const aiTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const folded = useMemo(() => fold(setup, events, aiColor), [setup, events, aiColor]);
@@ -142,13 +152,14 @@ export function useGame(initial: StartOptions, onSave?: (saved: SavedGame | null
         break;
       }
     }
-    const gameOver = result.kind !== 'ongoing' || resigned !== null;
+    const gameOver = result.kind !== 'ongoing' || resigned !== null || flagged !== null;
     return {
       board: pos.board.slice(),
       turn: pos.turn,
       legal,
       result,
       moves: folded.moveList,
+      boards: folded.boards,
       lastMove,
       kingsInDanger,
       kingMarks,
@@ -158,6 +169,8 @@ export function useGame(initial: StartOptions, onSave?: (saved: SavedGame | null
       config,
       thinking,
       resigned,
+      flagged,
+      clocks,
       gameOver,
       canAccuse: folded.canAccuse && !gameOver,
       bonus: folded.bonus,
@@ -167,14 +180,33 @@ export function useGame(initial: StartOptions, onSave?: (saved: SavedGame | null
       daily,
       ranked,
     };
-  }, [folded, setup, humanColor, config, thinking, resigned, daily, ranked]);
+  }, [folded, setup, humanColor, config, thinking, resigned, flagged, clocks, daily, ranked]);
+
+  // Pass-and-play clock: runs for the side to move once the first move has been made.
+  const clockActive = (config.clock ?? 0) > 0 && config.mode === 'local' && !state.gameOver && events.length > 0;
+  useEffect(() => {
+    if (!clockActive) return;
+    const side = state.turn;
+    let last = Date.now();
+    const id = setInterval(() => {
+      const now = Date.now();
+      const dt = now - last;
+      last = now;
+      setClocks((c) => {
+        const remaining = Math.max(0, c[side] - dt);
+        if (remaining === 0) setFlagged(side);
+        return { ...c, [side]: remaining };
+      });
+    }, 200);
+    return () => clearInterval(id);
+  }, [clockActive, state.turn]);
 
   // Persist after every change.
   useEffect(() => {
     if (!onSave) return;
     if (state.gameOver) onSave(null);
-    else onSave({ config, seed: setup.seed, humanColor, events, daily: daily ?? undefined, ranked: ranked ?? undefined });
-  }, [state.gameOver, onSave, config, setup.seed, humanColor, events, daily, ranked]);
+    else onSave({ config, seed: setup.seed, humanColor, events, daily: daily ?? undefined, ranked: ranked ?? undefined, clocks: config.clock ? clocks : undefined });
+  }, [state.gameOver, onSave, config, setup.seed, humanColor, events, daily, ranked, clocks]);
 
   const append = useCallback((e: GameEvent) => setEvents((prev) => [...prev, e]), []);
 
@@ -194,7 +226,8 @@ export function useGame(initial: StartOptions, onSave?: (saved: SavedGame | null
     // double move is always played honestly.
     const cheating = folded.bonus === aiColor ? 'off' : config.cheating;
     aiTimer.current = setTimeout(() => {
-      chooseActionAsync(folded.pos, config.difficulty, cheating, undefined, () => cancelled)
+      const lost = aiColor === 'w' ? state.captured.byBlack : state.captured.byWhite;
+      chooseActionAsync(folded.pos, config.difficulty, cheating, undefined, () => cancelled, { resurrectable: lost })
         .then((action) => {
           if (cancelled) return;
           setThinking(false);
@@ -209,7 +242,7 @@ export function useGame(initial: StartOptions, onSave?: (saved: SavedGame | null
       if (aiTimer.current) clearTimeout(aiTimer.current);
       setThinking(false);
     };
-  }, [folded, state.gameOver, state.turn, aiColor, config.difficulty, config.cheating, append]);
+  }, [folded, state.gameOver, state.turn, state.captured, aiColor, config.difficulty, config.cheating, append]);
 
   const play = useCallback(
     (m: Move) => {
@@ -239,6 +272,9 @@ export function useGame(initial: StartOptions, onSave?: (saved: SavedGame | null
     setSetup(buildSetup(cfg, seed));
     setEvents([]);
     setResigned(null);
+    setFlagged(null);
+    const ms = (cfg.clock ?? 0) * 60_000;
+    setClocks({ w: ms, b: ms });
     setDaily(null);
     setRanked(null);
   }, []);

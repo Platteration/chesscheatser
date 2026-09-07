@@ -40,6 +40,9 @@ describe('fold', () => {
     expect(f.cheats).toEqual({ made: 1, caught: 1, falseAccusations: 0 });
     expect(f.caughtMove).toEqual(cheat.type === 'move' ? cheat.move : null);
     expect(f.moveList.map((m) => !!m.pass)).toEqual([false, true]);
+    expect(f.boards).toHaveLength(3);
+    expect(f.boards[2]).toEqual(f.pos.board);
+    expect(f.boards[1][parseSquare('e3')]?.type).toBe('p');
     expect(f.canAccuse).toBe(false);
     // Human moves, then a pass gives them the board again.
     const more: GameEvent[] = [...events, mv('d2', 'd4'), { type: 'pass' }];

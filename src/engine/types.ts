@@ -10,9 +10,10 @@ export interface Piece {
 export type Square = number;
 
 /** How a move breaks the rules, when the opponent is cheating. */
-export type CheatKind = 'jump' | 'geometry' | 'pawn' | 'upgrade';
+export type CheatKind = 'jump' | 'geometry' | 'pawn' | 'upgrade' | 'resurrect';
 
 export interface Move {
+  /** Origin square, or -1 when a piece appears from off the board (resurrect cheat). */
   from: Square;
   to: Square;
   piece: PieceType;

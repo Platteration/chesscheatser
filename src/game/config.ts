@@ -16,7 +16,11 @@ export interface GameConfig {
   armySize: ArmySize;
   /** How often the computer plays an illegal move it hopes you will miss. */
   cheating: CheatLevel;
+  /** Minutes per side for pass-and-play; 0 = no clock. */
+  clock?: ClockMinutes;
 }
+
+export type ClockMinutes = 0 | 1 | 3 | 5 | 10;
 
 export const DEFAULT_CONFIG: GameConfig = {
   mode: 'ai',
@@ -44,6 +48,8 @@ export interface SavedGame {
   daily?: string;
   /** Ladder rank when this is a ranked game. */
   ranked?: number;
+  /** Remaining clock time per side in ms, when a clock is in use. */
+  clocks?: Record<Color, number>;
 }
 
 export interface Stats {
