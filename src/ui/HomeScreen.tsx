@@ -5,9 +5,11 @@ import type { Difficulty } from '../engine/ai';
 import type { CheatLevel } from '../engine/cheat';
 import type { MaterialMode } from '../engine/setup';
 import { ARMY_SIZES, type ArmySize, type GameConfig, type GameMode, type PlayAs, type Stats } from '../game/config';
+import { useSettings, type BoardTheme, type ColorSchemeSetting, type PieceStyle } from '../settings';
 import { Button, Card, Label, Segmented } from './components';
+import { BOARD_THEMES } from './theme';
 import { CHESS_FONT } from './PieceGlyph';
-import { theme } from './theme';
+import { themedStyles, useTheme } from './theme';
 
 interface Props {
   config: GameConfig;
@@ -31,7 +33,10 @@ const MATERIAL_HINT: Record<MaterialMode, string> = {
 };
 
 export function HomeScreen({ config, onChange, onStart, onResume, onRules, stats }: Props) {
+  const styles = useStyles();
+  const theme = useTheme();
   const insets = useSafeAreaInsets();
+  const { settings, update } = useSettings();
   const set = <K extends keyof GameConfig>(key: K, value: GameConfig[K]) => onChange({ ...config, [key]: value });
   const size = ARMY_SIZES[config.armySize];
 
@@ -115,6 +120,45 @@ export function HomeScreen({ config, onChange, onStart, onResume, onRules, stats
         />
       </Card>
 
+      <Card>
+        <Label>Appearance</Label>
+        <Segmented<ColorSchemeSetting>
+          value={settings.colorScheme}
+          onChange={(v) => update({ colorScheme: v })}
+          options={[
+            { value: 'system', label: 'System' },
+            { value: 'dark', label: 'Dark' },
+            { value: 'light', label: 'Light' },
+          ]}
+        />
+        <Label>Board</Label>
+        <Segmented<BoardTheme>
+          value={settings.boardTheme}
+          onChange={(v) => update({ boardTheme: v })}
+          options={(Object.keys(BOARD_THEMES) as BoardTheme[]).map((k) => ({ value: k, label: BOARD_THEMES[k].label }))}
+        />
+        <Label>Pieces</Label>
+        <Segmented<PieceStyle>
+          value={settings.pieceStyle}
+          onChange={(v) => update({ pieceStyle: v })}
+          options={[
+            { value: 'solid', label: 'Solid' },
+            { value: 'classic', label: 'Classic print' },
+          ]}
+        />
+        <Label>Feedback</Label>
+        <Segmented<'both' | 'haptics' | 'sounds' | 'none'>
+          value={settings.sounds && settings.haptics ? 'both' : settings.haptics ? 'haptics' : settings.sounds ? 'sounds' : 'none'}
+          onChange={(v) => update({ sounds: v === 'both' || v === 'sounds', haptics: v === 'both' || v === 'haptics' })}
+          options={[
+            { value: 'both', label: 'Both' },
+            { value: 'haptics', label: 'Haptics' },
+            { value: 'sounds', label: 'Sound' },
+            { value: 'none', label: 'Off' },
+          ]}
+        />
+      </Card>
+
       <Button title="New game" onPress={onStart} style={styles.start} />
       <Button title="How to play" variant="secondary" onPress={onRules} />
 
@@ -125,7 +169,7 @@ export function HomeScreen({ config, onChange, onStart, onResume, onRules, stats
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = themedStyles((theme) => ({
   root: { flex: 1, backgroundColor: theme.bg },
   content: { paddingHorizontal: 16, gap: 12 },
   hero: { alignItems: 'center', marginBottom: 8 },
@@ -135,4 +179,4 @@ const styles = StyleSheet.create({
   resume: { marginBottom: 4 },
   start: { marginTop: 8 },
   stats: { color: theme.textMuted, textAlign: 'center', marginTop: 12, fontSize: 13 },
-});
+}));

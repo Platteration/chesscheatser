@@ -27,6 +27,8 @@ export interface GameState {
   lastMove: Move | null;
   /** Every king on the board currently attacked, regardless of side. */
   kingsInDanger: Square[];
+  /** Square -> index of that king within its side (0 or 1), stable for the whole game. */
+  kingMarks: Map<Square, number>;
   captured: CapturedSummary;
   setup: Setup;
   humanColor: Color;
@@ -116,8 +118,12 @@ export function useGame(initial: StartOptions, onSave?: (saved: SavedGame | null
     const legal = pos.legalMoves();
     const result = pos.result(legal);
     const kingsInDanger: Square[] = [];
+    const kingMarks = new Map<Square, number>();
     for (const color of ['w', 'b'] as Color[]) {
-      for (const k of pos.kings[color]) if (isAttacked(pos.board, k, opposite(color))) kingsInDanger.push(k);
+      pos.kings[color].forEach((k, i) => {
+        kingMarks.set(k, i);
+        if (isAttacked(pos.board, k, opposite(color))) kingsInDanger.push(k);
+      });
     }
     let lastMove: Move | null = null;
     for (let i = folded.moveList.length - 1; i >= 0; i--) {
@@ -135,6 +141,7 @@ export function useGame(initial: StartOptions, onSave?: (saved: SavedGame | null
       moves: folded.moveList,
       lastMove,
       kingsInDanger,
+      kingMarks,
       captured: capturedSummary(setup.board, pos.board),
       setup,
       humanColor,

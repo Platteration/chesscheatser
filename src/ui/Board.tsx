@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { fileOf, rankOf, sq } from '../engine/board';
 import type { Board as BoardType, LegalMove, Move, Square } from '../engine/types';
 import { PieceGlyph } from './PieceGlyph';
-import { theme } from './theme';
+import { themedStyles, useTheme } from './theme';
 
 interface Props {
   board: BoardType;
@@ -14,11 +14,15 @@ interface Props {
   lastMove: Move | null;
   hint?: Move | null;
   kingsInDanger: Square[];
+  /** Which of a side's two kings sits on a square (0 = first crown, 1 = second). */
+  kingMarks?: Map<Square, number>;
   onSquarePress: (s: Square) => void;
   disabled?: boolean;
 }
 
-export function Board({ board, size, flipped, selected, targets, lastMove, hint, kingsInDanger, onSquarePress, disabled }: Props) {
+export function Board({ board, size, flipped, selected, targets, lastMove, hint, kingsInDanger, kingMarks, onSquarePress, disabled }: Props) {
+  const styles = useStyles();
+  const theme = useTheme();
   const square = size / 8;
   const targetMap = useMemo(() => {
     const m = new Map<Square, boolean>();
@@ -67,6 +71,19 @@ export function Board({ board, size, flipped, selected, targets, lastMove, hint,
             </Text>
           )}
           {piece && <PieceGlyph piece={piece} size={square} />}
+          {piece?.type === 'k' && kingMarks?.has(s) && (
+            <View
+              style={[
+                styles.crown,
+                {
+                  width: square * 0.22,
+                  height: square * 0.22,
+                  borderRadius: square * 0.11,
+                  backgroundColor: kingMarks.get(s) === 0 ? theme.kingA : theme.kingB,
+                },
+              ]}
+            />
+          )}
           {target !== undefined &&
             (target ? (
               <View
@@ -90,18 +107,17 @@ export function Board({ board, size, flipped, selected, targets, lastMove, hint,
   }
 
   return (
-    <View style={[styles.board, { width: size, height: size }]}>
+    <View style={[styles.board, { width: size, height: size, borderColor: theme.board.border }]}>
       {rows}
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = themedStyles((theme) => ({
   board: {
     borderRadius: 6,
     overflow: 'hidden',
     borderWidth: 2,
-    borderColor: '#3b2a1a',
   },
   row: { flexDirection: 'row' },
   cell: { alignItems: 'center', justifyContent: 'center' },
@@ -109,9 +125,10 @@ const styles = StyleSheet.create({
   captureRing: { borderColor: theme.board.capture },
   check: { backgroundColor: theme.board.check },
   hint: { borderColor: theme.board.hint },
+  crown: { position: 'absolute', top: 2, right: 2, borderWidth: 1, borderColor: 'rgba(0,0,0,0.5)' },
   coord: { position: 'absolute', fontSize: 9, fontWeight: '700', opacity: 0.9 },
   rankCoord: { top: 1, left: 2 },
   fileCoord: { bottom: 0, right: 2 },
-});
+}));
 
 export { fileOf, rankOf };

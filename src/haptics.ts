@@ -1,9 +1,15 @@
 import * as Haptics from 'expo-haptics';
 import { Platform } from 'react-native';
 
-/** Best-effort haptic feedback; silently does nothing on web or when unsupported. */
+let enabled = true;
+/** Called by the settings layer; haptics are skipped entirely when off. */
+export function setHapticsEnabled(on: boolean) {
+  enabled = on;
+}
+
+/** Best-effort haptic feedback; silently does nothing on web, when disabled, or when unsupported. */
 const safe = (fn: () => Promise<void>) => {
-  if (Platform.OS === 'web') return;
+  if (Platform.OS === 'web' || !enabled) return;
   fn().catch(() => {});
 };
 

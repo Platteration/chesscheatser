@@ -2,7 +2,7 @@ import React from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from './components';
-import { theme } from './theme';
+import { themedStyles, useTheme } from './theme';
 
 interface Props {
   onBack: () => void;
@@ -57,6 +57,8 @@ const SECTIONS: { title: string; body: string[] }[] = [
 ];
 
 export function RulesScreen({ onBack }: Props) {
+  const styles = useStyles();
+  const theme = useTheme();
   const insets = useSafeAreaInsets();
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
@@ -81,7 +83,7 @@ export function RulesScreen({ onBack }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = themedStyles((theme) => ({
   root: { flex: 1, backgroundColor: theme.bg },
   topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 4 },
   title: { color: theme.text, fontWeight: '800', fontSize: 16 },
@@ -89,4 +91,4 @@ const styles = StyleSheet.create({
   section: { gap: 8 },
   heading: { color: theme.accent, fontSize: 18, fontWeight: '800' },
   para: { color: theme.text, fontSize: 15, lineHeight: 22 },
-});
+}));

@@ -2,7 +2,7 @@ import React from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import type { Color, PieceType } from '../engine/types';
 import { PieceGlyph } from './PieceGlyph';
-import { theme } from './theme';
+import { themedStyles, useTheme } from './theme';
 
 interface Props {
   visible: boolean;
@@ -14,6 +14,8 @@ interface Props {
 const CHOICES: PieceType[] = ['q', 'r', 'b', 'n'];
 
 export function PromotionPicker({ visible, color, onPick, onCancel }: Props) {
+  const styles = useStyles();
+  const theme = useTheme();
   return (
     <Modal transparent visible={visible} animationType="fade" onRequestClose={onCancel}>
       <Pressable style={styles.backdrop} onPress={onCancel}>
@@ -32,10 +34,10 @@ export function PromotionPicker({ visible, color, onPick, onCancel }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = themedStyles((theme) => ({
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center' },
   sheet: { backgroundColor: theme.surface, borderRadius: theme.radius, padding: 20, borderWidth: 1, borderColor: theme.border },
   title: { color: theme.text, fontWeight: '700', fontSize: 16, marginBottom: 12, textAlign: 'center' },
   row: { flexDirection: 'row', gap: 8 },
   choice: { backgroundColor: theme.board.light, borderRadius: 10, padding: 4 },
-});
+}));

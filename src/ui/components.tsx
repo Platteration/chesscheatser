@@ -1,6 +1,6 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
-import { theme } from './theme';
+import { themedStyles, useTheme } from './theme';
 
 interface ButtonProps {
   title: string;
@@ -12,6 +12,8 @@ interface ButtonProps {
 }
 
 export function Button({ title, onPress, variant = 'primary', disabled, style, small }: ButtonProps) {
+  const styles = useStyles();
+  const theme = useTheme();
   return (
     <Pressable
       onPress={onPress}
@@ -49,6 +51,8 @@ interface SegmentedProps<T extends string> {
 }
 
 export function Segmented<T extends string>({ options, value, onChange }: SegmentedProps<T>) {
+  const styles = useStyles();
+  const theme = useTheme();
   return (
     <View style={styles.segmented}>
       {options.map((o) => {
@@ -70,6 +74,8 @@ export function Segmented<T extends string>({ options, value, onChange }: Segmen
 }
 
 export function Label({ children, hint }: { children: string; hint?: string }) {
+  const styles = useStyles();
+  const theme = useTheme();
   return (
     <View style={styles.labelRow}>
       <Text style={styles.label}>{children}</Text>
@@ -79,10 +85,12 @@ export function Label({ children, hint }: { children: string; hint?: string }) {
 }
 
 export function Card({ children, style }: { children: React.ReactNode; style?: StyleProp<ViewStyle> }) {
+  const styles = useStyles();
+  const theme = useTheme();
   return <View style={[styles.card, style]}>{children}</View>;
 }
 
-const styles = StyleSheet.create({
+const useStyles = themedStyles((theme) => ({
   button: {
     paddingVertical: 14,
     paddingHorizontal: 20,
@@ -127,4 +135,4 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.border,
   },
-});
+}));

@@ -9,11 +9,24 @@ import { loadJSON, remove, saveJSON, STORAGE_KEYS } from './src/storage';
 import { GameScreen } from './src/ui/GameScreen';
 import { HomeScreen } from './src/ui/HomeScreen';
 import { RulesScreen } from './src/ui/RulesScreen';
-import { theme } from './src/ui/theme';
+import { SettingsProvider, useSettings } from './src/settings';
+import { useTheme } from './src/ui/theme';
 
 type Screen = { name: 'home' } | { name: 'rules' } | { name: 'game'; start: StartOptions; key: number };
 
 export default function App() {
+  return (
+    <SettingsProvider>
+      <SafeAreaProvider>
+        <Root />
+      </SafeAreaProvider>
+    </SettingsProvider>
+  );
+}
+
+function Root() {
+  const theme = useTheme();
+  const { loaded: settingsLoaded } = useSettings();
   const [ready, setReady] = useState(false);
   const [fontsLoaded, fontError] = useFonts({ ChessGlyphs: require('./assets/fonts/ChessGlyphs.ttf') });
   const [config, setConfig] = useState<GameConfig>(DEFAULT_CONFIG);
@@ -74,7 +87,7 @@ export default function App() {
   const goHome = useCallback(() => setScreen({ name: 'home' }), []);
 
   let content: React.ReactNode;
-  if (!ready || (!fontsLoaded && !fontError)) {
+  if (!ready || !settingsLoaded || (!fontsLoaded && !fontError)) {
     content = (
       <View style={styles.loading}>
         <ActivityIndicator color={theme.accent} />
@@ -98,16 +111,14 @@ export default function App() {
   }
 
   return (
-    <SafeAreaProvider>
-      <View style={styles.root}>
-        {content}
-        <StatusBar style="light" />
-      </View>
-    </SafeAreaProvider>
+    <View style={[styles.root, { backgroundColor: theme.bg }]}>
+      {content}
+      <StatusBar style={theme.scheme === 'dark' ? 'light' : 'dark'} />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: theme.bg },
+  root: { flex: 1 },
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 });

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Platform, StyleSheet, Text } from 'react-native';
 import type { Piece, PieceType } from '../engine/types';
+import { useSettings } from '../settings';
 
 /** Filled glyphs for both colours; colour comes from the text style. */
 export const GLYPH: Record<PieceType, string> = {
@@ -12,13 +13,26 @@ export const GLYPH: Record<PieceType, string> = {
   p: '♟',
 };
 
+/** Outline glyphs, used for white pieces in the "classic" print style. */
+export const OUTLINE_GLYPH: Record<PieceType, string> = {
+  k: '♔',
+  q: '♕',
+  r: '♖',
+  b: '♗',
+  n: '♘',
+  p: '♙',
+};
+
 interface Props {
   piece: Piece;
   size: number;
 }
 
 export const PieceGlyph = React.memo(function PieceGlyph({ piece, size }: Props) {
+  const { settings } = useSettings();
   const white = piece.color === 'w';
+  const classic = settings.pieceStyle === 'classic';
+  const glyph = classic && white ? OUTLINE_GLYPH[piece.type] : GLYPH[piece.type];
   return (
     <Text
       allowFontScaling={false}
@@ -27,12 +41,13 @@ export const PieceGlyph = React.memo(function PieceGlyph({ piece, size }: Props)
         {
           fontSize: size * 0.78,
           lineHeight: size,
-          color: white ? '#fdfdfd' : '#141414',
-          textShadowColor: white ? 'rgba(0,0,0,0.9)' : 'rgba(255,255,255,0.45)',
+          color: classic ? '#141414' : white ? '#fdfdfd' : '#141414',
+          textShadowColor: classic ? 'rgba(255,255,255,0.6)' : white ? 'rgba(0,0,0,0.9)' : 'rgba(255,255,255,0.45)',
+          textShadowRadius: classic ? 1 : 3,
         },
       ]}
     >
-      {GLYPH[piece.type]}
+      {glyph}
     </Text>
   );
 });

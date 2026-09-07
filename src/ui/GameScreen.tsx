@@ -11,7 +11,7 @@ import { Button } from './components';
 import { CHESS_FONT, GLYPH } from './PieceGlyph';
 import { haptics } from '../haptics';
 import { PromotionPicker } from './PromotionPicker';
-import { theme } from './theme';
+import { themedStyles, useTheme } from './theme';
 
 interface Props {
   start: StartOptions;
@@ -25,6 +25,8 @@ const DIFFICULTY_LABEL = { easy: 'Easy', medium: 'Medium', hard: 'Hard' } as con
 const MATERIAL_LABEL = { chaos: 'Chaos', fair: 'Fair', mirror: 'Mirror' } as const;
 
 export function GameScreen({ start, onExit, onSave, onFinished }: Props) {
+  const styles = useStyles();
+  const theme = useTheme();
   const { state, play, accuse, undo, newGame, rematch, resign, getHint } = useGame(start, onSave);
   const [hint, setHint] = useState<Move | null>(null);
   const [selected, setSelected] = useState<Square | null>(null);
@@ -154,6 +156,7 @@ export function GameScreen({ start, onExit, onSave, onFinished }: Props) {
           lastMove={state.lastMove}
           hint={hint}
           kingsInDanger={state.kingsInDanger}
+          kingMarks={state.kingMarks}
           onSquarePress={onSquarePress}
           disabled={state.gameOver || !humanTurn}
         />
@@ -308,6 +311,22 @@ const CHEAT_LABEL: Record<NonNullable<Move['cheat']>, string> = {
   upgrade: 'arrived as a queen',
 };
 
+/** The computer's face: reacts to thinking, being caught, and the result. */
+function avatarFor(state: GameState): string {
+  if (state.gameOver) {
+    const winner = winnerOf(state);
+    if (winner === null) return '😐';
+    return winner === state.humanColor ? '😩' : '😎';
+  }
+  if (state.thinking) return '🤔';
+  const last = state.lastEvent;
+  if (last?.type === 'accuse') return last.caught ? '😳' : '😏';
+  if (last?.type === 'pass' && state.turn !== state.humanColor) return '😈';
+  const humanChecked = state.kingsInDanger.some((k) => state.board[k]?.color === state.humanColor);
+  if (humanChecked && state.turn === state.humanColor) return '😼';
+  return '🙂';
+}
+
 function cheatReport(state: GameState): string {
   const { made, caught, falseAccusations } = state.cheats;
   const parts: string[] = [];
@@ -319,30 +338,40 @@ function cheatReport(state: GameState): string {
 }
 
 function PlayerStrip({ state, color, active }: { state: GameState; color: Color; active: boolean }) {
+  const styles = useStyles();
+  const theme = useTheme();
   const captured = color === 'w' ? state.captured.byWhite : state.captured.byBlack;
   const lead = color === 'w' ? state.captured.whiteLead : -state.captured.whiteLead;
-  const kings = state.kingsInDanger.filter((k) => state.board[k]?.color === color).length;
+  const kingSquares = [...state.kingMarks.entries()].filter(([sq]) => state.board[sq]?.color === color).sort((a, b) => a[1] - b[1]);
+  const danger = new Set(state.kingsInDanger);
+  const isComputer = state.config.mode === 'ai' && color !== state.humanColor;
   return (
     <View style={[styles.strip, active && styles.stripActive]}>
+      {isComputer && <Text style={styles.avatar}>{avatarFor(state)}</Text>}
       <View style={{ flex: 1 }}>
-        <Text style={styles.stripName}>
-          {playerName(state, color)}
-          {active && state.thinking && color !== state.humanColor ? '  ⏳' : ''}
-        </Text>
+        <Text style={styles.stripName}>{playerName(state, color)}</Text>
         <Text style={styles.stripCaptured} numberOfLines={1}>
           {captured.map((t) => GLYPH[t]).join('') || '—'}
           {lead > 0 ? <Text style={styles.stripLead}>{`  +${lead}`}</Text> : null}
         </Text>
       </View>
       <View style={styles.kingBadges}>
-        <Text style={[styles.kingBadge, kings >= 1 && styles.kingBadgeDanger]}>♚</Text>
-        <Text style={[styles.kingBadge, kings >= 2 && styles.kingBadgeDanger]}>♚</Text>
+        {kingSquares.map(([sq, idx]) => (
+          <Text
+            key={idx}
+            style={[styles.kingBadge, { color: idx === 0 ? theme.kingA : theme.kingB }, danger.has(sq) && styles.kingBadgeDanger]}
+          >
+            ♚
+          </Text>
+        ))}
       </View>
     </View>
   );
 }
 
 function MoveList({ state }: { state: GameState }) {
+  const styles = useStyles();
+  const theme = useTheme();
   const ref = useRef<ScrollView>(null);
   useEffect(() => {
     ref.current?.scrollToEnd({ animated: true });
@@ -366,7 +395,7 @@ function MoveList({ state }: { state: GameState }) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = themedStyles((theme) => ({
   root: { flex: 1, backgroundColor: theme.bg },
   center: { alignItems: 'center', justifyContent: 'center' },
   topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 4 },
@@ -390,8 +419,9 @@ const styles = StyleSheet.create({
   stripCaptured: { color: theme.textMuted, fontSize: 14, marginTop: 1, fontFamily: CHESS_FONT },
   stripLead: { fontFamily: undefined, color: theme.textMuted },
   kingBadges: { flexDirection: 'row', gap: 2 },
-  kingBadge: { color: theme.textMuted, fontSize: 20, opacity: 0.6, fontFamily: CHESS_FONT },
+  kingBadge: { fontSize: 20, opacity: 0.85, fontFamily: CHESS_FONT },
   kingBadgeDanger: { color: theme.danger, opacity: 1 },
+  avatar: { fontSize: 26, marginRight: 10 },
   statusBox: { paddingHorizontal: 16, paddingTop: 8, minHeight: 44 },
   accuseRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingTop: 6 },
   accuseButton: { backgroundColor: theme.danger },
@@ -425,6 +455,6 @@ const styles = StyleSheet.create({
   resultText: { color: theme.text, fontSize: 16, textAlign: 'center', marginTop: 8 },
   resultDetail: { color: theme.textMuted, fontSize: 13, textAlign: 'center', marginTop: 4 },
   resultButtons: { marginTop: 18, gap: 10 },
-});
+}));
 
 export type { GameConfig };
