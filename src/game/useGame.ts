@@ -144,6 +144,8 @@ export function useGame(initial: StartOptions, onSave?: (saved: SavedGame | null
   const aiTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const folded = useMemo(() => fold(setup, events, aiColor), [setup, events, aiColor]);
+  // Depends only on the position, so effects can use it without churning on unrelated state changes.
+  const captured = useMemo(() => capturedSummary(setup.board, folded.pos.board), [setup, folded]);
 
   const state: GameState = useMemo(() => {
     const pos = folded.pos;
@@ -186,7 +188,7 @@ export function useGame(initial: StartOptions, onSave?: (saved: SavedGame | null
       lastMove,
       kingsInDanger,
       kingMarks,
-      captured: capturedSummary(setup.board, pos.board),
+      captured,
       setup,
       humanColor,
       config,
@@ -205,7 +207,7 @@ export function useGame(initial: StartOptions, onSave?: (saved: SavedGame | null
       cheatMoves,
       humanCheatsLeft,
     };
-  }, [folded, setup, humanColor, config, thinking, resigned, flagged, clocks, daily, ranked, aiColor]);
+  }, [folded, captured, setup, humanColor, config, thinking, resigned, flagged, clocks, daily, ranked, aiColor]);
 
   // Pass-and-play clock: runs for the side to move once the first move has been made.
   const clockActive = (config.clock ?? 0) > 0 && config.mode === 'local' && !state.gameOver && events.length > 0;
@@ -217,14 +219,13 @@ export function useGame(initial: StartOptions, onSave?: (saved: SavedGame | null
       const now = Date.now();
       const dt = now - last;
       last = now;
-      setClocks((c) => {
-        const remaining = Math.max(0, c[side] - dt);
-        if (remaining === 0) setFlagged(side);
-        return { ...c, [side]: remaining };
-      });
+      setClocks((c) => ({ ...c, [side]: Math.max(0, c[side] - dt) }));
     }, 200);
     return () => clearInterval(id);
   }, [clockActive, state.turn]);
+  useEffect(() => {
+    if (clockActive && clocks[state.turn] <= 0) setFlagged(state.turn);
+  }, [clockActive, clocks, state.turn]);
 
   // Persist after every change.
   useEffect(() => {
@@ -251,7 +252,7 @@ export function useGame(initial: StartOptions, onSave?: (saved: SavedGame | null
     // double move is always played honestly.
     const cheating = folded.bonus === aiColor ? 'off' : config.cheating;
     aiTimer.current = setTimeout(() => {
-      const lost = aiColor === 'w' ? state.captured.byBlack : state.captured.byWhite;
+      const lost = aiColor === 'w' ? captured.byBlack : captured.byWhite;
       chooseActionAsync(folded.pos, config.difficulty, cheating, undefined, () => cancelled, { resurrectable: lost })
         .then((action) => {
           if (cancelled) return;
@@ -267,7 +268,7 @@ export function useGame(initial: StartOptions, onSave?: (saved: SavedGame | null
       if (aiTimer.current) clearTimeout(aiTimer.current);
       setThinking(false);
     };
-  }, [folded, state.gameOver, state.turn, state.captured, aiColor, config.difficulty, config.cheating, append]);
+  }, [folded, captured, state.gameOver, state.turn, aiColor, config.difficulty, config.cheating, append]);
 
   const play = useCallback(
     (m: Move) => {

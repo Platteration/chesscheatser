@@ -38,9 +38,11 @@ export function Board({ board, size, flipped, selected, targets, cheatMode, last
   const lastKey = useRef<number | undefined>(undefined);
   useEffect(() => {
     if (animationKey === lastKey.current) return;
-    const first = lastKey.current === undefined;
+    const prev = lastKey.current;
     lastKey.current = animationKey;
-    if (first || !animate || animate.from < 0 || animate.pass) return;
+    // Only glide when a move was added (not on undo or a fresh board).
+    if (prev === undefined || animationKey === undefined || animationKey < prev) return;
+    if (!animate || animate.from < 0 || animate.pass) return;
     const piece = board[animate.to];
     if (!piece) return;
     setAnim({ move: animate, piece });
