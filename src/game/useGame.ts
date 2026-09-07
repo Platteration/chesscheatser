@@ -42,6 +42,7 @@ export interface GameState {
   lastEvent: GameEvent | null;
   cheats: CheatStats;
   caughtMove: Move | null;
+  daily: string | null;
 }
 
 const PIECE_VALUES: Record<PieceType, number> = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
@@ -78,6 +79,8 @@ export interface StartOptions {
   seed?: number;
   humanColor?: Color;
   events?: GameEvent[];
+  /** Date key when playing the daily challenge. */
+  daily?: string;
 }
 
 function buildSetup(config: GameConfig, seed?: number): Setup {
@@ -109,6 +112,7 @@ export function useGame(initial: StartOptions, onSave?: (saved: SavedGame | null
   );
   const [thinking, setThinking] = useState(false);
   const [resigned, setResigned] = useState<Color | null>(null);
+  const [daily, setDaily] = useState<string | null>(initial.daily ?? null);
   const aiTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const folded = useMemo(() => fold(setup, events, aiColor), [setup, events, aiColor]);
@@ -154,15 +158,16 @@ export function useGame(initial: StartOptions, onSave?: (saved: SavedGame | null
       lastEvent: folded.lastEvent,
       cheats: folded.cheats,
       caughtMove: folded.caughtMove,
+      daily,
     };
-  }, [folded, setup, humanColor, config, thinking, resigned]);
+  }, [folded, setup, humanColor, config, thinking, resigned, daily]);
 
   // Persist after every change.
   useEffect(() => {
     if (!onSave) return;
     if (state.gameOver) onSave(null);
-    else onSave({ config, seed: setup.seed, humanColor, events });
-  }, [state.gameOver, onSave, config, setup.seed, humanColor, events]);
+    else onSave({ config, seed: setup.seed, humanColor, events, daily: daily ?? undefined });
+  }, [state.gameOver, onSave, config, setup.seed, humanColor, events, daily]);
 
   const append = useCallback((e: GameEvent) => setEvents((prev) => [...prev, e]), []);
 
@@ -227,6 +232,7 @@ export function useGame(initial: StartOptions, onSave?: (saved: SavedGame | null
     setSetup(buildSetup(cfg, seed));
     setEvents([]);
     setResigned(null);
+    setDaily(null);
   }, []);
 
   const newGame = useCallback(

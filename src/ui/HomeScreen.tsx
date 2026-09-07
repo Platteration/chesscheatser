@@ -5,6 +5,7 @@ import type { Difficulty } from '../engine/ai';
 import type { CheatLevel } from '../engine/cheat';
 import type { MaterialMode } from '../engine/setup';
 import { ARMY_SIZES, type ArmySize, type GameConfig, type GameMode, type PlayAs, type Stats } from '../game/config';
+import { todayKey, type DailyState } from '../game/daily';
 import { useSettings, type BoardTheme, type ColorSchemeSetting, type PieceStyle } from '../settings';
 import { Button, Card, Label, Segmented } from './components';
 import { BOARD_THEMES } from './theme';
@@ -15,6 +16,8 @@ interface Props {
   config: GameConfig;
   onChange: (c: GameConfig) => void;
   onStart: () => void;
+  onDaily: () => void;
+  daily: DailyState;
   onResume?: () => void;
   onRules: () => void;
   stats: Stats;
@@ -32,7 +35,7 @@ const MATERIAL_HINT: Record<MaterialMode, string> = {
   chaos: 'Fully random on both sides. Someone may get three queens.',
 };
 
-export function HomeScreen({ config, onChange, onStart, onResume, onRules, stats }: Props) {
+export function HomeScreen({ config, onChange, onStart, onDaily, daily, onResume, onRules, stats }: Props) {
   const styles = useStyles();
   const theme = useTheme();
   const insets = useSafeAreaInsets();
@@ -54,6 +57,8 @@ export function HomeScreen({ config, onChange, onStart, onResume, onRules, stats
       </View>
 
       {onResume && <Button title="Resume game" onPress={onResume} style={styles.resume} />}
+
+      <DailyCard daily={daily} onDaily={onDaily} />
 
       <Card>
         <Label>Opponent</Label>
@@ -169,7 +174,44 @@ export function HomeScreen({ config, onChange, onStart, onResume, onRules, stats
   );
 }
 
+function DailyCard({ daily, onDaily }: { daily: DailyState; onDaily: () => void }) {
+  const styles = useStyles();
+  const today = todayKey();
+  const rec = daily.results[today];
+  const label = rec
+    ? rec.outcome === 'win'
+      ? `Won today in ${rec.moves} moves 🏆`
+      : rec.outcome === 'loss'
+        ? `Lost today after ${rec.moves} moves`
+        : `Drew today after ${rec.moves} moves`
+    : 'Same armies for everyone, once a day. Fair, medium, occasional cheating.';
+  const streak = daily.lastPlayed === today || daily.streak > 0 ? daily.streak : 0;
+  return (
+    <View style={styles.dailyCard}>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.dailyTitle}>Daily challenge · {today}</Text>
+        <Text style={styles.dailyText}>{label}</Text>
+        {streak > 1 && <Text style={styles.dailyStreak}>🔥 {streak}-day streak</Text>}
+      </View>
+      <Button title={rec ? 'Replay' : 'Play'} small onPress={onDaily} variant={rec ? 'secondary' : 'primary'} />
+    </View>
+  );
+}
+
 const useStyles = themedStyles((theme) => ({
+  dailyCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: theme.surface,
+    borderRadius: theme.radius,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: theme.accent,
+  },
+  dailyTitle: { color: theme.text, fontWeight: '800', fontSize: 14 },
+  dailyText: { color: theme.textMuted, fontSize: 12, marginTop: 2 },
+  dailyStreak: { color: theme.accent, fontSize: 12, marginTop: 2, fontWeight: '700' },
   root: { flex: 1, backgroundColor: theme.bg },
   content: { paddingHorizontal: 16, gap: 12 },
   hero: { alignItems: 'center', marginBottom: 8 },

@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Modal, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Modal, ScrollView, Share, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { opposite, squareName } from '../engine/board';
 import { moveToSAN } from '../engine/position';
 import type { Color, Move, PieceType, Square } from '../engine/types';
 import type { GameConfig, SavedGame } from '../game/config';
+import { shareText, type DailyRecord } from '../game/daily';
 import { useGame, type GameState, type StartOptions } from '../game/useGame';
 import { Board } from './Board';
 import { Button } from './components';
@@ -18,14 +19,25 @@ interface Props {
   start: StartOptions;
   onExit: () => void;
   onSave: (saved: SavedGame | null) => void;
-  onFinished: (outcome: 'win' | 'loss' | 'draw') => void;
+  onFinished: (outcome: GameOutcome) => void;
+  /** Current daily streak, shown when sharing a daily result. */
+  dailyStreak?: number;
+}
+
+export interface GameOutcome {
+  outcome: 'win' | 'loss' | 'draw';
+  moves: number;
+  cheatsCaught: number;
+  cheatsMissed: number;
+  falseAccusations: number;
+  daily: string | null;
 }
 
 const COLOR_NAME: Record<Color, string> = { w: 'White', b: 'Black' };
 const DIFFICULTY_LABEL = { easy: 'Easy', medium: 'Medium', hard: 'Hard' } as const;
 const MATERIAL_LABEL = { chaos: 'Chaos', fair: 'Fair', mirror: 'Mirror' } as const;
 
-export function GameScreen({ start, onExit, onSave, onFinished }: Props) {
+export function GameScreen({ start, onExit, onSave, onFinished, dailyStreak = 0 }: Props) {
   const styles = useStyles();
   const theme = useTheme();
   const { state, play, accuse, undo, newGame, rematch, resign, getHint } = useGame(start, onSave);
@@ -49,9 +61,14 @@ export function GameScreen({ start, onExit, onSave, onFinished }: Props) {
     const key = `${state.setup.seed}:${state.moves.length}:${state.resigned ?? ''}`;
     if (reported.current === key) return;
     reported.current = key;
-    const winner = winnerOf(state);
-    onFinished(winner === null ? 'draw' : winner === state.humanColor ? 'win' : 'loss');
+    onFinished(outcomeOf(state));
   }, [state, onFinished]);
+
+  const onShare = useCallback(() => {
+    const o = outcomeOf(state);
+    const rec: DailyRecord = { date: o.daily ?? state.setup.seed.toString(), ...o };
+    Share.share({ message: shareText(rec, dailyStreak) }).catch(() => {});
+  }, [state, dailyStreak]);
 
   useEffect(() => {
     if (state.gameOver) setShowResult(true);
@@ -160,7 +177,7 @@ export function GameScreen({ start, onExit, onSave, onFinished }: Props) {
         <View style={styles.titleBlock}>
           <Text style={styles.title}>Two Kings</Text>
           <Text style={styles.subtitle}>
-            {MATERIAL_LABEL[state.config.material]} armies · seed {state.setup.seed}
+            {state.daily ? `Daily challenge · ${state.daily}` : `${MATERIAL_LABEL[state.config.material]} armies · seed ${state.setup.seed}`}
           </Text>
         </View>
         <Button title="Flip" variant="ghost" small onPress={() => setFlipped(!isFlipped)} />
@@ -228,7 +245,8 @@ export function GameScreen({ start, onExit, onSave, onFinished }: Props) {
               <Text style={styles.resultCheats}>{cheatReport(state)}</Text>
             )}
             <View style={styles.resultButtons}>
-              <Button title="Rematch (same armies)" onPress={() => { setShowResult(false); rematch(); }} />
+              {state.daily && <Button title="Share result" onPress={onShare} />}
+              <Button title="Rematch (same armies)" variant={state.daily ? 'secondary' : 'primary'} onPress={() => { setShowResult(false); rematch(); }} />
               <Button title="New armies" variant="secondary" onPress={() => { setShowResult(false); newGame(); }} />
               <Button title="Review board" variant="ghost" onPress={() => setShowResult(false)} />
               <Button title="Home" variant="ghost" onPress={onExit} />
@@ -238,6 +256,18 @@ export function GameScreen({ start, onExit, onSave, onFinished }: Props) {
       </Modal>
     </View>
   );
+}
+
+function outcomeOf(state: GameState): GameOutcome {
+  const winner = winnerOf(state);
+  return {
+    outcome: winner === null ? 'draw' : winner === state.humanColor ? 'win' : 'loss',
+    moves: Math.ceil(state.moves.filter((m) => !m.pass).length / 2),
+    cheatsCaught: state.cheats.caught,
+    cheatsMissed: state.cheats.made - state.cheats.caught,
+    falseAccusations: state.cheats.falseAccusations,
+    daily: state.daily,
+  };
 }
 
 function winnerOf(state: GameState): Color | null {

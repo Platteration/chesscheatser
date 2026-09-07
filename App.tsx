@@ -4,9 +4,10 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { DEFAULT_CONFIG, EMPTY_STATS, type GameConfig, type SavedGame, type Stats } from './src/game/config';
+import { DAILY_CONFIG, dailySeed, EMPTY_DAILY, recordDaily, todayKey, type DailyState } from './src/game/daily';
 import type { StartOptions } from './src/game/useGame';
 import { loadJSON, remove, saveJSON, STORAGE_KEYS } from './src/storage';
-import { GameScreen } from './src/ui/GameScreen';
+import { GameScreen, type GameOutcome } from './src/ui/GameScreen';
 import { HomeScreen } from './src/ui/HomeScreen';
 import { RulesScreen } from './src/ui/RulesScreen';
 import { SettingsProvider, useSettings } from './src/settings';
@@ -32,15 +33,18 @@ function Root() {
   const [config, setConfig] = useState<GameConfig>(DEFAULT_CONFIG);
   const [saved, setSaved] = useState<SavedGame | null>(null);
   const [stats, setStats] = useState<Stats>(EMPTY_STATS);
+  const [daily, setDaily] = useState<DailyState>(EMPTY_DAILY);
   const [screen, setScreen] = useState<Screen>({ name: 'home' });
 
   useEffect(() => {
     (async () => {
-      const [cfg, game, st] = await Promise.all([
+      const [cfg, game, st, dy] = await Promise.all([
         loadJSON<GameConfig>(STORAGE_KEYS.settings, DEFAULT_CONFIG),
         loadJSON<SavedGame | null>(STORAGE_KEYS.game, null),
         loadJSON<Stats>(STORAGE_KEYS.stats, EMPTY_STATS),
+        loadJSON<DailyState>(STORAGE_KEYS.daily, EMPTY_DAILY),
       ]);
+      setDaily(dy);
       setConfig(cfg);
       setSaved(game && Array.isArray(game.events) && typeof game.seed === 'number' ? game : null);
       setStats(st);
@@ -59,15 +63,31 @@ function Root() {
     else void remove(STORAGE_KEYS.game);
   }, []);
 
-  const onFinished = useCallback((outcome: 'win' | 'loss' | 'draw') => {
+  const onFinished = useCallback((o: GameOutcome) => {
     setStats((s) => {
       const next = {
-        wins: s.wins + (outcome === 'win' ? 1 : 0),
-        losses: s.losses + (outcome === 'loss' ? 1 : 0),
-        draws: s.draws + (outcome === 'draw' ? 1 : 0),
+        wins: s.wins + (o.outcome === 'win' ? 1 : 0),
+        losses: s.losses + (o.outcome === 'loss' ? 1 : 0),
+        draws: s.draws + (o.outcome === 'draw' ? 1 : 0),
       };
       void saveJSON(STORAGE_KEYS.stats, next);
       return next;
+    });
+    if (o.daily) {
+      setDaily((d) => {
+        const next = recordDaily(d, { date: o.daily!, ...o });
+        void saveJSON(STORAGE_KEYS.daily, next);
+        return next;
+      });
+    }
+  }, []);
+
+  const startDaily = useCallback(() => {
+    const date = todayKey();
+    setScreen({
+      name: 'game',
+      start: { config: DAILY_CONFIG, seed: dailySeed(date), humanColor: 'w', daily: date },
+      key: Date.now(),
     });
   }, []);
 
@@ -79,7 +99,7 @@ function Root() {
     if (!saved) return;
     setScreen({
       name: 'game',
-      start: { config: saved.config, seed: saved.seed, humanColor: saved.humanColor, events: saved.events },
+      start: { config: saved.config, seed: saved.seed, humanColor: saved.humanColor, events: saved.events, daily: saved.daily },
       key: Date.now(),
     });
   }, [saved]);
@@ -94,7 +114,9 @@ function Root() {
       </View>
     );
   } else if (screen.name === 'game') {
-    content = <GameScreen key={screen.key} start={screen.start} onExit={goHome} onSave={onSave} onFinished={onFinished} />;
+    content = (
+      <GameScreen key={screen.key} start={screen.start} onExit={goHome} onSave={onSave} onFinished={onFinished} dailyStreak={daily.streak} />
+    );
   } else if (screen.name === 'rules') {
     content = <RulesScreen onBack={goHome} />;
   } else {
@@ -103,6 +125,8 @@ function Root() {
         config={config}
         onChange={updateConfig}
         onStart={startNew}
+        onDaily={startDaily}
+        daily={daily}
         onResume={saved ? resume : undefined}
         onRules={() => setScreen({ name: 'rules' })}
         stats={stats}

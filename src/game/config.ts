@@ -40,6 +40,8 @@ export interface SavedGame {
   seed: number;
   humanColor: Color;
   events: GameEvent[];
+  /** Date key when this is the daily challenge. */
+  daily?: string;
 }
 
 export interface Stats {
