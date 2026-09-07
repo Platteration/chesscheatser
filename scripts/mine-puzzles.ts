@@ -1,13 +1,13 @@
 /**
  * Mines puzzles from random two-king games and writes assets/puzzles.json.
- *   npx tsx scripts/mine-puzzles.ts [count-per-kind] [seed]
+ *   npx tsx scripts/mine-puzzles.ts [count-per-kind] [seed] [win-2 count]
  * Kinds:
  *   double-1: one move puts both enemy kings in check (instant win). Unique solution.
  *   mate-1:   one move checkmates a king. Unique solution.
- *   win-2:    a forced win in two moves found by the hard search; unique winning first move.
+ *   win-2:    a forced win in two moves (three plies); unique winning first move.
  */
 import { writeFileSync } from 'node:fs';
-import { chooseMove, MATE } from '../src/engine/ai';
+import { chooseMove, INF, MATE, scoreAtDepth } from '../src/engine/ai';
 import { boardToString } from '../src/engine/board';
 import { moveToString, Position } from '../src/engine/position';
 import { createRng } from '../src/engine/random';
@@ -26,8 +26,10 @@ export interface Puzzle {
 
 const perKind = Number(process.argv[2] ?? 25);
 const baseSeed = Number(process.argv[3] ?? 1000);
+const win2Count = Math.min(perKind, Number(process.argv[4] ?? 12));
 const found: Record<Puzzle['kind'], Puzzle[]> = { 'double-1': [], 'mate-1': [], 'win-2': [] };
 const seen = new Set<string>();
+const MATE_WINDOW = MATE - 10;
 
 function winningMoves(pos: Position, legal: LegalMove[], kind: 'both-in-check' | 'checkmate'): LegalMove[] {
   const out: LegalMove[] = [];
@@ -41,16 +43,37 @@ function winningMoves(pos: Position, legal: LegalMove[], kind: 'both-in-check' |
 }
 
 function record(kind: Puzzle['kind'], pos: Position, solution: string) {
+  const cap = kind === 'win-2' ? win2Count : perKind;
   const key = `${boardToString(pos.board)} ${pos.turn}`;
-  if (seen.has(key) || found[kind].length >= perKind) return;
+  if (seen.has(key) || found[kind].length >= cap) return;
   seen.add(key);
   const pieces = pos.board.filter(Boolean).length;
   found[kind].push({ id: `${kind}-${found[kind].length + 1}`, kind, board: boardToString(pos.board), turn: pos.turn, solution, pieces });
 }
 
-const done = () => (Object.keys(found) as Puzzle['kind'][]).every((k) => found[k].length >= perKind);
+/** Unique first move that forces a win within three plies, or null. Mate-only search windows keep this fast. */
+function uniqueWinInTwo(pos: Position, legal: LegalMove[]): string | null {
+  const score = scoreAtDepth(pos, 3, 400, MATE_WINDOW, INF);
+  if (score === null || score < MATE_WINDOW) return null;
+  let winners = 0;
+  let winner = '';
+  for (const m of legal) {
+    pos.makeMove(m);
+    const reply = scoreAtDepth(pos, 2, 200, -INF, -MATE_WINDOW);
+    pos.unmakeMove();
+    if (reply !== null && reply <= -MATE_WINDOW) {
+      winners++;
+      winner = moveToString(m);
+      if (winners > 1) return null;
+    }
+  }
+  return winners === 1 ? winner : null;
+}
 
-for (let seed = baseSeed; !done() && seed < baseSeed + 5000; seed++) {
+const done = () => found['double-1'].length >= perKind && found['mate-1'].length >= perKind && found['win-2'].length >= win2Count;
+const counts = () => JSON.stringify(Object.fromEntries(Object.entries(found).map(([k, v]) => [k, v.length])));
+
+for (let seed = baseSeed; !done() && seed < baseSeed + 20000; seed++) {
   const rng = createRng(seed);
   const pos = new Position(generateSetup({ mode: rng.next() < 0.5 ? 'fair' : 'chaos', seed }).board);
   for (let ply = 0; ply < 40 && !done(); ply++) {
@@ -63,24 +86,9 @@ for (let seed = baseSeed; !done() && seed < baseSeed + 5000; seed++) {
     const mates = winningMoves(pos, legal, 'checkmate');
     if (doubles.length === 1 && mates.length === 0 && ply >= 4) record('double-1', pos, moveToString(doubles[0]));
     else if (mates.length === 1 && doubles.length === 0 && ply >= 4) record('mate-1', pos, moveToString(mates[0]));
-    else if (doubles.length === 0 && mates.length === 0 && ply >= 6 && found['win-2'].length < perKind && rng.next() < 0.35) {
-      // Forced win in two: hard search sees a mate score; check the winning first move is unique.
-      const best = chooseMove(pos, 'hard', seed);
-      if (best && best.score >= MATE - 4) {
-        let winners = 0;
-        let winner = '';
-        for (const m of legal) {
-          pos.makeMove(m);
-          const reply = chooseMove(pos, 'hard', seed);
-          pos.unmakeMove();
-          if (reply && reply.score <= -(MATE - 4)) {
-            winners++;
-            winner = moveToString(m);
-            if (winners > 1) break;
-          }
-        }
-        if (winners === 1) record('win-2', pos, winner);
-      }
+    else if (doubles.length === 0 && mates.length === 0 && ply >= 6 && found['win-2'].length < win2Count && rng.next() < 0.3) {
+      const winner = uniqueWinInTwo(pos, legal);
+      if (winner) record('win-2', pos, winner);
     }
 
     // Advance with a mostly sensible move so positions look like real games.
@@ -89,9 +97,9 @@ for (let seed = baseSeed; !done() && seed < baseSeed + 5000; seed++) {
     if (!pick) break;
     pos.makeMove(pick);
   }
-  if (seed % 100 === 0) console.error(`seed ${seed}: ${JSON.stringify(Object.fromEntries(Object.entries(found).map(([k, v]) => [k, v.length])))}`);
+  if (seed % 20 === 0) console.error(`seed ${seed}: ${counts()}`);
 }
 
 const puzzles = [...found['double-1'], ...found['mate-1'], ...found['win-2']];
 writeFileSync('assets/puzzles.json', JSON.stringify(puzzles, null, 1));
-console.error(`wrote ${puzzles.length} puzzles`);
+console.error(`wrote ${puzzles.length} puzzles: ${counts()}`);

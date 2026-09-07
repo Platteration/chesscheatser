@@ -1,1 +1,498 @@
-[]
+[
+ {
+  "id": "double-1-1",
+  "kind": "double-1",
+  "board": "k1k1B3/5pp1/4n3/8/3B1bQ1/8/1K4b1/5K2",
+  "turn": "b",
+  "solution": "f4c1",
+  "pieces": 12
+ },
+ {
+  "id": "double-1-2",
+  "kind": "double-1",
+  "board": "3bk1kb/8/5n2/5r2/2R1N3/3P4/P5NB/KQ1R1KRQ",
+  "turn": "w",
+  "solution": "e4f6",
+  "pieces": 18
+ },
+ {
+  "id": "double-1-3",
+  "kind": "double-1",
+  "board": "kk4rn/4r1p1/3p4/1n5Q/8/8/2N3PP/1N1KK3",
+  "turn": "b",
+  "solution": "b5c3",
+  "pieces": 15
+ },
+ {
+  "id": "double-1-4",
+  "kind": "double-1",
+  "board": "k5q1/pn1k1pp1/8/6Q1/3P4/8/P1P3NK/1N1K4",
+  "turn": "w",
+  "solution": "g5d8",
+  "pieces": 15
+ },
+ {
+  "id": "double-1-5",
+  "kind": "double-1",
+  "board": "2k3k1/pp1rqp2/8/6q1/3QP3/8/3P1P2/KQ4K1",
+  "turn": "b",
+  "solution": "e7a3",
+  "pieces": 15
+ },
+ {
+  "id": "double-1-6",
+  "kind": "double-1",
+  "board": "1k1k1q1b/pR1p2p1/4r3/8/8/8/P1B1PP2/2KKQ3",
+  "turn": "w",
+  "solution": "e1a5",
+  "pieces": 16
+ },
+ {
+  "id": "double-1-7",
+  "kind": "double-1",
+  "board": "2k1k2r/2p3pp/2r1p3/8/8/7P/3PP3/1K1KR3",
+  "turn": "b",
+  "solution": "c6c1",
+  "pieces": 14
+ },
+ {
+  "id": "double-1-8",
+  "kind": "double-1",
+  "board": "bkbbbk2/2ppppb1/1p6/6R1/5N2/7P/PPP1PP2/RQRBK2K",
+  "turn": "b",
+  "solution": "g7c3",
+  "pieces": 26
+ },
+ {
+  "id": "double-1-9",
+  "kind": "double-1",
+  "board": "kbnqqnnk/ppp1q1pp/1R6/5b2/8/8/b1PQQNPR/N1KNK1N1",
+  "turn": "b",
+  "solution": "d8d2",
+  "pieces": 28
+ },
+ {
+  "id": "double-1-10",
+  "kind": "double-1",
+  "board": "bbbb1k1k/pp1p2pp/6q1/8/4PN2/Pq3B2/1PPP1PPq/QBK2KQN",
+  "turn": "w",
+  "solution": "f4g6",
+  "pieces": 29
+ },
+ {
+  "id": "double-1-11",
+  "kind": "double-1",
+  "board": "knb1k1n1/npQ1prp1/8/6n1/8/2N4P/1B1P1P2/1N1RKNKN",
+  "turn": "b",
+  "solution": "g5f3",
+  "pieces": 23
+ },
+ {
+  "id": "double-1-12",
+  "kind": "double-1",
+  "board": "2kkb3/pp3b2/1n4n1/1Q1p4/5q2/8/3PPP1P/KBK2B1N",
+  "turn": "w",
+  "solution": "b5d7",
+  "pieces": 20
+ },
+ {
+  "id": "double-1-13",
+  "kind": "double-1",
+  "board": "1rbrk2k/2nprR2/8/n7/8/3N4/1RP1P1B1/KKN3R1",
+  "turn": "w",
+  "solution": "f7f8",
+  "pieces": 19
+ },
+ {
+  "id": "double-1-14",
+  "kind": "double-1",
+  "board": "1bq1r1kk/1p1p1brn/3b4/5n2/2P3Pb/8/PPQ1PP2/QQQQKBKQ",
+  "turn": "b",
+  "solution": "h4f2",
+  "pieces": 28
+ },
+ {
+  "id": "double-1-15",
+  "kind": "double-1",
+  "board": "1b1k2k1/1p3n2/6n1/2b5/8/6N1/1P2PBPR/RK1RQKR1",
+  "turn": "w",
+  "solution": "h2h8",
+  "pieces": 19
+ },
+ {
+  "id": "double-1-16",
+  "kind": "double-1",
+  "board": "6k1/2kbp2p/8/2R5/1n1BP3/4N3/PP1N1K1P/KQ1R4",
+  "turn": "w",
+  "solution": "d1g1",
+  "pieces": 18
+ },
+ {
+  "id": "double-1-17",
+  "kind": "double-1",
+  "board": "k2k3b/3nnBp1/8/4n3/6b1/1N6/1PPK3K/4B3",
+  "turn": "b",
+  "solution": "e5f3",
+  "pieces": 15
+ },
+ {
+  "id": "double-1-18",
+  "kind": "double-1",
+  "board": "qkqnr1kr/n2R2qp/8/8/1q6/4N3/PRB1PP2/KNQ1QQKQ",
+  "turn": "b",
+  "solution": "b4b2",
+  "pieces": 25
+ },
+ {
+  "id": "double-1-19",
+  "kind": "double-1",
+  "board": "kbrnkbrb/p1pp1bp1/6q1/8/2B5/8/1K1RBRBP/NN2B1K1",
+  "turn": "w",
+  "solution": "c4f7",
+  "pieces": 25
+ },
+ {
+  "id": "double-1-20",
+  "kind": "double-1",
+  "board": "qrk1qk2/ppn2p1p/8/8/4P3/Q2r4/2NP1NPN/1RNQKBKB",
+  "turn": "w",
+  "solution": "d1g4",
+  "pieces": 25
+ },
+ {
+  "id": "double-1-21",
+  "kind": "double-1",
+  "board": "2k2k2/pbbnpp2/2N2n2/3P4/8/1n6/1P2PPB1/1K3KRB",
+  "turn": "b",
+  "solution": "b3d2",
+  "pieces": 20
+ },
+ {
+  "id": "double-1-22",
+  "kind": "double-1",
+  "board": "kqknnbBb/nr4np/8/8/4qQ2/8/1PrQB1PP/K3KBRB",
+  "turn": "b",
+  "solution": "c2c1",
+  "pieces": 25
+ },
+ {
+  "id": "double-1-23",
+  "kind": "double-1",
+  "board": "kk1rr1b1/pp2nrp1/8/8/1P6/2B1N2P/P1NnR2P/1KQBK1BQ",
+  "turn": "w",
+  "solution": "h1b7",
+  "pieces": 25
+ },
+ {
+  "id": "double-1-24",
+  "kind": "double-1",
+  "board": "1k3k2/1pp3p1/p7/4b1n1/6P1/8/2PN1P1K/1B2K3",
+  "turn": "b",
+  "solution": "g5f3",
+  "pieces": 15
+ },
+ {
+  "id": "double-1-25",
+  "kind": "double-1",
+  "board": "b3kkr1/p5p1/3B3p/3n4/8/4N3/P4NNP/1r1K1K1R",
+  "turn": "b",
+  "solution": "d5e3",
+  "pieces": 18
+ },
+ {
+  "id": "mate-1-1",
+  "kind": "mate-1",
+  "board": "4bknk/2b1Rprp/q7/8/8/8/BP1rBPP1/RKN2K2",
+  "turn": "b",
+  "solution": "d2d1",
+  "pieces": 20
+ },
+ {
+  "id": "mate-1-2",
+  "kind": "mate-1",
+  "board": "krk5/1pp3br/8/8/6N1/8/qN1RPBN1/1BNQ1KK1",
+  "turn": "w",
+  "solution": "d2d8",
+  "pieces": 19
+ },
+ {
+  "id": "mate-1-3",
+  "kind": "mate-1",
+  "board": "rkqkb1R1/bp1p4/8/8/5q2/N7/1P1PPP1P/QNRRRK1K",
+  "turn": "b",
+  "solution": "f4f2",
+  "pieces": 23
+ },
+ {
+  "id": "mate-1-4",
+  "kind": "mate-1",
+  "board": "1kbqb3/1pp2p1p/5n2/5b1k/8/2P5/N3NP1P/KK2R3",
+  "turn": "b",
+  "solution": "d8d2",
+  "pieces": 19
+ },
+ {
+  "id": "mate-1-5",
+  "kind": "mate-1",
+  "board": "1kr3bk/2p3p1/5nQ1/8/3B3q/8/P2RB1RP/KKR1RB1R",
+  "turn": "w",
+  "solution": "g6g7",
+  "pieces": 21
+ },
+ {
+  "id": "mate-1-6",
+  "kind": "mate-1",
+  "board": "1k2rrk1/4R2R/1n1p4/4n3/8/P3N3/2P2R2/3K1K1N",
+  "turn": "w",
+  "solution": "e7g7",
+  "pieces": 16
+ },
+ {
+  "id": "mate-1-7",
+  "kind": "mate-1",
+  "board": "2kbk1q1/1nq2npb/8/8/1B6/8/1PQ4P/rNK2QBK",
+  "turn": "b",
+  "solution": "c7c2",
+  "pieces": 19
+ },
+ {
+  "id": "mate-1-8",
+  "kind": "mate-1",
+  "board": "4k1nk/R1pp1ppr/8/3b4/8/8/1P1BQRNN/BKQ1NRNK",
+  "turn": "w",
+  "solution": "a7a8",
+  "pieces": 23
+ },
+ {
+  "id": "mate-1-9",
+  "kind": "mate-1",
+  "board": "k1k5/1qp1pb2/8/Q7/7n/8/PB2NPP1/2K4K",
+  "turn": "b",
+  "solution": "b7g2",
+  "pieces": 15
+ },
+ {
+  "id": "mate-1-10",
+  "kind": "mate-1",
+  "board": "2R2kk1/5p1p/3p4/Q3p3/7P/PK4q1/1P2RPP1/RNN2K2",
+  "turn": "w",
+  "solution": "a5e5",
+  "pieces": 20
+ },
+ {
+  "id": "mate-1-11",
+  "kind": "mate-1",
+  "board": "1krqnbk1/1Rn1bp2/8/6r1/8/8/P2r1N1B/KRN1KQ1B",
+  "turn": "w",
+  "solution": "f1a6",
+  "pieces": 21
+ },
+ {
+  "id": "mate-1-12",
+  "kind": "mate-1",
+  "board": "r1k4k/bp4pp/4N3/pp1p4/8/B4N1P/2Q2BP1/3QK1NK",
+  "turn": "w",
+  "solution": "c2c7",
+  "pieces": 21
+ },
+ {
+  "id": "mate-1-13",
+  "kind": "mate-1",
+  "board": "B2kkr2/2bp1p1p/8/6B1/8/8/P1P2b1P/KR1K2B1",
+  "turn": "w",
+  "solution": "b1b8",
+  "pieces": 17
+ },
+ {
+  "id": "mate-1-14",
+  "kind": "mate-1",
+  "board": "k1k3Q1/ppbn4/4p3/5p2/3P4/4Nq2/1PP2B2/KBBK4",
+  "turn": "b",
+  "solution": "c7a5",
+  "pieces": 19
+ },
+ {
+  "id": "mate-1-15",
+  "kind": "mate-1",
+  "board": "1k1nk3/1rqpp3/5B2/5Q2/8/8/r1P1NBQP/NNQNKBKN",
+  "turn": "w",
+  "solution": "g2g8",
+  "pieces": 23
+ },
+ {
+  "id": "mate-1-16",
+  "kind": "mate-1",
+  "board": "nbnnQkqk/2n2prq/3b4/8/8/8/1PQBPQNP/1N1K1R1K",
+  "turn": "b",
+  "solution": "h7h2",
+  "pieces": 24
+ },
+ {
+  "id": "mate-1-17",
+  "kind": "mate-1",
+  "board": "k1qk4/2n1p2b/1r4B1/8/8/8/rPPP1RP1/B1K1BKBQ",
+  "turn": "b",
+  "solution": "a2a1",
+  "pieces": 20
+ },
+ {
+  "id": "mate-1-18",
+  "kind": "mate-1",
+  "board": "n2qnkk1/1r1pr2p/8/8/6N1/1bB5/P3BBP1/N1RKNNRK",
+  "turn": "w",
+  "solution": "g4h6",
+  "pieces": 23
+ },
+ {
+  "id": "mate-1-19",
+  "kind": "mate-1",
+  "board": "1R1k1rrk/2r2pp1/8/8/r7/8/P3P1R1/1RRKRB1K",
+  "turn": "b",
+  "solution": "a4d4",
+  "pieces": 18
+ },
+ {
+  "id": "mate-1-20",
+  "kind": "mate-1",
+  "board": "kq3kq1/1pp3r1/8/1Nqppq2/8/QN1P2P1/PPN2N1P/2KRBKRQ",
+  "turn": "w",
+  "solution": "b5c7",
+  "pieces": 27
+ },
+ {
+  "id": "mate-1-21",
+  "kind": "mate-1",
+  "board": "1k1b1bk1/1ppbpb1n/8/8/2B5/1B6/PB3PP1/2K1N1BK",
+  "turn": "w",
+  "solution": "c4f7",
+  "pieces": 20
+ },
+ {
+  "id": "mate-1-22",
+  "kind": "mate-1",
+  "board": "1k1b1q1k/2rbppqp/8/8/8/8/P1BPQPQ1/3KR1KB",
+  "turn": "w",
+  "solution": "g2a8",
+  "pieces": 20
+ },
+ {
+  "id": "mate-1-23",
+  "kind": "mate-1",
+  "board": "k4r2/p2n2k1/2p1p3/6bb/3P2P1/8/K1P3B1/1R3K2",
+  "turn": "w",
+  "solution": "g2c6",
+  "pieces": 16
+ },
+ {
+  "id": "mate-1-24",
+  "kind": "mate-1",
+  "board": "k2b3k/2p1r1p1/3p4/5R2/8/8/P1B1P1P1/K2K2B1",
+  "turn": "w",
+  "solution": "f5f8",
+  "pieces": 15
+ },
+ {
+  "id": "mate-1-25",
+  "kind": "mate-1",
+  "board": "bnk1r2k/qpq1p1p1/2bqq2p/8/7P/5R2/1PPBP3/1K1BQQ1K",
+  "turn": "b",
+  "solution": "d6h2",
+  "pieces": 25
+ },
+ {
+  "id": "win-2-1",
+  "kind": "win-2",
+  "board": "kk2b3/pb1qp1r1/8/7q/8/6P1/bP1PPP1P/K2Q1RK1",
+  "turn": "b",
+  "solution": "d7h3",
+  "pieces": 20
+ },
+ {
+  "id": "win-2-2",
+  "kind": "win-2",
+  "board": "rkqkb1R1/bp1p4/8/8/5q2/8/1PNPPP1P/QNRRRK1K",
+  "turn": "w",
+  "solution": "c2d4",
+  "pieces": 23
+ },
+ {
+  "id": "win-2-3",
+  "kind": "win-2",
+  "board": "kk2r1rn/5Rp1/3p4/1n6/8/8/2N1Q1PP/1N1KK3",
+  "turn": "w",
+  "solution": "e2b5",
+  "pieces": 16
+ },
+ {
+  "id": "win-2-4",
+  "kind": "win-2",
+  "board": "qrnk1kr1/1rp1r1qp/5n2/8/2N5/2N5/BPNPPPPQ/Q2KRKNB",
+  "turn": "b",
+  "solution": "f6g4",
+  "pieces": 28
+ },
+ {
+  "id": "win-2-5",
+  "kind": "win-2",
+  "board": "r2kk3/ppqnp1p1/4n3/8/3P2P1/1P6/P1P2P2/QKRBQKRB",
+  "turn": "w",
+  "solution": "e1e6",
+  "pieces": 24
+ },
+ {
+  "id": "win-2-6",
+  "kind": "win-2",
+  "board": "bqkb2k1/1ppppR2/6rp/1Q6/8/2N5/1PBP4/KKR1Q2Q",
+  "turn": "w",
+  "solution": "e1e7",
+  "pieces": 22
+ },
+ {
+  "id": "win-2-7",
+  "kind": "win-2",
+  "board": "b5bk/pp1k1B2/8/8/3br3/8/1P5P/KK2N3",
+  "turn": "b",
+  "solution": "e4e1",
+  "pieces": 14
+ },
+ {
+  "id": "win-2-8",
+  "kind": "win-2",
+  "board": "1rk1rb2/1kb2p2/R7/p3p2n/8/3B1N2/P3PPPP/3R2KK",
+  "turn": "w",
+  "solution": "d3e4",
+  "pieces": 21
+ },
+ {
+  "id": "win-2-9",
+  "kind": "win-2",
+  "board": "k1b2k1b/1bBr1bpp/8/p5Q1/8/1N6/1PR1PP2/KR2NQK1",
+  "turn": "w",
+  "solution": "c7d6",
+  "pieces": 22
+ },
+ {
+  "id": "win-2-10",
+  "kind": "win-2",
+  "board": "rbk4k/1pp3pp/4p3/pB1p4/3N4/B4N2/2Q1NBPP/3QK2K",
+  "turn": "w",
+  "solution": "c2c5",
+  "pieces": 23
+ },
+ {
+  "id": "win-2-11",
+  "kind": "win-2",
+  "board": "bk1r1krq/1np1p1pn/2q5/8/1P6/3P1P2/q1P4P/B1KQK1NR",
+  "turn": "b",
+  "solution": "a2a1",
+  "pieces": 24
+ },
+ {
+  "id": "win-2-12",
+  "kind": "win-2",
+  "board": "1n1krrk1/1pprpBp1/1b1n4/7Q/q7/6Q1/1P1R1R1P/2B1NK1K",
+  "turn": "w",
+  "solution": "g3h3",
+  "pieces": 24
+ }
+]

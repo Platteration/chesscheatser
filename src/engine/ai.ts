@@ -273,6 +273,23 @@ export function chooseMove(position: Position, difficulty: Difficulty, seed = ra
   };
 }
 
+/**
+ * Score of the side to move at a fixed depth (plies) inside an alpha-beta
+ * window, for tooling such as puzzle mining. A window hugging the mate score
+ * makes "is there a forced mate?" questions very cheap. Returns null if
+ * `timeMs` runs out first.
+ */
+export function scoreAtDepth(position: Position, depth: number, timeMs = 2000, alpha = -INF, beta = INF): number | null {
+  const pos = position.clone();
+  const searcher = new Searcher(pos, timeMs);
+  try {
+    return searcher.search(depth, alpha, beta, 0);
+  } catch (e) {
+    if (e instanceof TimeUp) return null;
+    throw e;
+  }
+}
+
 const yieldToUI = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
 
 /**
@@ -327,4 +344,4 @@ export async function chooseMoveAsync(
   return { move: pick.move, score: pick.score, depth: completedDepth, nodes: searcher.nodes, timeMs: Date.now() - started };
 }
 
-export { MATE };
+export { MATE, INF };
