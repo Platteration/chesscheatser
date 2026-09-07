@@ -68,6 +68,18 @@ describe('random setup', () => {
     }
   });
 
+  it('handicap mode scales the computer army by the requested ratio', () => {
+    for (const ratio of [0.6, 1, 1.5, 2.2, 3]) {
+      let sum = 0;
+      for (let seed = 1; seed <= 30; seed++) {
+        const setup = generateSetup({ mode: 'handicap', seed, handicap: ratio });
+        sum += setup.blackValue / setup.whiteValue;
+      }
+      const avg = sum / 30;
+      expect(Math.abs(avg - ratio)).toBeLessThan(0.12);
+    }
+  });
+
   it('mirror mode gives both sides the same multiset of pieces', () => {
     for (let seed = 1; seed <= 50; seed++) {
       const setup = generateSetup({ mode: 'mirror' as MaterialMode, seed });

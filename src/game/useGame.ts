@@ -43,6 +43,7 @@ export interface GameState {
   cheats: CheatStats;
   caughtMove: Move | null;
   daily: string | null;
+  ranked: number | null;
 }
 
 const PIECE_VALUES: Record<PieceType, number> = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
@@ -81,11 +82,15 @@ export interface StartOptions {
   events?: GameEvent[];
   /** Date key when playing the daily challenge. */
   daily?: string;
+  /** Ladder rank when playing a ranked game. */
+  ranked?: number;
+  /** Extra generator options (ranked handicap). */
+  handicap?: number;
 }
 
-function buildSetup(config: GameConfig, seed?: number): Setup {
+function buildSetup(config: GameConfig, seed?: number, handicap?: number): Setup {
   const size = ARMY_SIZES[config.armySize];
-  return generateSetup({ mode: config.material, seed, minPieces: size.min, maxPieces: size.max });
+  return generateSetup({ mode: config.material, seed, minPieces: size.min, maxPieces: size.max, handicap });
 }
 
 /** Replays saved events defensively: anything that fails to apply is dropped. */
@@ -105,14 +110,15 @@ function sanitizeEvents(setup: Setup, events: GameEvent[] | undefined, aiColor: 
 export function useGame(initial: StartOptions, onSave?: (saved: SavedGame | null) => void) {
   const [config, setConfig] = useState<GameConfig>(initial.config);
   const [humanColor, setHumanColor] = useState<Color>(initial.humanColor ?? resolveHumanColor(initial.config));
-  const [setup, setSetup] = useState<Setup>(() => buildSetup(initial.config, initial.seed));
+  const [setup, setSetup] = useState<Setup>(() => buildSetup(initial.config, initial.seed, initial.handicap));
   const aiColor: Color | null = config.mode === 'ai' ? opposite(humanColor) : null;
   const [events, setEvents] = useState<GameEvent[]>(() =>
-    initial.seed === undefined ? [] : sanitizeEvents(buildSetup(initial.config, initial.seed), initial.events, aiColor),
+    initial.seed === undefined ? [] : sanitizeEvents(buildSetup(initial.config, initial.seed, initial.handicap), initial.events, aiColor),
   );
   const [thinking, setThinking] = useState(false);
   const [resigned, setResigned] = useState<Color | null>(null);
   const [daily, setDaily] = useState<string | null>(initial.daily ?? null);
+  const [ranked, setRanked] = useState<number | null>(initial.ranked ?? null);
   const aiTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const folded = useMemo(() => fold(setup, events, aiColor), [setup, events, aiColor]);
@@ -159,15 +165,16 @@ export function useGame(initial: StartOptions, onSave?: (saved: SavedGame | null
       cheats: folded.cheats,
       caughtMove: folded.caughtMove,
       daily,
+      ranked,
     };
-  }, [folded, setup, humanColor, config, thinking, resigned, daily]);
+  }, [folded, setup, humanColor, config, thinking, resigned, daily, ranked]);
 
   // Persist after every change.
   useEffect(() => {
     if (!onSave) return;
     if (state.gameOver) onSave(null);
-    else onSave({ config, seed: setup.seed, humanColor, events, daily: daily ?? undefined });
-  }, [state.gameOver, onSave, config, setup.seed, humanColor, events, daily]);
+    else onSave({ config, seed: setup.seed, humanColor, events, daily: daily ?? undefined, ranked: ranked ?? undefined });
+  }, [state.gameOver, onSave, config, setup.seed, humanColor, events, daily, ranked]);
 
   const append = useCallback((e: GameEvent) => setEvents((prev) => [...prev, e]), []);
 
@@ -233,6 +240,7 @@ export function useGame(initial: StartOptions, onSave?: (saved: SavedGame | null
     setEvents([]);
     setResigned(null);
     setDaily(null);
+    setRanked(null);
   }, []);
 
   const newGame = useCallback(

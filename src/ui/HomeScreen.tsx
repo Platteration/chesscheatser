@@ -6,6 +6,7 @@ import type { CheatLevel } from '../engine/cheat';
 import type { MaterialMode } from '../engine/setup';
 import { ARMY_SIZES, type ArmySize, type GameConfig, type GameMode, type PlayAs, type Stats } from '../game/config';
 import { todayKey, type DailyState } from '../game/daily';
+import { ladderParams, type LadderState } from '../game/ladder';
 import { useSettings, type BoardTheme, type ColorSchemeSetting, type PieceStyle } from '../settings';
 import { Button, Card, Label, Segmented } from './components';
 import { BOARD_THEMES } from './theme';
@@ -18,6 +19,8 @@ interface Props {
   onStart: () => void;
   onDaily: () => void;
   daily: DailyState;
+  onRanked: () => void;
+  ladder: LadderState;
   onResume?: () => void;
   onRules: () => void;
   stats: Stats;
@@ -33,9 +36,10 @@ const MATERIAL_HINT: Record<MaterialMode, string> = {
   fair: 'Different random armies, roughly equal in strength.',
   mirror: 'Both sides get the same random set of pieces.',
   chaos: 'Fully random on both sides. Someone may get three queens.',
+  handicap: 'Used by the ranked ladder.',
 };
 
-export function HomeScreen({ config, onChange, onStart, onDaily, daily, onResume, onRules, stats }: Props) {
+export function HomeScreen({ config, onChange, onStart, onDaily, daily, onRanked, ladder, onResume, onRules, stats }: Props) {
   const styles = useStyles();
   const theme = useTheme();
   const insets = useSafeAreaInsets();
@@ -59,6 +63,7 @@ export function HomeScreen({ config, onChange, onStart, onDaily, daily, onResume
       {onResume && <Button title="Resume game" onPress={onResume} style={styles.resume} />}
 
       <DailyCard daily={daily} onDaily={onDaily} />
+      <LadderCard ladder={ladder} onRanked={onRanked} />
 
       <Card>
         <Label>Opponent</Label>
@@ -194,6 +199,25 @@ function DailyCard({ daily, onDaily }: { daily: DailyState; onDaily: () => void 
         {streak > 1 && <Text style={styles.dailyStreak}>🔥 {streak}-day streak</Text>}
       </View>
       <Button title={rec ? 'Replay' : 'Play'} small onPress={onDaily} variant={rec ? 'secondary' : 'primary'} />
+    </View>
+  );
+}
+
+function LadderCard({ ladder, onRanked }: { ladder: LadderState; onRanked: () => void }) {
+  const styles = useStyles();
+  const p = ladderParams(ladder.rank);
+  const diff = { easy: 'Easy', medium: 'Medium', hard: 'Hard' }[p.difficulty];
+  const cheat = { off: 'no cheating', low: 'some cheating', high: 'lots of cheating' }[p.cheating];
+  return (
+    <View style={styles.dailyCard}>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.dailyTitle}>Ranked ladder · rank {ladder.rank}</Text>
+        <Text style={styles.dailyText}>
+          {p.label}. {diff}, {cheat}. Win to climb, lose to drop.
+        </Text>
+        {ladder.best > 1 && <Text style={styles.dailyStreak}>Best rank {ladder.best} · {ladder.games} games</Text>}
+      </View>
+      <Button title="Play" small onPress={onRanked} />
     </View>
   );
 }

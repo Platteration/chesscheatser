@@ -31,11 +31,12 @@ export interface GameOutcome {
   cheatsMissed: number;
   falseAccusations: number;
   daily: string | null;
+  ranked: number | null;
 }
 
 const COLOR_NAME: Record<Color, string> = { w: 'White', b: 'Black' };
 const DIFFICULTY_LABEL = { easy: 'Easy', medium: 'Medium', hard: 'Hard' } as const;
-const MATERIAL_LABEL = { chaos: 'Chaos', fair: 'Fair', mirror: 'Mirror' } as const;
+const MATERIAL_LABEL = { chaos: 'Chaos', fair: 'Fair', mirror: 'Mirror', handicap: 'Ranked' } as const;
 
 export function GameScreen({ start, onExit, onSave, onFinished, dailyStreak = 0 }: Props) {
   const styles = useStyles();
@@ -177,7 +178,11 @@ export function GameScreen({ start, onExit, onSave, onFinished, dailyStreak = 0 
         <View style={styles.titleBlock}>
           <Text style={styles.title}>Two Kings</Text>
           <Text style={styles.subtitle}>
-            {state.daily ? `Daily challenge · ${state.daily}` : `${MATERIAL_LABEL[state.config.material]} armies · seed ${state.setup.seed}`}
+            {state.daily
+              ? `Daily challenge · ${state.daily}`
+              : state.ranked
+                ? `Ranked · rank ${state.ranked} · seed ${state.setup.seed}`
+                : `${MATERIAL_LABEL[state.config.material]} armies · seed ${state.setup.seed}`}
           </Text>
         </View>
         <Button title="Flip" variant="ghost" small onPress={() => setFlipped(!isFlipped)} />
@@ -239,6 +244,15 @@ export function GameScreen({ start, onExit, onSave, onFinished, dailyStreak = 0 
         <View style={styles.overlay}>
           <View style={styles.resultCard}>
             <Text style={styles.resultTitle}>{resultTitle(state)}</Text>
+            {state.ranked !== null && (
+              <Text style={styles.resultRank}>
+                {winnerOf(state) === state.humanColor
+                  ? `Rank up! Now rank ${state.ranked + 1}.`
+                  : winnerOf(state) === null
+                    ? `Rank ${state.ranked} holds.`
+                    : `Down to rank ${Math.max(1, state.ranked - 1)}.`}
+              </Text>
+            )}
             <Text style={styles.resultText}>{status.text}</Text>
             {status.detail ? <Text style={styles.resultDetail}>{status.detail}</Text> : null}
             {state.config.mode === 'ai' && state.config.cheating !== 'off' && (
@@ -267,6 +281,7 @@ function outcomeOf(state: GameState): GameOutcome {
     cheatsMissed: state.cheats.made - state.cheats.caught,
     falseAccusations: state.cheats.falseAccusations,
     daily: state.daily,
+    ranked: state.ranked,
   };
 }
 
@@ -504,6 +519,7 @@ const useStyles = themedStyles((theme) => ({
     borderColor: theme.border,
   },
   resultTitle: { color: theme.accent, fontSize: 28, fontWeight: '800', textAlign: 'center' },
+  resultRank: { color: theme.text, fontSize: 15, fontWeight: '700', textAlign: 'center', marginTop: 6 },
   resultText: { color: theme.text, fontSize: 16, textAlign: 'center', marginTop: 8 },
   resultDetail: { color: theme.textMuted, fontSize: 13, textAlign: 'center', marginTop: 4 },
   resultButtons: { marginTop: 18, gap: 10 },

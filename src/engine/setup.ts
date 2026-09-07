@@ -8,8 +8,9 @@ import { PIECE_VALUE, type Board, type Color, type PieceType } from './types';
  *  - chaos:  each side gets an independent random army (can be wildly unfair).
  *  - fair:   different random armies, but roughly equal total material.
  *  - mirror: both sides get the same set of pieces, placed independently.
+ *  - handicap: black's total value is `handicap` times white's (ranked ladder).
  */
-export type MaterialMode = 'chaos' | 'fair' | 'mirror';
+export type MaterialMode = 'chaos' | 'fair' | 'mirror' | 'handicap';
 
 export interface SetupOptions {
   mode: MaterialMode;
@@ -17,6 +18,8 @@ export interface SetupOptions {
   minPieces?: number;
   maxPieces?: number;
   seed?: number;
+  /** For mode 'handicap': black's army value as a multiple of white's (1 = fair). */
+  handicap?: number;
 }
 
 export interface Setup {
@@ -55,6 +58,52 @@ function randomArmy(rng: Rng, min: number, max: number): PieceType[] {
       else pawns++;
     }
     army.push(t);
+  }
+  return army;
+}
+
+const BY_VALUE: PieceType[] = ['p', 'n', 'b', 'r', 'q'];
+
+/**
+ * Finds an army whose value is within `tolerance` of `target`: random sampling
+ * first, then a hill-climb that swaps single pieces up or down (or adds/removes
+ * one) until the value lands in range. Non-king counts stay within min..max.
+ */
+function matchValue(rng: Rng, fallback: PieceType[], target: number, min: number, max: number, tolerance: number): PieceType[] {
+  let best = fallback;
+  let bestDiff = Math.abs(armyValue(fallback) - target);
+  for (let i = 0; i < 200; i++) {
+    const candidate = randomArmy(rng, min, max);
+    const diff = Math.abs(armyValue(candidate) - target);
+    if (diff < bestDiff) {
+      best = candidate;
+      bestDiff = diff;
+    }
+    if (diff <= tolerance) return best;
+  }
+  const lo = Math.max(1, min - KINGS_PER_SIDE);
+  const hi = Math.max(lo, max - KINGS_PER_SIDE);
+  const army = best.slice();
+  for (let step = 0; step < 400 && Math.abs(armyValue(army) - target) > tolerance; step++) {
+    const tooWeak = armyValue(army) < target;
+    const i = rng.int(0, Math.max(0, army.length - 1));
+    const idx = BY_VALUE.indexOf(army[i]);
+    if (tooWeak) {
+      if (idx < BY_VALUE.length - 1 && rng.next() < 0.7) army[i] = BY_VALUE[idx + 1];
+      else if (army.length < hi) army.push(rng.pick(['n', 'b', 'r', 'q'] as PieceType[]));
+      else if (idx < BY_VALUE.length - 1) army[i] = BY_VALUE[idx + 1];
+      else break; // all queens at max size: cannot get stronger
+    } else {
+      if (idx > 0 && rng.next() < 0.7) army[i] = BY_VALUE[idx - 1];
+      else if (army.length > lo) army.splice(i, 1);
+      else if (idx > 0) army[i] = BY_VALUE[idx - 1];
+      else break;
+    }
+  }
+  // Keep the pawn cap the placer relies on.
+  let pawns = 0;
+  for (let i = 0; i < army.length; i++) {
+    if (army[i] === 'p' && ++pawns > 8) army[i] = 'n';
   }
   return army;
 }
@@ -128,22 +177,24 @@ export function generateSetup(options: SetupOptions): Setup {
   const max = Math.max(min, Math.min(16, options.maxPieces ?? DEFAULT_MAX_PIECES));
 
   for (;;) {
-    const white = randomArmy(rng, min, max);
+    // A steep handicap needs a modest white army so the target stays reachable within 16 pieces.
+    const ratio = options.mode === 'handicap' ? Math.max(0.3, Math.min(4, options.handicap ?? 1)) : 1;
+    const whiteMax = ratio > 1.4 ? Math.max(min, Math.min(max, Math.floor(16 / ratio) + 2)) : max;
+    const white = randomArmy(rng, Math.min(min, whiteMax), whiteMax);
     let black: PieceType[];
     switch (options.mode) {
       case 'mirror':
         black = white.slice();
         break;
-      case 'fair': {
-        const target = armyValue(white);
-        black = white.slice();
-        for (let i = 0; i < 400; i++) {
-          const candidate = randomArmy(rng, min, max);
-          if (Math.abs(armyValue(candidate) - target) <= 100) {
-            black = candidate;
-            break;
-          }
-        }
+      case 'fair':
+        black = matchValue(rng, white, armyValue(white), min, max, 100);
+        break;
+      case 'handicap': {
+        const target = armyValue(white) * ratio;
+        // A much stronger or weaker army may need more or fewer pieces than white's range allows.
+        const lo = ratio < 1 ? 3 : min;
+        const hi = ratio > 1 ? 16 : max;
+        black = matchValue(rng, white, target, lo, hi, Math.max(100, target * 0.08));
         break;
       }
       default:

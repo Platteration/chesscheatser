@@ -5,6 +5,7 @@ import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { DEFAULT_CONFIG, EMPTY_STATS, type GameConfig, type SavedGame, type Stats } from './src/game/config';
 import { DAILY_CONFIG, dailySeed, EMPTY_DAILY, recordDaily, todayKey, type DailyState } from './src/game/daily';
+import { applyLadderResult, EMPTY_LADDER, ladderConfig, ladderParams, type LadderState } from './src/game/ladder';
 import type { StartOptions } from './src/game/useGame';
 import { loadJSON, remove, saveJSON, STORAGE_KEYS } from './src/storage';
 import { GameScreen, type GameOutcome } from './src/ui/GameScreen';
@@ -34,17 +35,20 @@ function Root() {
   const [saved, setSaved] = useState<SavedGame | null>(null);
   const [stats, setStats] = useState<Stats>(EMPTY_STATS);
   const [daily, setDaily] = useState<DailyState>(EMPTY_DAILY);
+  const [ladder, setLadder] = useState<LadderState>(EMPTY_LADDER);
   const [screen, setScreen] = useState<Screen>({ name: 'home' });
 
   useEffect(() => {
     (async () => {
-      const [cfg, game, st, dy] = await Promise.all([
+      const [cfg, game, st, dy, ld] = await Promise.all([
         loadJSON<GameConfig>(STORAGE_KEYS.settings, DEFAULT_CONFIG),
         loadJSON<SavedGame | null>(STORAGE_KEYS.game, null),
         loadJSON<Stats>(STORAGE_KEYS.stats, EMPTY_STATS),
         loadJSON<DailyState>(STORAGE_KEYS.daily, EMPTY_DAILY),
+        loadJSON<LadderState>(STORAGE_KEYS.ladder, EMPTY_LADDER),
       ]);
       setDaily(dy);
+      setLadder(ld);
       setConfig(cfg);
       setSaved(game && Array.isArray(game.events) && typeof game.seed === 'number' ? game : null);
       setStats(st);
@@ -73,6 +77,13 @@ function Root() {
       void saveJSON(STORAGE_KEYS.stats, next);
       return next;
     });
+    if (o.ranked !== null) {
+      setLadder((l) => {
+        const next = applyLadderResult(l, o.outcome);
+        void saveJSON(STORAGE_KEYS.ladder, next);
+        return next;
+      });
+    }
     if (o.daily) {
       setDaily((d) => {
         const next = recordDaily(d, { date: o.daily!, ...o });
@@ -81,6 +92,15 @@ function Root() {
       });
     }
   }, []);
+
+  const startRanked = useCallback(() => {
+    const rank = ladder.rank;
+    setScreen({
+      name: 'game',
+      start: { config: ladderConfig(rank), humanColor: 'w', ranked: rank, handicap: ladderParams(rank).handicap },
+      key: Date.now(),
+    });
+  }, [ladder.rank]);
 
   const startDaily = useCallback(() => {
     const date = todayKey();
@@ -99,7 +119,15 @@ function Root() {
     if (!saved) return;
     setScreen({
       name: 'game',
-      start: { config: saved.config, seed: saved.seed, humanColor: saved.humanColor, events: saved.events, daily: saved.daily },
+      start: {
+        config: saved.config,
+        seed: saved.seed,
+        humanColor: saved.humanColor,
+        events: saved.events,
+        daily: saved.daily,
+        ranked: saved.ranked,
+        handicap: saved.ranked ? ladderParams(saved.ranked).handicap : undefined,
+      },
       key: Date.now(),
     });
   }, [saved]);
@@ -127,6 +155,8 @@ function Root() {
         onStart={startNew}
         onDaily={startDaily}
         daily={daily}
+        onRanked={startRanked}
+        ladder={ladder}
         onResume={saved ? resume : undefined}
         onRules={() => setScreen({ name: 'rules' })}
         stats={stats}

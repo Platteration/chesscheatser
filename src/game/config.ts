@@ -42,6 +42,8 @@ export interface SavedGame {
   events: GameEvent[];
   /** Date key when this is the daily challenge. */
   daily?: string;
+  /** Ladder rank when this is a ranked game. */
+  ranked?: number;
 }
 
 export interface Stats {
