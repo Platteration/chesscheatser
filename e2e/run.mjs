@@ -8,7 +8,10 @@ const root = process.env.E2E_ROOT || path.resolve('dist-web');
 const port = Number(process.env.E2E_PORT || 4190);
 const url = `http://localhost:${port}/`;
 const shots = process.env.E2E_SHOTS || '';
-const puzzles = JSON.parse(fs.readFileSync(path.resolve('assets/puzzles.json'), 'utf8'));
+const KIND_ORDER = ['double-1', 'mate-1', 'win-2'];
+const puzzles = JSON.parse(fs.readFileSync(path.resolve('assets/puzzles.json'), 'utf8')).sort(
+  (a, b) => KIND_ORDER.indexOf(a.kind) - KIND_ORDER.indexOf(b.kind) || a.pieces - b.pieces,
+);
 
 const scenarios = {
   async 'home settings persist'(browser) {

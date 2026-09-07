@@ -81,7 +81,9 @@ computer's strength.
 
 - [Expo](https://expo.dev) SDK 57 / React Native, TypeScript. No native code to maintain.
 - `src/engine`: a self-contained chess engine written for this variant
-  (move generation, two-king rules, seeded army generator, alpha-beta search AI).
+  (move generation, two-king rules, seeded army generator, and an alpha-beta
+  search with quiescence, a transposition table, killer moves and a history
+  heuristic, driven by iterative deepening under a time budget).
 - `src/game`: event-sourced game controller (moves, passes, accusations), undo and persistence.
 - `src/ui`: screens and board rendering.
 

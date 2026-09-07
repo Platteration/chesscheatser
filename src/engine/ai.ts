@@ -1,7 +1,7 @@
 import { fileOf, opposite, rankOf } from './board';
 import { isAttacked, Position } from './position';
 import { createRng, randomSeed } from './random';
-import { PIECE_VALUE, type Color, type LegalMove, type PieceType } from './types';
+import { PIECE_VALUE, type Color, type LegalMove, type Move, type PieceType } from './types';
 
 export type Difficulty = 'easy' | 'medium' | 'hard';
 
@@ -124,12 +124,92 @@ export function evaluate(pos: Position): number {
 
 class TimeUp extends Error {}
 
+// ---------------------------------------------------------------------------
+// Transposition table (module-level, shared across searches; entries are
+// verified by full 32-bit key so stale slots are simply overwritten).
+// ---------------------------------------------------------------------------
+const TT_BITS = 18;
+const TT_SIZE = 1 << TT_BITS;
+const TT_MASK = TT_SIZE - 1;
+const TT_EXACT = 0;
+const TT_LOWER = 1;
+const TT_UPPER = 2;
+const ttKey = new Int32Array(TT_SIZE);
+const ttScore = new Int32Array(TT_SIZE);
+const ttDepth = new Int8Array(TT_SIZE);
+const ttFlag = new Int8Array(TT_SIZE);
+const ttMove = new Int32Array(TT_SIZE); // from | to << 6 | promoIndex << 12, or -1
+const ttUsed = new Uint8Array(TT_SIZE);
+const PROMO_INDEX: Record<string, number> = { q: 1, r: 2, b: 3, n: 4 };
+const PROMO_TYPES: (PieceType | undefined)[] = [undefined, 'q', 'r', 'b', 'n'];
+
+function packMove(m: Move): number {
+  if (m.from < 0 || m.pass) return -1;
+  return m.from | (m.to << 6) | ((m.promotion ? PROMO_INDEX[m.promotion] : 0) << 12);
+}
+
+function sameAsPacked(m: Move, packed: number): boolean {
+  return packed >= 0 && m.from === (packed & 63) && m.to === ((packed >> 6) & 63) && (m.promotion ?? undefined) === PROMO_TYPES[(packed >> 12) & 7];
+}
+
+/** Mate scores are stored relative to the node so they stay valid at any ply. */
+function toTT(score: number, ply: number): number {
+  if (score >= MATE - 1000) return score + ply;
+  if (score <= -(MATE - 1000)) return score - ply;
+  return score;
+}
+function fromTT(score: number, ply: number): number {
+  if (score >= MATE - 1000) return score - ply;
+  if (score <= -(MATE - 1000)) return score + ply;
+  return score;
+}
+
+const MAX_PLY = 64;
+
 class Searcher {
   nodes = 0;
   private deadline: number;
+  private killers: Int32Array = new Int32Array(MAX_PLY * 2).fill(-1);
+  private history: Int32Array = new Int32Array(64 * 64);
 
   constructor(private pos: Position, timeMs: number) {
     this.deadline = Date.now() + timeMs;
+  }
+
+  private ttProbe(depth: number, alpha: number, beta: number, ply: number): { score: number | null; move: number } {
+    const i = this.pos.hash & TT_MASK;
+    if (!ttUsed[i] || ttKey[i] !== this.pos.hash) return { score: null, move: -1 };
+    const move = ttMove[i];
+    if (ttDepth[i] < depth) return { score: null, move };
+    const score = fromTT(ttScore[i], ply);
+    const flag = ttFlag[i];
+    if (flag === TT_EXACT) return { score, move };
+    if (flag === TT_LOWER && score >= beta) return { score, move };
+    if (flag === TT_UPPER && score <= alpha) return { score, move };
+    return { score: null, move };
+  }
+
+  private ttStore(depth: number, score: number, flag: number, best: Move | null, ply: number) {
+    const i = this.pos.hash & TT_MASK;
+    // Prefer keeping deeper entries for the same position; otherwise replace.
+    if (ttUsed[i] && ttKey[i] === this.pos.hash && ttDepth[i] > depth && ttFlag[i] === TT_EXACT) return;
+    ttUsed[i] = 1;
+    ttKey[i] = this.pos.hash;
+    ttScore[i] = toTT(score, ply);
+    ttDepth[i] = depth;
+    ttFlag[i] = flag;
+    ttMove[i] = best ? packMove(best) : -1;
+  }
+
+  private noteCutoff(m: Move, depth: number, ply: number) {
+    if (m.captured || m.promotion || m.from < 0) return;
+    const packed = packMove(m);
+    const k = ply * 2;
+    if (this.killers[k] !== packed) {
+      this.killers[k + 1] = this.killers[k];
+      this.killers[k] = packed;
+    }
+    this.history[m.from * 64 + m.to] += depth * depth;
   }
 
   private tick() {
@@ -137,12 +217,21 @@ class Searcher {
     if ((this.nodes & 1023) === 0 && Date.now() > this.deadline) throw new TimeUp();
   }
 
-  order(moves: LegalMove[], first?: LegalMove): LegalMove[] {
+  order(moves: LegalMove[], first?: LegalMove, ttMovePacked = -1, ply = 0): LegalMove[] {
+    const k1 = this.killers[ply * 2];
+    const k2 = this.killers[ply * 2 + 1];
     const scoreOf = (m: LegalMove) => {
       let s = 0;
-      if (first && m.from === first.from && m.to === first.to && m.promotion === first.promotion) s += 1_000_000;
-      if (m.captured) s += 10 * PIECE_VALUE[m.captured] - PIECE_VALUE[m.piece];
-      if (m.promotion) s += PIECE_VALUE[m.promotion];
+      if (first && m.from === first.from && m.to === first.to && m.promotion === first.promotion) s += 2_000_000;
+      if (sameAsPacked(m, ttMovePacked)) s += 1_000_000;
+      if (m.captured) s += 100_000 + 10 * PIECE_VALUE[m.captured] - PIECE_VALUE[m.piece];
+      if (m.promotion) s += 50_000 + PIECE_VALUE[m.promotion];
+      if (!m.captured && !m.promotion && m.from >= 0) {
+        const packed = packMove(m);
+        if (packed === k1) s += 40_000;
+        else if (packed === k2) s += 30_000;
+        else s += Math.min(29_999, this.history[m.from * 64 + m.to]);
+      }
       return s;
     };
     return moves
@@ -155,6 +244,10 @@ class Searcher {
     this.tick();
     const pos = this.pos;
     if (pos.halfmove >= 100 || pos.repetitionCount() >= 3) return 0;
+    const alphaOrig = alpha;
+    const probe = ply > 0 && ply < MAX_PLY ? this.ttProbe(depth, alpha, beta, ply) : { score: null, move: -1 };
+    if (probe.score !== null) return probe.score;
+
     const legal = pos.legalMoves();
     const res = pos.result(legal);
     if (res.kind === 'both-in-check' || res.kind === 'checkmate') return -(MATE - ply);
@@ -162,7 +255,8 @@ class Searcher {
     if (depth <= 0) return this.quiesce(alpha, beta, ply, 4);
 
     let best = -INF;
-    for (const m of this.order(legal)) {
+    let bestMove: Move | null = null;
+    for (const m of this.order(legal, undefined, probe.move, ply)) {
       pos.makeMove(m);
       let score: number;
       try {
@@ -170,9 +264,19 @@ class Searcher {
       } finally {
         pos.unmakeMove();
       }
-      if (score > best) best = score;
+      if (score > best) {
+        best = score;
+        bestMove = m;
+      }
       if (score > alpha) alpha = score;
-      if (alpha >= beta) break;
+      if (alpha >= beta) {
+        if (ply < MAX_PLY) this.noteCutoff(m, depth, ply);
+        break;
+      }
+    }
+    if (ply < MAX_PLY) {
+      const flag = best <= alphaOrig ? TT_UPPER : best >= beta ? TT_LOWER : TT_EXACT;
+      this.ttStore(depth, best, flag, bestMove, ply);
     }
     return best;
   }

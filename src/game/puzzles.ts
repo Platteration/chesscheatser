@@ -19,9 +19,13 @@ export const PUZZLE_KIND_LABEL: Record<PuzzleKind, { title: string; goal: string
   'win-2': { title: 'Win in two', goal: 'Force a win in two moves against any defence.' },
 };
 
+const KIND_ORDER: PuzzleKind[] = ['double-1', 'mate-1', 'win-2'];
+
+/** Bundled puzzles, easiest first: by kind, then fewer pieces on the board. */
 export function loadPuzzles(): Puzzle[] {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
-  return require('../../assets/puzzles.json') as Puzzle[];
+  const raw = require('../../assets/puzzles.json') as Puzzle[];
+  return [...raw].sort((a, b) => KIND_ORDER.indexOf(a.kind) - KIND_ORDER.indexOf(b.kind) || a.pieces - b.pieces);
 }
 
 export function puzzlePosition(p: Puzzle): Position {
