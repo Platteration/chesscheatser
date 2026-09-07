@@ -52,6 +52,8 @@ export interface SavedGame {
   ranked?: number;
   /** Remaining clock time per side in ms, when a clock is in use. */
   clocks?: Record<Color, number>;
+  /** Handicap ratio the armies were generated with (ranked games and their rematches). */
+  handicap?: number;
 }
 
 export interface Stats {

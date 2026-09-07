@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AppState } from 'react-native';
 import { opposite } from '../engine/board';
 import { chooseMoveAsync } from '../engine/ai';
 import { cheatCandidates, chooseActionAsync } from '../engine/cheat';
@@ -244,10 +245,11 @@ export function useGame(initial: StartOptions, onSave?: (saved: SavedGame | null
   }, [clockActive, clocks, state.turn]);
 
   // Persist after every change. Clock time is read through a ref so the 200ms
-  // tick does not rewrite the whole game; it is saved whenever the turn changes.
+  // tick does not rewrite the whole game; while a clock runs it is also saved
+  // every few seconds and whenever the app leaves the foreground.
   const clocksRef = useRef(clocks);
   clocksRef.current = clocks;
-  useEffect(() => {
+  const save = useCallback(() => {
     if (!onSave) return;
     if (state.gameOver) onSave(null);
     else
@@ -259,8 +261,21 @@ export function useGame(initial: StartOptions, onSave?: (saved: SavedGame | null
         daily: daily ?? undefined,
         ranked: ranked ?? undefined,
         clocks: config.clock ? clocksRef.current : undefined,
+        handicap,
       });
-  }, [state.gameOver, onSave, config, setup.seed, humanColor, events, daily, ranked]);
+  }, [state.gameOver, onSave, config, setup.seed, humanColor, events, daily, ranked, handicap]);
+  useEffect(() => save(), [save]);
+  useEffect(() => {
+    if (!clockActive) return;
+    const id = setInterval(save, 5000);
+    const sub = AppState.addEventListener('change', (s) => {
+      if (s !== 'active') save();
+    });
+    return () => {
+      clearInterval(id);
+      sub.remove();
+    };
+  }, [clockActive, save]);
 
   const append = useCallback((e: GameEvent) => setEvents((prev) => [...prev, e]), []);
 

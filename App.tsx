@@ -142,7 +142,7 @@ function Root() {
         events: saved.events,
         daily: saved.daily,
         ranked: saved.ranked,
-        handicap: saved.ranked ? ladderParams(saved.ranked).handicap : undefined,
+        handicap: saved.handicap ?? (saved.ranked ? ladderParams(saved.ranked).handicap : undefined),
         clocks: saved.clocks,
       },
       key: Date.now(),
