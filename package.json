@@ -17,6 +17,7 @@
   },
   "devDependencies": {
     "@types/react": "~19.2.2",
+    "playwright": "^1.56.1",
     "typescript": "~6.0.3",
     "vitest": "^5.0.0"
   },
@@ -26,7 +27,9 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "e2e": "CI=1 expo export --platform web --output-dir dist-web && node e2e/run.mjs",
+    "e2e:run": "node e2e/run.mjs"
   },
   "private": true
 }

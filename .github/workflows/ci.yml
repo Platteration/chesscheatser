@@ -20,6 +20,12 @@ jobs:
       - name: Bundle (android + web)
         run: |
           npx expo export --platform android --output-dir /tmp/android-out
-          npx expo export --platform web --output-dir /tmp/web-out
+          npx expo export --platform web --output-dir dist-web
+        env:
+          CI: 1
+      - name: Install Chromium for Playwright
+        run: npx playwright install --with-deps chromium
+      - name: End-to-end (web build in headless Chromium)
+        run: node e2e/run.mjs
         env:
           CI: 1

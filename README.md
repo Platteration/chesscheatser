@@ -102,8 +102,18 @@ npx eas build --profile preview --platform android   # installable APK
 npx eas build --profile production --platform ios
 ```
 
-CI (`.github/workflows/ci.yml`) runs the type check, the tests and a Metro
-bundle for Android and web on every push.
+CI (`.github/workflows/ci.yml`) runs the type check, the unit tests, a Metro
+bundle for Android and web, and the end-to-end suite on every push.
+
+```sh
+npm run e2e        # export the web build and drive it in headless Chromium
+```
+
+The e2e suite (`e2e/run.mjs`) plays real games through the UI: settings,
+hints/undo/resume, computer cheating and accusations, player cheating, the
+daily challenge, the ladder, puzzles, the pass-and-play clock, review and Pro
+gating. `.github/workflows/pages.yml` publishes the web build to GitHub Pages
+once Pages is enabled for the repository (Settings → Pages → GitHub Actions).
 
 ## Tests
 

@@ -1,0 +1,46 @@
+# Publishes the web build to GitHub Pages so testers can play in a browser.
+# Enable Pages for the repository (Settings → Pages → Source: GitHub Actions) once.
+name: Deploy web build
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Serve from the repository sub-path (<user>.github.io/<repo>/)
+        run: node -e "const fs=require('fs');const a=JSON.parse(fs.readFileSync('app.json'));a.expo.experiments={...(a.expo.experiments||{}),baseUrl:'/${{ github.event.repository.name }}'};fs.writeFileSync('app.json',JSON.stringify(a,null,2))"
+      - name: Export web build
+        run: npx expo export --platform web --output-dir dist-web
+        env:
+          CI: 1
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist-web
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

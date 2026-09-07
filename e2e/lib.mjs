@@ -1,0 +1,101 @@
+// Shared helpers for the end-to-end suite (web build driven by Playwright).
+import { chromium } from 'playwright';
+import http from 'node:http';
+import fs from 'node:fs';
+import path from 'node:path';
+
+const TYPES = { '.html': 'text/html', '.js': 'application/javascript', '.ico': 'image/x-icon', '.ttf': 'font/ttf', '.wav': 'audio/wav', '.json': 'application/json', '.png': 'image/png' };
+
+export function serve(root, port) {
+  const server = http.createServer((req, res) => {
+    let p = path.join(root, decodeURIComponent(req.url.split('?')[0]));
+    if (!fs.existsSync(p) || fs.statSync(p).isDirectory()) p = path.join(root, 'index.html');
+    res.setHeader('Content-Type', TYPES[path.extname(p)] || 'application/octet-stream');
+    fs.createReadStream(p).pipe(res);
+  });
+  return new Promise((resolve) => server.listen(port, () => resolve(server)));
+}
+
+export async function launch() {
+  const executablePath = process.env.PW_CHROMIUM || undefined;
+  return chromium.launch({ executablePath });
+}
+
+/** Fresh page at the app root with console/page errors collected. */
+export async function openApp(browser, url, viewport = { width: 390, height: 844 }) {
+  const context = await browser.newContext({ viewport, deviceScaleFactor: 1 });
+  const page = await context.newPage();
+  const errors = [];
+  page.on('pageerror', (e) => errors.push('pageerror: ' + e.message));
+  page.on('console', (m) => {
+    if (m.type() === 'error') errors.push('console: ' + m.text());
+  });
+  await page.goto(url);
+  await page.waitForTimeout(800);
+  return { page, context, errors };
+}
+
+/** Child-element count per board square, used to detect legal-move markers. */
+export const cellCounts = (page) =>
+  page.$$eval('[aria-label]', (els) => {
+    const out = {};
+    for (const el of els) {
+      const l = el.getAttribute('aria-label');
+      if (/^[a-h][1-8]$/.test(l)) out[l] = el.childElementCount;
+    }
+    return out;
+  });
+
+export async function waitHuman(page, ms = 12000) {
+  const until = Date.now() + ms;
+  while (Date.now() < until) {
+    if (!(await page.locator('text=/Computer is thinking|takes its extra move|Opponent is defending/').count())) return;
+    await page.waitForTimeout(100);
+  }
+}
+
+export const gameOver = (page) => page.locator('text=/Rematch/').count().then((n) => n > 0);
+
+/** Plays some legal move for the side to move by probing squares for markers. */
+export async function makeAnyMove(page) {
+  const base = await cellCounts(page);
+  for (const label of Object.keys(base)) {
+    await page.locator(`[aria-label="${label}"]`).click();
+    await page.waitForTimeout(30);
+    const now = await cellCounts(page);
+    const targets = Object.keys(now).filter((l) => l !== label && now[l] > base[l]);
+    if (targets.length) {
+      await page.locator(`[aria-label="${targets[Math.floor(Math.random() * targets.length)]}"]`).click({ timeout: 3000 });
+      await page.waitForTimeout(250);
+      if (await page.getByText('Promote to').count()) {
+        await page.locator('text=Promote to').locator('..').locator('div').nth(2).click().catch(() => {});
+      }
+      return true;
+    }
+    await page.locator(`[aria-label="${label}"]`).click().catch(() => {});
+  }
+  return false;
+}
+
+export async function clickSquares(page, from, to) {
+  await page.locator(`[aria-label="${from}"]`).click();
+  await page.waitForTimeout(100);
+  await page.locator(`[aria-label="${to}"]`).click();
+  await page.waitForTimeout(300);
+}
+
+export const text = (page, re) => page.locator(`text=${re}`).first().textContent().catch(() => null);
+export const exact = (page, t) => page.getByText(t, { exact: true });
+
+export async function unlockPro(page) {
+  await exact(page, 'Two Kings Pro').click();
+  await page.waitForTimeout(300);
+  await page.locator('text=/Unlock Pro/').click();
+  await page.waitForTimeout(300);
+  await page.getByText('‹ Back').click();
+  await page.waitForTimeout(300);
+}
+
+export function assert(cond, msg) {
+  if (!cond) throw new Error('Assertion failed: ' + msg);
+}
