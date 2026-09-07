@@ -10,6 +10,7 @@ import { Board } from './Board';
 import { Button } from './components';
 import { CHESS_FONT, GLYPH } from './PieceGlyph';
 import { haptics } from '../haptics';
+import { playSound } from '../sounds';
 import { PromotionPicker } from './PromotionPicker';
 import { themedStyles, useTheme } from './theme';
 
@@ -67,20 +68,41 @@ export function GameScreen({ start, onExit, onSave, onFinished }: Props) {
     if (first) return;
     if (state.gameOver) {
       const winner = winnerOf(state);
-      if (winner === null) haptics.move();
-      else if (state.config.mode === 'local' || winner === state.humanColor) haptics.win();
-      else haptics.loss();
+      if (winner === null) {
+        haptics.move();
+        playSound('check');
+      } else if (state.config.mode === 'local' || winner === state.humanColor) {
+        haptics.win();
+        playSound('win');
+      } else {
+        haptics.loss();
+        playSound('lose');
+      }
       return;
     }
     const last = state.lastEvent;
     if (last?.type === 'accuse') {
-      if (last.caught) haptics.caught();
-      else haptics.wrong();
+      if (last.caught) {
+        haptics.caught();
+        playSound('busted');
+      } else {
+        haptics.wrong();
+        playSound('wrong');
+      }
+    } else if (last?.type === 'pass') {
+      playSound('bonus');
     } else if (last?.type === 'move') {
       const moverChecked = state.kingsInDanger.some((k) => state.board[k]?.color === state.turn);
-      if (moverChecked) haptics.check();
-      else if (last.move.captured) haptics.capture();
-      else haptics.move();
+      if (moverChecked) {
+        haptics.check();
+        playSound('check');
+      } else if (last.move.captured) {
+        haptics.capture();
+        playSound('capture');
+      } else {
+        haptics.move();
+        playSound('move');
+      }
     }
   }, [state]);
 

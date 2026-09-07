@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { setHapticsEnabled } from './haptics';
+import { setSoundsEnabled } from './sounds';
 import { loadJSON, saveJSON } from './storage';
 
 export type ColorSchemeSetting = 'system' | 'dark' | 'light';
@@ -56,6 +57,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => setHapticsEnabled(settings.haptics), [settings.haptics]);
+  useEffect(() => setSoundsEnabled(settings.sounds), [settings.sounds]);
 
   const value = useMemo(() => ({ settings, update, loaded }), [settings, update, loaded]);
   return <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>;

@@ -50,7 +50,9 @@ Cheats are revealed at the end of the game.
 
 - Play against the computer (easy / medium / hard, optionally cheating) or pass-and-play on one device.
 - Legal-move dots, last-move and check highlighting, a Hint button, promotion picker, undo, resign.
-- Haptic feedback on moves, captures, checks and accusations (native only).
+- Sound effects (synthesized, see `assets/sounds`) and haptic feedback on moves,
+  captures, checks and accusations, each switchable.
+- Light/dark/system theme, five board colour sets, solid or classic-print pieces.
 - Pieces are drawn with a bundled 17 KB subset of DejaVu Sans (chess glyphs only),
   so they look identical on every device. See `assets/fonts/LICENSE-DejaVu.txt`.
 - The current game is saved automatically and can be resumed from the home screen.
