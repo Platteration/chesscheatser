@@ -26,6 +26,8 @@ export interface Theme {
   accentText: string;
   danger: string;
   success: string;
+  /** Comeback power accent. */
+  power: string;
   /** Crown colours that tell a side's two kings apart. */
   kingA: string;
   kingB: string;
@@ -61,6 +63,7 @@ const DARK: Omit<Theme, 'board' | 'scheme'> = {
   accentText: '#1a1300',
   danger: '#e25555',
   success: '#5ccc82',
+  power: '#c07be8',
   kingA: '#e4b95b',
   kingB: '#b9c4d6',
   radius: 12,
@@ -77,6 +80,7 @@ const LIGHT: Omit<Theme, 'board' | 'scheme'> = {
   accentText: '#1a1300',
   danger: '#c73b3b',
   success: '#2e9c58',
+  power: '#8a3fc4',
   kingA: '#c9962d',
   kingB: '#5f6f88',
   radius: 12,

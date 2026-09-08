@@ -1,4 +1,5 @@
 import { boardToString, cloneBoard, fileOf, kingSquares, opposite, rankOf } from './board';
+import { powerMoves } from './powers';
 import { KING_TARGETS, KNIGHT_TARGETS, PAWN_ATTACKERS, PAWN_CAPTURES, RAYS } from './tables';
 import type { Board, Color, GameResult, LegalMove, Move, Piece, PieceType, Square } from './types';
 
@@ -10,6 +11,8 @@ const PROMOTIONS: PieceType[] = ['q', 'r', 'b', 'n'];
 const PIECE_INDEX: Record<PieceType, number> = { p: 0, n: 1, b: 2, r: 3, q: 4, k: 5 };
 const ZOBRIST_PIECE: Int32Array = new Int32Array(12 * 64);
 const ZOBRIST_EP: Int32Array = new Int32Array(8);
+/** [colour][level] — comeback power levels change the legal move set, so they are part of the key. */
+const ZOBRIST_POWER: Int32Array = new Int32Array(2 * 8);
 let ZOBRIST_TURN = 0;
 (() => {
   let a = 0x9e3779b9;
@@ -22,14 +25,19 @@ let ZOBRIST_TURN = 0;
   };
   for (let i = 0; i < ZOBRIST_PIECE.length; i++) ZOBRIST_PIECE[i] = next();
   for (let i = 0; i < 8; i++) ZOBRIST_EP[i] = next();
+  for (let i = 0; i < ZOBRIST_POWER.length; i++) ZOBRIST_POWER[i] = next();
   ZOBRIST_TURN = next();
 })();
+
+function powerHash(color: Color, level: number): number {
+  return level > 0 ? ZOBRIST_POWER[(color === 'w' ? 0 : 8) + level] : 0;
+}
 
 function pieceHash(p: Piece, s: Square): number {
   return ZOBRIST_PIECE[(PIECE_INDEX[p.type] + (p.color === 'w' ? 0 : 6)) * 64 + s];
 }
 
-export function hashPosition(board: Board, turn: Color, ep: Square): number {
+export function hashPosition(board: Board, turn: Color, ep: Square, powers: Record<Color, number> = { w: 0, b: 0 }): number {
   let h = 0;
   for (let s = 0; s < 64; s++) {
     const p = board[s];
@@ -37,6 +45,7 @@ export function hashPosition(board: Board, turn: Color, ep: Square): number {
   }
   if (turn === 'b') h ^= ZOBRIST_TURN;
   if (ep >= 0) h ^= ZOBRIST_EP[fileOf(ep)];
+  h ^= powerHash('w', powers.w) ^ powerHash('b', powers.b);
   return h | 0;
 }
 
@@ -99,6 +108,10 @@ export class Position {
   history: number[] = [];
   /** King squares per colour, kept in sync by make/unmake. */
   kings: Record<Color, Square[]>;
+  /** Comeback power level per colour (0 = none). Change it with setPower so the hash follows. */
+  readonly powers: Record<Color, number> = { w: 0, b: 0 };
+  /** Pieces each colour may resurrect at power level 4 (set by the game layer). */
+  resurrectable: Record<Color, PieceType[]> = { w: [], b: [] };
   private undoStack: Undo[] = [];
 
   constructor(board: Board, turn: Color = 'w') {
@@ -116,7 +129,19 @@ export class Position {
     p.fullmove = this.fullmove;
     p.hash = this.hash;
     p.history = this.history.slice();
+    p.powers.w = this.powers.w;
+    p.powers.b = this.powers.b;
+    p.resurrectable = { w: this.resurrectable.w.slice(), b: this.resurrectable.b.slice() };
     return p;
+  }
+
+  /** Grants a comeback power level; part of the hash because it changes the legal moves. */
+  setPower(color: Color, level: number) {
+    const clamped = Math.max(0, Math.min(7, level | 0));
+    if (this.powers[color] === clamped) return;
+    this.hash = (this.hash ^ powerHash(color, this.powers[color]) ^ powerHash(color, clamped)) | 0;
+    this.powers[color] = clamped;
+    this.history[this.history.length - 1] = this.hash;
   }
 
   /** Human-readable key (board, side to move, en-passant square). */
@@ -231,7 +256,10 @@ export class Position {
     const color = this.turn;
     const enemy = opposite(color);
     const out: LegalMove[] = [];
-    for (const m of this.pseudoLegalMoves()) {
+    const level = this.powers[color];
+    const ordinary = this.pseudoLegalMoves();
+    const candidates = level > 0 ? ordinary.concat(powerMoves(this, level, this.resurrectable[color], ordinary)) : ordinary;
+    for (const m of candidates) {
       this.makeMove(m);
       const kings = this.kings[color];
       const checkedAfter: Square[] = [];

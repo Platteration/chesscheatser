@@ -3,8 +3,10 @@ import { Modal, ScrollView, Share, StyleSheet, Text, useWindowDimensions, View }
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { opposite, squareName } from '../engine/board';
 import { moveToSAN } from '../engine/position';
+import { POWER_DESCRIPTIONS, POWER_NAMES } from '../engine/powers';
 import type { Color, Move, PieceType, Square } from '../engine/types';
 import type { GameConfig, SavedGame } from '../game/config';
+import { blend } from '../game/comeback';
 import { shareText, type DailyRecord } from '../game/daily';
 import { useGame, type GameState, type StartOptions } from '../game/useGame';
 import { Board } from './Board';
@@ -54,7 +56,8 @@ export function GameScreen({ start, onExit, onSave, onFinished, dailyStreak = 0,
   useEffect(() => setCheatMode(false), [state.moves.length, state.turn]);
   const [hint, setHint] = useState<Move | null>(null);
   const [selected, setSelected] = useState<Square | null>(null);
-  const [pendingPromotion, setPendingPromotion] = useState<{ from: Square; to: Square } | null>(null);
+  /** A pending choice: pawn promotion, an optional "arrive as queen" upgrade, or which captured piece to bring back. */
+  const [pendingPromotion, setPendingPromotion] = useState<{ from: Square; to: Square; kind: 'promote' | 'upgrade' | 'resurrect' } | null>(null);
   const [flipped, setFlipped] = useState<boolean | null>(null);
   const [showResult, setShowResult] = useState(true);
   const { width, height } = useWindowDimensions();
@@ -91,7 +94,7 @@ export function GameScreen({ start, onExit, onSave, onFinished, dailyStreak = 0,
   const seen = useRef<string>('');
   useEffect(() => {
     setHint(null);
-    const key = `${state.setup.seed}:${state.moves.length}:${state.lastEvent?.type ?? ''}:${state.gameOver}`;
+    const key = `${state.setup.seed}:${state.moves.length}:${state.lastAction?.type ?? ''}:${state.gameOver}`;
     if (seen.current === key) return;
     const first = seen.current === '';
     seen.current = key;
@@ -110,7 +113,7 @@ export function GameScreen({ start, onExit, onSave, onFinished, dailyStreak = 0,
       }
       return;
     }
-    const last = state.lastEvent;
+    const last = state.lastAction;
     if (last?.type === 'accuse') {
       if (last.caught) {
         haptics.caught();
@@ -177,29 +180,47 @@ export function GameScreen({ start, onExit, onSave, onFinished, dailyStreak = 0,
           const candidates = state.legal.filter((m) => m.from === selected && m.to === s);
           if (candidates.length > 0) {
             setSelected(null);
-            if (candidates[0].promotion) setPendingPromotion({ from: selected, to: s });
+            const plain = candidates.find((m) => !m.promotion);
+            const upgrade = candidates.find((m) => m.promotion && m.piece !== 'p');
+            if (candidates[0].piece === 'p' && candidates[0].promotion) setPendingPromotion({ from: selected, to: s, kind: 'promote' });
+            else if (plain && upgrade) setPendingPromotion({ from: selected, to: s, kind: 'upgrade' });
             else play(candidates[0]);
             return;
           }
         }
       }
       const p = state.board[s];
+      if (!p && selected === null && state.legal.some((m) => m.from < 0 && m.to === s)) {
+        // Empty home-rank square with a resurrect power available: choose which piece returns.
+        setPendingPromotion({ from: -1, to: s, kind: 'resurrect' });
+        return;
+      }
       setSelected(p && p.color === state.turn && s !== selected ? s : null);
     },
     [state, selected, humanTurn, play, playCheat, cheatMode],
   );
 
   const onPromote = useCallback(
-    (t: PieceType) => {
+    (t: PieceType | null) => {
       if (!pendingPromotion) return;
-      const m = state.legal.find(
-        (x) => x.from === pendingPromotion.from && x.to === pendingPromotion.to && x.promotion === t,
-      );
+      const { from, to, kind } = pendingPromotion;
       setPendingPromotion(null);
+      let m: Move | undefined;
+      if (kind === 'resurrect') m = state.legal.find((x) => x.from < 0 && x.to === to && x.piece === t);
+      else if (t === null) m = state.legal.find((x) => x.from === from && x.to === to && !x.promotion);
+      else m = state.legal.find((x) => x.from === from && x.to === to && x.promotion === t);
       if (m) play(m);
     },
     [pendingPromotion, state, play],
   );
+  const pickerChoices = useMemo<PieceType[]>(() => {
+    if (!pendingPromotion) return [];
+    if (pendingPromotion.kind === 'resurrect') {
+      return [...new Set(state.legal.filter((x) => x.from < 0 && x.to === pendingPromotion.to).map((x) => x.piece))];
+    }
+    if (pendingPromotion.kind === 'upgrade') return ['q'];
+    return ['q', 'r', 'b', 'n'];
+  }, [pendingPromotion, state.legal]);
 
   const topColor: Color = isFlipped ? 'w' : 'b';
   const bottomColor: Color = opposite(topColor);
@@ -326,6 +347,9 @@ export function GameScreen({ start, onExit, onSave, onFinished, dailyStreak = 0,
       <PromotionPicker
         visible={pendingPromotion !== null}
         color={state.turn}
+        title={pendingPromotion?.kind === 'resurrect' ? 'Bring back' : pendingPromotion?.kind === 'upgrade' ? 'Arrive as a queen?' : 'Promote to'}
+        choices={pickerChoices}
+        keepLabel={pendingPromotion?.kind === 'upgrade' ? 'Just move' : undefined}
         onPick={onPromote}
         onCancel={() => setPendingPromotion(null)}
       />
@@ -374,7 +398,7 @@ function IntroTip() {
           <Text style={styles.resultTitle}>Two kings, one rule</Text>
           <Text style={styles.tipText}>You lose when both of your kings are in check at once, or when one of them is checkmated.</Text>
           <Text style={styles.tipText}>So you may leave one king in check, and even walk into it, as long as the other is safe. Kings are never captured.</Text>
-          <Text style={styles.tipText}>If the computer cheats, press Cheater! right after its move. Catch it and you move twice. Cry wolf and it moves twice.</Text>
+          <Text style={styles.tipText}>Losing? The further behind you are, by material and by the engine's judgement, the more your pieces can do: purple targets are comeback moves, and the computer gets them too when it is losing.</Text>
           <View style={styles.resultButtons}>
             <Button title="Got it" onPress={() => update({ seenIntro: true })} />
           </View>
@@ -397,6 +421,24 @@ function outcomeOf(state: GameState): GameOutcome {
     daily: state.daily,
     ranked: state.ranked,
   };
+}
+
+/** "Behind 4.5 · Slide" for a side that is losing; quiet when even or ahead. */
+function PowerMeter({ state, color }: { state: GameState; color: Color }) {
+  const styles = useStyles();
+  const theme = useTheme();
+  const p = state.powers[color];
+  const behind = blend(p.material, p.engine) / 100;
+  if (p.level === 0 && behind < 0.5) return null;
+  const on = state.turn === color && !state.gameOver;
+  return (
+    <View style={[styles.meter, { borderColor: p.level > 0 ? theme.power : theme.border, opacity: on ? 1 : 0.7 }]}>
+      <Text style={[styles.meterText, { color: p.level > 0 ? theme.power : theme.textMuted }]}>
+        {p.level > 0 ? `${POWER_NAMES[p.level]} ${'★'.repeat(p.level)}` : 'Behind'}
+      </Text>
+      <Text style={styles.meterSub}>−{behind.toFixed(1)}</Text>
+    </View>
+  );
 }
 
 function formatClock(ms: number): string {
@@ -462,6 +504,10 @@ function describeStatus(state: GameState, cheatMode = false): { text: string; de
       let text = state.thinking ? 'Computer is thinking…' : `${COLOR_NAME[mover]} to move`;
       const details: string[] = [];
       const notice = cheatMode ? { text: 'Cheat mode', detail: 'Pick a piece and slide it somewhere it cannot go. The computer might notice…' } : cheatNotice(state);
+      const power = state.config.comeback ? state.powers[mover] : null;
+      if (power && power.level > 0 && !notice && !state.thinking) {
+        details.unshift(`${POWER_NAMES[power.level]} power: ${POWER_DESCRIPTIONS[power.level]}`);
+      }
       if (notice) {
         text = notice.text;
         if (notice.detail) details.push(notice.detail);
@@ -480,7 +526,7 @@ function describeStatus(state: GameState, cheatMode = false): { text: string; de
 
 function cheatNotice(state: GameState): { text: string; detail?: string } | null {
   if (state.config.mode !== 'ai') return null;
-  const last = state.lastEvent;
+  const last = state.lastAction;
   const isHuman = state.turn === state.humanColor;
   if (last?.type === 'accuse' && last.by === 'ai') {
     const name = state.caughtMove ? moveToSAN(state.caughtMove) : 'Your move';
@@ -516,7 +562,7 @@ function avatarFor(state: GameState): string {
     return winner === state.humanColor ? '😩' : '😎';
   }
   if (state.thinking) return '🤔';
-  const last = state.lastEvent;
+  const last = state.lastAction;
   if (last?.type === 'accuse') return last.by === 'ai' ? '🧐' : last.caught ? '😳' : '😏';
   if (last?.type === 'pass' && state.turn !== state.humanColor) return '😈';
   const humanChecked = state.kingsInDanger.some((k) => state.board[k]?.color === state.humanColor);
@@ -531,7 +577,7 @@ function cheatReport(state: GameState): string {
   // Every move-list entry flips the turn, so the mover of entry i is white for even i.
   const aiColor = opposite(state.humanColor);
   const missed = state.moves
-    .filter((m, i) => m.cheat && (i % 2 === 0 ? 'w' : 'b') === aiColor)
+    .filter((m, i) => m.cheat && !m.power && (i % 2 === 0 ? 'w' : 'b') === aiColor)
     .map((m) => `${moveToSAN(m)} (${CHEAT_LABEL[m.cheat!]})`);
   if (missed.length) parts.push(`Got away with: ${missed.join(', ')}.`);
   if (falseAccusations) parts.push(`False accusation${falseAccusations === 1 ? '' : 's'}: ${falseAccusations}.`);
@@ -558,6 +604,7 @@ function PlayerStrip({ state, color, active }: { state: GameState; color: Color;
           {lead > 0 ? <Text style={styles.stripLead}>{`  +${lead}`}</Text> : null}
         </Text>
       </View>
+      {state.config.comeback && <PowerMeter state={state} color={color} />}
       {(state.config.clock ?? 0) > 0 && state.config.mode === 'local' && (
         <Text style={[styles.clock, { color: state.clocks[color] < 20_000 ? theme.danger : theme.text }]}>{formatClock(state.clocks[color])}</Text>
       )}
@@ -631,6 +678,9 @@ const useStyles = themedStyles((theme) => ({
   kingBadge: { fontSize: 20, opacity: 0.85, fontFamily: CHESS_FONT },
   kingBadgeDanger: { color: theme.danger, opacity: 1 },
   avatar: { fontSize: 26, marginRight: 10 },
+  meter: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3, alignItems: 'center', marginRight: 8 },
+  meterText: { fontSize: 11, fontWeight: '800' },
+  meterSub: { fontSize: 10, color: theme.textMuted },
   statusBox: { paddingHorizontal: 16, paddingTop: 8, minHeight: 44 },
   accuseRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingTop: 6 },
   accuseButton: { backgroundColor: theme.danger },

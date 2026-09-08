@@ -20,6 +20,8 @@ export interface GameConfig {
   clock?: ClockMinutes;
   /** Whether the human may play one illegal move per game (the computer may notice). */
   playerCheats?: boolean;
+  /** Comeback powers: the side that is losing gets stronger pieces. */
+  comeback?: boolean;
 }
 
 export type ClockMinutes = 0 | 1 | 3 | 5 | 10;
@@ -30,7 +32,8 @@ export const DEFAULT_CONFIG: GameConfig = {
   material: 'fair',
   playAs: 'random',
   armySize: 'any',
-  cheating: 'low',
+  cheating: 'off',
+  comeback: true,
 };
 
 export const ARMY_SIZES: Record<ArmySize, { label: string; min: number; max: number }> = {

@@ -67,20 +67,40 @@ export async function waitHuman(page, ms = 12000) {
 
 export const gameOver = (page) => page.locator('text=/Rematch/').count().then((n) => n > 0);
 
+/**
+ * Resolves any picker the app may have opened after a tap: pawn promotion
+ * (queen), the optional "arrive as a queen" upgrade ("Just move"), or the
+ * "Bring back" resurrect picker (first piece). Returns true if a picker was
+ * answered in a way that completes a move.
+ */
+async function settlePicker(page) {
+  await page.waitForTimeout(120);
+  if (await page.getByText('Just move', { exact: true }).count()) {
+    await page.getByText('Just move', { exact: true }).click();
+    return true;
+  }
+  for (const title of ['Promote to', 'Bring back']) {
+    if (await page.getByText(title, { exact: true }).count()) {
+      await page.locator(`text=${title}`).locator('..').locator('div').nth(2).click().catch(() => {});
+      return true;
+    }
+  }
+  return false;
+}
+
 /** Plays some legal move for the side to move by probing squares for markers. */
 export async function makeAnyMove(page) {
   const base = await cellCounts(page);
   for (const label of Object.keys(base)) {
     await sq(page, label).click();
+    if (await settlePicker(page)) return true; // an empty home square opened the resurrect picker
     await page.waitForTimeout(30);
     const now = await cellCounts(page);
     const targets = Object.keys(now).filter((l) => l !== label && now[l] > base[l]);
     if (targets.length) {
       await sq(page, targets[Math.floor(Math.random() * targets.length)]).click({ timeout: 3000 });
-      await page.waitForTimeout(250);
-      if (await page.getByText('Promote to').count()) {
-        await page.locator('text=Promote to').locator('..').locator('div').nth(2).click().catch(() => {});
-      }
+      await settlePicker(page);
+      await page.waitForTimeout(200);
       return true;
     }
     await sq(page, label).click().catch(() => {});

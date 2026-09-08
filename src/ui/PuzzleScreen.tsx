@@ -165,8 +165,8 @@ function PuzzlePlayer({ puzzles, progress, onSolved, onBack }: Props) {
   );
 
   const onPromote = useCallback(
-    (t: PieceType) => {
-      if (!pendingPromotion) return;
+    (t: PieceType | null) => {
+      if (!pendingPromotion || t === null) return;
       const m = legal.find((x) => x.from === pendingPromotion.from && x.to === pendingPromotion.to && x.promotion === t);
       setPendingPromotion(null);
       if (m) apply(m);

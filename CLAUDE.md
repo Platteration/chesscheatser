@@ -1,7 +1,8 @@
 # Two Kings Chess
 
 Expo (React Native, TypeScript) app for a chess variant: two kings per side,
-randomly generated armies, and an optional cheating computer opponent.
+randomly generated armies, comeback powers for whichever side is losing, and
+an optional cheating computer opponent.
 
 ## Commands
 
@@ -35,6 +36,11 @@ randomly generated armies, and an optional cheating computer opponent.
 - You lose when all your kings are in check at the start of your turn, or a
   king in check has no rescuing move (checkmate). Kings are never captured.
 - No castling. En passant, promotion, 50-move and threefold repetition apply.
+- Comeback powers (default on): at the start of each turn a `power` event
+  records the side to move's level (0–4) from a blend of material deficit and
+  a quick engine search (`src/game/comeback.ts`); `Position.powers` makes the
+  extra moves from `src/engine/powers.ts` legal for that side. Power moves
+  carry `power: true` and are never counted as cheats.
 - Caught cheat: move undone, computer skips, human moves twice. False
   accusation: computer moves twice. The computer never cheats on the first
   half of a double move (only its last move can be accused).

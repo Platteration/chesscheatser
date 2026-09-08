@@ -22,8 +22,10 @@ export interface Move {
   promotion?: PieceType;
   enPassant?: boolean;
   doublePush?: boolean;
-  /** Set when the move was an illegal move played by a cheating opponent. */
+  /** Names the trick for a cheat or a comeback power move. */
   cheat?: CheatKind;
+  /** A sanctioned comeback power move (legal for a side that is losing). */
+  power?: true;
   /** A null move: the side to move skips its turn. */
   pass?: true;
 }

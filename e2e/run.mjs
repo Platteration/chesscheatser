@@ -210,6 +210,28 @@ const scenarios = {
     await context.close();
   },
 
+  async 'comeback powers appear for the side that is behind'(browser) {
+    const { page, context, errors } = await openApp(browser, url);
+    await exact(page, 'White').first().click();
+    await exact(page, 'Never').click();
+    await exact(page, 'Chaos').click();
+    let seen = null;
+    for (let attempt = 0; attempt < 6 && !seen; attempt++) {
+      if (attempt === 0) await exact(page, 'New game with these settings').click();
+      else await exact(page, 'New armies').click();
+      await page.waitForTimeout(700);
+      await waitHuman(page);
+      // Either side may be behind from the start; play a ply so both sides get measured.
+      if (await makeAnyMove(page)) await waitHuman(page);
+      await page.waitForTimeout(400);
+      seen = await text(page, '/Nudge|Slide|Leap|Ascend/');
+    }
+    assert(seen !== null, 'a power label showed up within six chaos games');
+    if (shots) await page.screenshot({ path: `${shots}/comeback.png` });
+    assert(errors.length === 0, errors.join('\n'));
+    await context.close();
+  },
+
   async 'pro gating'(browser) {
     const { page, context, errors } = await openApp(browser, url);
     assert((await exact(page, 'Neon 🔒').count()) === 1, 'neon locked');

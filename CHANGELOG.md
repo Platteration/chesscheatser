@@ -3,6 +3,10 @@
 ## Unreleased (1.0.0 candidate)
 
 ### Game
+- Comeback powers (the core idea): the side that is losing, by material and
+  by the engine's evaluation, gets stronger pieces in four stacking levels
+  (Nudge, Slide, Leap, Ascend). Power moves are legal, shown in purple, and
+  the computer gets them too.
 - Two-king chess: each side has two kings; lose when both are in check at
   once or one is checkmated. Kings are never captured, castling is out,
   en passant and promotion are in, 50-move and threefold draws apply.

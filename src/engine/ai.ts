@@ -143,6 +143,11 @@ const ttUsed = new Uint8Array(TT_SIZE);
 const PROMO_INDEX: Record<string, number> = { q: 1, r: 2, b: 3, n: 4 };
 const PROMO_TYPES: (PieceType | undefined)[] = [undefined, 'q', 'r', 'b', 'n'];
 
+/** Forgets every stored position (call when a new game starts). */
+export function clearTranspositionTable() {
+  ttUsed.fill(0);
+}
+
 function packMove(m: Move): number {
   if (m.from < 0 || m.pass) return -1;
   return m.from | (m.to << 6) | ((m.promotion ? PROMO_INDEX[m.promotion] : 0) << 12);

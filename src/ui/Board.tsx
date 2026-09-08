@@ -65,8 +65,12 @@ export function Board({ board, size, flipped, selected, targets, cheatMode, last
     return { x: col * square, y: row * square };
   };
   const targetMap = useMemo(() => {
-    const m = new Map<Square, boolean>();
-    for (const t of targets) m.set(t.to, !!t.captured);
+    const m = new Map<Square, { capture: boolean; power: boolean }>();
+    for (const t of targets) {
+      const prev = m.get(t.to);
+      // An ordinary move to the same square wins over a power move for display.
+      m.set(t.to, { capture: !!t.captured, power: !!t.power && (prev ? prev.power : true) });
+    }
     return m;
   }, [targets]);
   const danger = useMemo(() => new Set(kingsInDanger), [kingsInDanger]);
@@ -128,18 +132,22 @@ export function Board({ board, size, flipped, selected, targets, cheatMode, last
             />
           )}
           {target !== undefined &&
-            (target ? (
+            (target.capture ? (
               <View
                 style={[
                   StyleSheet.absoluteFill,
                   styles.captureRing,
-                  cheatMode && styles.cheatRing,
+                  (cheatMode || target.power) && styles.cheatRing,
                   { borderRadius: square / 2, borderWidth: square * 0.09 },
                 ]}
               />
             ) : (
               <View
-                style={[styles.dot, cheatMode && styles.cheatDot, { width: square * 0.3, height: square * 0.3, borderRadius: square * 0.15 }]}
+                style={[
+                  styles.dot,
+                  (cheatMode || target.power) && styles.cheatDot,
+                  { width: square * 0.3, height: square * 0.3, borderRadius: square * 0.15 },
+                ]}
               />
             ))}
         </Pressable>,

@@ -111,7 +111,7 @@ export function cheatCandidates(pos: Position, resurrectable: PieceType[] = []):
   }
 
   const types = [...new Set(resurrectable.filter((t) => t !== 'k'))];
-  if (types.length) {
+  if (types.length && !pos.legalMoves().some((m) => m.from < 0)) {
     const ranks = color === 'w' ? [0, 1] : [7, 6];
     for (const r of ranks) {
       for (let f = 0; f < 8; f++) {
@@ -124,7 +124,9 @@ export function cheatCandidates(pos: Position, resurrectable: PieceType[] = []):
       }
     }
   }
-  return out;
+  // A "cheat" that is legal under the side's comeback powers is not a cheat.
+  const legalKeys = new Set(pos.legalMoves().map((m) => `${m.from}:${m.to}:${m.promotion ?? ''}`));
+  return out.filter((m) => !legalKeys.has(`${m.from}:${m.to}:${m.promotion ?? ''}`));
 }
 
 export interface CheatChoice {

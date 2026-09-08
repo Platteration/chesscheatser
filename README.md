@@ -4,6 +4,23 @@ A mobile chess variant for iOS and Android, in the spirit of *Really Bad Chess*:
 the pieces move exactly as in chess, but every side has **two kings** and every
 army is **randomly generated**.
 
+## The idea
+
+Losing is where the fun starts. At the start of every turn the game measures
+how far behind the side to move is (half material, half the engine's own
+evaluation) and grants that side comeback powers. The further behind, the
+stronger its pieces become, in four stacking levels:
+
+| Level | Behind by | Powers |
+| --- | --- | --- |
+| Nudge | 1.5 | pawns step sideways/back, kings step two, knights may step one |
+| Slide | 3.5 | bishops and rooks move like queens; pawn tricks |
+| Leap | 6.5 | sliders jump over one piece; kings hop a neighbour; queens jump like knights |
+| Ascend | 10 | minor pieces arrive as queens; a captured piece may return home |
+
+Power moves are legal, shown in purple, and the computer gets them too when it
+is losing. Turn them off for plain two-king chess.
+
 ## Rules
 
 - Each side starts with two kings. Kings can never be captured.

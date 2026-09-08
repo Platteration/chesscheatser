@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import { opposite } from '../engine/board';
-import { chooseMoveAsync } from '../engine/ai';
+import { chooseMoveAsync, clearTranspositionTable } from '../engine/ai';
 import { cheatCandidates, chooseActionAsync } from '../engine/cheat';
 import { isAttacked, Position } from '../engine/position';
 import { generateSetup, type Setup } from '../engine/setup';
 import type { Board, Color, GameResult, LegalMove, Move, PieceType, Square } from '../engine/types';
 import { ARMY_SIZES, type GameConfig, type SavedGame } from './config';
-import { fold, stripMove, undoEvents, type CheatStats, type GameEvent } from './events';
+import { measureDeficit } from './comeback';
+import { fold, lostPieces, stripMove, undoEvents, type CheatStats, type Folded, type GameEvent } from './events';
 
 export interface CapturedSummary {
   /** Pieces each colour has captured from the opponent. */
@@ -47,6 +48,8 @@ export interface GameState {
   canAccuse: boolean;
   bonus: Color | null;
   lastEvent: GameEvent | null;
+  /** Last move / pass / accusation, ignoring power grants. */
+  lastAction: GameEvent | null;
   cheats: CheatStats;
   caughtMove: Move | null;
   daily: string | null;
@@ -55,6 +58,10 @@ export interface GameState {
   cheatMoves: Move[];
   humanCheatsLeft: number;
   gameId: number;
+  /** Comeback power granted to each side at the start of its latest turn. */
+  powers: Folded['powers'];
+  /** True once the side to move has its power for this turn (or comeback is off). */
+  powerReady: boolean;
 }
 
 export const HUMAN_CHEATS_PER_GAME = 1;
@@ -68,26 +75,10 @@ export function detectionChance(difficulty: GameConfig['difficulty'], cheat: Non
 
 const PIECE_VALUES: Record<PieceType, number> = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
 
-function countPieces(board: Board, color: Color): Record<PieceType, number> {
-  const out: Record<PieceType, number> = { p: 0, n: 0, b: 0, r: 0, q: 0, k: 0 };
-  for (const p of board) if (p && p.color === color) out[p.type]++;
-  return out;
-}
-
 function capturedSummary(start: Board, now: Board): CapturedSummary {
-  const order: PieceType[] = ['q', 'r', 'b', 'n', 'p'];
-  const summarize = (victim: Color): PieceType[] => {
-    const before = countPieces(start, victim);
-    const after = countPieces(now, victim);
-    const list: PieceType[] = [];
-    for (const t of order) {
-      for (let i = 0; i < Math.max(0, before[t] - after[t]); i++) list.push(t);
-    }
-    return list;
-  };
   let lead = 0;
   for (const p of now) if (p) lead += (p.color === 'w' ? 1 : -1) * PIECE_VALUES[p.type];
-  return { byWhite: summarize('b'), byBlack: summarize('w'), whiteLead: lead };
+  return { byWhite: lostPieces(start, now, 'b'), byBlack: lostPieces(start, now, 'w'), whiteLead: lead };
 }
 
 function resolveHumanColor(config: GameConfig): Color {
@@ -200,6 +191,10 @@ export function useGame(initial: StartOptions, onSave?: (saved: SavedGame | null
     };
   }, [folded, config.playerCheats, humanColor, aiColor]);
 
+  const comeback = !!config.comeback;
+  // The side to move needs a power grant recorded for this turn before anyone moves.
+  const powerReady = !comeback || folded.lastEvent?.type === 'power' || derived.positionOver;
+
   const state: GameState = useMemo(() => {
     const gameOver = derived.positionOver || resigned !== null || flagged !== null;
     const { positionOver: _ignored, ...rest } = derived;
@@ -218,13 +213,16 @@ export function useGame(initial: StartOptions, onSave?: (saved: SavedGame | null
       canAccuse: folded.canAccuse && !gameOver,
       bonus: folded.bonus,
       lastEvent: folded.lastEvent,
+      lastAction: folded.lastAction,
       cheats: folded.cheats,
       caughtMove: folded.caughtMove,
       daily,
       ranked,
       gameId,
+      powers: folded.powers,
+      powerReady,
     };
-  }, [derived, folded, captured, setup, humanColor, config, thinking, resigned, flagged, clocks, daily, ranked, gameId]);
+  }, [derived, folded, captured, setup, humanColor, config, thinking, resigned, flagged, clocks, daily, ranked, gameId, powerReady]);
 
   // Pass-and-play clock: runs for the side to move once the first move has been made.
   const clockActive = (config.clock ?? 0) > 0 && config.mode === 'local' && !state.gameOver && events.length > 0;
@@ -282,11 +280,20 @@ export function useGame(initial: StartOptions, onSave?: (saved: SavedGame | null
   // Drive the game forward: bonus passes and computer moves.
   useEffect(() => {
     if (state.gameOver) return;
-    const last = folded.lastEvent;
-    // The side that just moved holds a bonus: the other side skips.
-    if (last?.type === 'move' && folded.bonus !== null && folded.lastBy === folded.bonus) {
+    const last = folded.lastAction;
+    // The side that just moved holds a bonus: the other side skips (before any power grant).
+    if (last?.type === 'move' && folded.lastEvent === last && folded.bonus !== null && folded.lastBy === folded.bonus) {
       append({ type: 'pass' });
       return;
+    }
+    // Comeback: measure how far behind the side to move is and grant its power for this turn.
+    // Runs in a timeout so the previous move paints before the short search.
+    if (comeback && folded.lastEvent?.type !== 'power') {
+      const id = setTimeout(() => {
+        const d = measureDeficit(folded.pos, folded.pos.turn, 100);
+        append({ type: 'power', color: folded.pos.turn, level: d.level, material: d.material, engine: d.engine });
+      }, 0);
+      return () => clearTimeout(id);
     }
     if (aiColor === null || state.turn !== aiColor) return;
     let cancelled = false;
@@ -311,15 +318,15 @@ export function useGame(initial: StartOptions, onSave?: (saved: SavedGame | null
       if (aiTimer.current) clearTimeout(aiTimer.current);
       setThinking(false);
     };
-  }, [folded, captured, state.gameOver, state.turn, aiColor, config.difficulty, config.cheating, append]);
+  }, [folded, captured, state.gameOver, state.turn, aiColor, config.difficulty, config.cheating, comeback, append]);
 
   const play = useCallback(
     (m: Move) => {
       const legal = state.legal.find((x) => x.from === m.from && x.to === m.to && x.promotion === m.promotion);
-      if (!legal || state.gameOver) return;
+      if (!legal || state.gameOver || !state.powerReady) return;
       append({ type: 'move', move: stripMove(legal) });
     },
-    [state.legal, state.gameOver, append],
+    [state.legal, state.gameOver, state.powerReady, append],
   );
 
   /** Play one of `state.cheatMoves`; the computer may notice and punish it. */
@@ -340,8 +347,8 @@ export function useGame(initial: StartOptions, onSave?: (saved: SavedGame | null
   /** Call out the computer's last move as a cheat. */
   const accuse = useCallback(() => {
     if (!state.canAccuse) return;
-    const last = folded.lastEvent;
-    const caught = last?.type === 'move' && !!last.move.cheat;
+    const last = folded.lastAction;
+    const caught = last?.type === 'move' && !!last.move.cheat && !last.move.power;
     append({ type: 'accuse', caught });
   }, [state.canAccuse, folded.lastEvent, append]);
 
@@ -355,6 +362,7 @@ export function useGame(initial: StartOptions, onSave?: (saved: SavedGame | null
     // A ranked (handicap) army set only makes sense with its ratio; new armies fall back to fair play.
     const material = cfg.material === 'handicap' && nextHandicap === undefined ? 'fair' : cfg.material;
     const finalCfg = material === cfg.material ? cfg : { ...cfg, material };
+    clearTranspositionTable();
     setConfig(finalCfg);
     setHumanColor(color);
     setHandicap(nextHandicap);

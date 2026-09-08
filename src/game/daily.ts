@@ -8,7 +8,8 @@ export const DAILY_CONFIG: GameConfig = {
   material: 'fair',
   playAs: 'w',
   armySize: 'any',
-  cheating: 'low',
+  cheating: 'off',
+  comeback: true,
 };
 
 /** Local calendar date as YYYY-MM-DD. */

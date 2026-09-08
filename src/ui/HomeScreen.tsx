@@ -65,7 +65,7 @@ export function HomeScreen({ config, onChange, onStart, onDaily, daily, onRanked
         <Text style={styles.kings}>♚♚</Text>
         <Text style={styles.title}>Two Kings Chess</Text>
         <Text style={styles.tagline}>
-          Regular chess, two twists: every side has two kings, and every army is randomly generated.
+          Two kings a side, random armies, and the losing side's pieces grow stronger the further behind it falls.
         </Text>
       </View>
 
@@ -86,6 +86,18 @@ export function HomeScreen({ config, onChange, onStart, onDaily, daily, onRanked
           options={[
             { value: 'ai', label: 'Computer' },
             { value: 'local', label: 'Pass & play' },
+          ]}
+        />
+
+        <Label hint="The side that is losing, by material and by the engine's judgement, gets stronger pieces: Nudge, Slide, Leap, Ascend.">
+          Comeback powers
+        </Label>
+        <Segmented<'on' | 'off'>
+          value={config.comeback === false ? 'off' : 'on'}
+          onChange={(v) => set('comeback', v === 'on')}
+          options={[
+            { value: 'on', label: 'On' },
+            { value: 'off', label: 'Off' },
           ]}
         />
 
@@ -226,6 +238,7 @@ function summarize(config: GameConfig): string {
   const parts: string[] = [];
   if (config.mode === 'ai') {
     parts.push({ easy: 'Easy', medium: 'Medium', hard: 'Hard' }[config.difficulty]);
+    if (config.comeback !== false) parts.push('comeback powers');
     parts.push(config.playAs === 'random' ? 'random colour' : config.playAs === 'w' ? 'you play White' : 'you play Black');
     if (config.cheating !== 'off') parts.push(config.cheating === 'low' ? 'computer cheats sometimes' : 'computer cheats often');
     if (config.playerCheats) parts.push('you may cheat once');

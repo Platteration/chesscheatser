@@ -7,27 +7,36 @@ import { themedStyles, useTheme } from './theme';
 interface Props {
   visible: boolean;
   color: Color;
-  onPick: (t: PieceType) => void;
+  title?: string;
+  choices?: PieceType[];
+  /** When set, an extra option that picks `null` (e.g. "Just move" for an optional upgrade). */
+  keepLabel?: string;
+  onPick: (t: PieceType | null) => void;
   onCancel: () => void;
 }
 
-const CHOICES: PieceType[] = ['q', 'r', 'b', 'n'];
+const DEFAULT_CHOICES: PieceType[] = ['q', 'r', 'b', 'n'];
 
-export function PromotionPicker({ visible, color, onPick, onCancel }: Props) {
+export function PromotionPicker({ visible, color, title = 'Promote to', choices = DEFAULT_CHOICES, keepLabel, onPick, onCancel }: Props) {
   const styles = useStyles();
   const theme = useTheme();
   return (
     <Modal transparent visible={visible} animationType="fade" onRequestClose={onCancel}>
       <Pressable style={styles.backdrop} onPress={onCancel}>
         <View style={styles.sheet}>
-          <Text style={styles.title}>Promote to</Text>
+          <Text style={styles.title}>{title}</Text>
           <View style={styles.row}>
-            {CHOICES.map((t) => (
+            {choices.map((t) => (
               <Pressable key={t} onPress={() => onPick(t)} style={({ pressed }) => [styles.choice, pressed && { opacity: 0.6 }]}>
                 <PieceGlyph piece={{ type: t, color }} size={64} />
               </Pressable>
             ))}
           </View>
+          {keepLabel && (
+            <Pressable onPress={() => onPick(null)} style={({ pressed }) => [styles.keep, pressed && { opacity: 0.6 }]}>
+              <Text style={[styles.keepText, { color: theme.text }]}>{keepLabel}</Text>
+            </Pressable>
+          )}
         </View>
       </Pressable>
     </Modal>
@@ -40,4 +49,6 @@ const useStyles = themedStyles((theme) => ({
   title: { color: theme.text, fontWeight: '700', fontSize: 16, marginBottom: 12, textAlign: 'center' },
   row: { flexDirection: 'row', gap: 8 },
   choice: { backgroundColor: theme.board.light, borderRadius: 10, padding: 4 },
+  keep: { marginTop: 12, paddingVertical: 10, alignItems: 'center', borderRadius: 10, backgroundColor: theme.surfaceAlt },
+  keepText: { fontWeight: '700' },
 }));

@@ -40,6 +40,14 @@ const SECTIONS: { title: string; body: string[] }[] = [
     ],
   },
   {
+    title: 'Comeback powers',
+    body: [
+      'Losing is where the game starts. At the start of every turn the game measures how far behind the side to move is: half from material (a pawn is one point) and half from the engine\'s own evaluation of the position.',
+      'That deficit sets a power level, and the powers stack: Nudge (about 1.5 points behind): pawns step sideways or back, kings step two squares, knights may also step one square. Slide (3.5): bishops and rooks move like queens, pawns capture straight ahead, move diagonally, and double-push from anywhere. Leap (6.5): sliders jump over one piece, kings hop over a neighbour, queens jump like knights. Ascend (10): knights, bishops and rooks may arrive as queens, and a captured piece may return to your home ranks.',
+      'Power moves are legal and shown in purple. The computer gets them too when it is losing, so a runaway lead invites a runaway comeback. Turn them off in the game settings for plain two-king chess.',
+    ],
+  },
+  {
     title: 'A cheating opponent',
     body: [
       'Turn on cheating and the computer will occasionally play a move that is not legal: a rook hopping over a pawn, a bishop sliding sideways, a king stepping two squares, a pawn drifting backwards, a knight that somehow arrives as a queen, or a piece you captured earlier quietly reappearing on its home rank.',
