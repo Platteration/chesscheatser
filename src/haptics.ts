@@ -21,4 +21,5 @@ export const haptics = {
   wrong: () => safe(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning)),
   win: () => safe(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)),
   loss: () => safe(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)),
+  powerup: () => safe(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Rigid)),
 };

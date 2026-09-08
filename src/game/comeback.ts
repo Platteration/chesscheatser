@@ -1,6 +1,6 @@
 import { scoreAtDepth } from '../engine/ai';
 import type { Position } from '../engine/position';
-import { powerLevelFor } from '../engine/powers';
+import { powerLevelFor, rampLevel } from '../engine/powers';
 import type { Color } from '../engine/types';
 
 /**
@@ -20,7 +20,7 @@ export interface Deficit {
 export const MATERIAL_WEIGHT = 0.5;
 export const ENGINE_WEIGHT = 0.5;
 
-export function measureDeficit(pos: Position, color: Color = pos.turn, timeMs = 150): Deficit {
+export function measureDeficit(pos: Position, color: Color = pos.turn, timeMs = 150, previousLevel = pos.powers[color]): Deficit {
   const material = -pos.material(color);
   let engine = material;
   if (pos.turn === color) {
@@ -28,7 +28,7 @@ export function measureDeficit(pos: Position, color: Color = pos.turn, timeMs = 
     if (score !== null && Math.abs(score) < 50_000) engine = -score;
   }
   const total = blend(material, engine);
-  return { material, engine, total, level: powerLevelFor(total) };
+  return { material, engine, total, level: rampLevel(powerLevelFor(total), previousLevel) };
 }
 
 /** Pure mapping used by tests and the UI meter. */

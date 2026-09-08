@@ -10,6 +10,7 @@ const SOURCES = {
   bonus: require('../assets/sounds/bonus.wav'),
   win: require('../assets/sounds/win.wav'),
   lose: require('../assets/sounds/lose.wav'),
+  powerup: require('../assets/sounds/powerup.wav'),
 } as const;
 
 export type SoundName = keyof typeof SOURCES;

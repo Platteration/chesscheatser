@@ -20,6 +20,8 @@ interface Props {
   kingMarks?: Map<Square, number>;
   onSquarePress: (s: Square) => void;
   disabled?: boolean;
+  /** Overrides the board frame colour (e.g. purple while the side to move has comeback powers). */
+  frameColor?: string;
   /** Move to animate (piece glides from `from` to `to`); re-triggered when `animationKey` changes. */
   animate?: Move | null;
   animationKey?: number;
@@ -34,7 +36,7 @@ export function describeSquare(file: number, rank: number, piece: Piece | null):
   return piece ? `${name}, ${piece.color === 'w' ? 'white' : 'black'} ${PIECE_NAME[piece.type]}` : name;
 }
 
-export function Board({ board, size, flipped, selected, targets, cheatMode, lastMove, hint, kingsInDanger, kingMarks, onSquarePress, disabled, animate, animationKey }: Props) {
+export function Board({ board, size, flipped, selected, targets, cheatMode, lastMove, hint, kingsInDanger, kingMarks, onSquarePress, disabled, animate, animationKey, frameColor }: Props) {
   const styles = useStyles();
   const theme = useTheme();
   const square = size / 8;
@@ -185,7 +187,7 @@ export function Board({ board, size, flipped, selected, targets, cheatMode, last
   }
 
   return (
-    <View style={[styles.board, { width: size, height: size, borderColor: theme.board.border }]}>
+    <View style={[styles.board, { width: size, height: size, borderColor: frameColor ?? theme.board.border, borderWidth: frameColor ? 3 : 2 }]}>
       {rows}
       {overlay}
     </View>

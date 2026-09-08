@@ -10,6 +10,7 @@ export const DAILY_CONFIG: GameConfig = {
   armySize: 'any',
   cheating: 'off',
   comeback: true,
+  doubleCheck: 'answer',
 };
 
 /** Local calendar date as YYYY-MM-DD. */

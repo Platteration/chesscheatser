@@ -5,8 +5,11 @@
 ### Game
 - Comeback powers (the core idea): the side that is losing, by material and
   by the engine's evaluation, gets stronger pieces in four stacking levels
-  (Nudge, Slide, Leap, Ascend). Power moves are legal, shown in purple, and
-  the computer gets them too.
+  (Nudge, Slide, Leap, Ascend), building up one level per turn. Power moves
+  are legal, shown in purple, and the computer gets them too. Tuned with the
+  self-play harness in `scripts/simulate.ts`.
+- Double check: by default both kings in check must be answered (you lose
+  only if no move frees a king); the original instant-loss rule is optional.
 - Two-king chess: each side has two kings; lose when both are in check at
   once or one is checkmated. Kings are never captured, castling is out,
   en passant and promotion are in, 50-move and threefold draws apply.

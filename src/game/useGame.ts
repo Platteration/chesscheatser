@@ -62,6 +62,7 @@ export interface GameState {
   powers: Folded['powers'];
   /** True once the side to move has its power for this turn (or comeback is off). */
   powerReady: boolean;
+  maxDeficit: Record<Color, number>;
 }
 
 export const HUMAN_CHEATS_PER_GAME = 1;
@@ -139,7 +140,8 @@ export function useGame(initial: StartOptions, onSave?: (saved: SavedGame | null
   const [flagged, setFlagged] = useState<Color | null>(null);
   const aiTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const folded = useMemo(() => fold(setup, events, aiColor), [setup, events, aiColor]);
+  const foldOptions = useMemo(() => ({ doubleCheckLoses: config.doubleCheck === 'loses' }), [config.doubleCheck]);
+  const folded = useMemo(() => fold(setup, events, aiColor, foldOptions), [setup, events, aiColor, foldOptions]);
   // Depends only on the position, so effects can use it without churning on unrelated state changes.
   const captured = useMemo(() => capturedSummary(setup.board, folded.pos.board), [setup, folded]);
 
@@ -221,6 +223,7 @@ export function useGame(initial: StartOptions, onSave?: (saved: SavedGame | null
       gameId,
       powers: folded.powers,
       powerReady,
+      maxDeficit: folded.maxDeficit,
     };
   }, [derived, folded, captured, setup, humanColor, config, thinking, resigned, flagged, clocks, daily, ranked, gameId, powerReady]);
 
@@ -355,8 +358,8 @@ export function useGame(initial: StartOptions, onSave?: (saved: SavedGame | null
   const undo = useCallback(() => {
     if (flagged) return; // a lost clock cannot be wound back
     setResigned(null);
-    setEvents((prev) => undoEvents(setup, prev, aiColor));
-  }, [setup, aiColor, flagged]);
+    setEvents((prev) => undoEvents(setup, prev, aiColor, foldOptions));
+  }, [setup, aiColor, flagged, foldOptions]);
 
   const reset = useCallback((cfg: GameConfig, seed: number | undefined, color: Color, nextHandicap?: number) => {
     // A ranked (handicap) army set only makes sense with its ratio; new armies fall back to fair play.

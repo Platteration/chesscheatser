@@ -146,6 +146,18 @@ export function GameScreen({ start, onExit, onSave, onFinished, dailyStreak = 0,
   const reviewing = viewPly !== null && viewPly < state.boards.length - 1;
   const shownBoard = reviewing ? state.boards[viewPly] : state.board;
   const hintsLeft = isPro ? Infinity : Math.max(0, FREE_HINTS_PER_GAME - hintsUsed);
+  // Power-up feedback when the human's level rises for the new turn.
+  const lastLevel = useRef(0);
+  useEffect(() => {
+    if (state.config.mode !== 'ai') return;
+    const level = state.powers[state.humanColor].level;
+    if (state.turn === state.humanColor && state.powerReady && level > lastLevel.current) {
+      haptics.powerup();
+      playSound('powerup');
+    }
+    if (state.turn === state.humanColor && state.powerReady) lastLevel.current = level;
+  }, [state.turn, state.powerReady, state.powers, state.humanColor, state.config.mode]);
+
   const onHint = useCallback(() => {
     if (hintsLeft <= 0) {
       onPro?.();
@@ -261,6 +273,7 @@ export function GameScreen({ start, onExit, onSave, onFinished, dailyStreak = 0,
           hint={reviewing ? null : hint}
           kingsInDanger={reviewing ? [] : state.kingsInDanger}
           kingMarks={reviewing ? undefined : state.kingMarks}
+          frameColor={!reviewing && state.config.comeback && state.powers[state.turn].level > 0 ? theme.power : undefined}
           onSquarePress={onSquarePress}
           disabled={reviewing || state.gameOver || !humanTurn}
         />
@@ -396,7 +409,7 @@ function IntroTip() {
       <View style={styles.overlay}>
         <View style={styles.resultCard}>
           <Text style={styles.resultTitle}>Two kings, one rule</Text>
-          <Text style={styles.tipText}>You lose when both of your kings are in check at once, or when one of them is checkmated.</Text>
+          <Text style={styles.tipText}>You lose when one of your kings is checkmated, or when both are in check and no move can free either.</Text>
           <Text style={styles.tipText}>So you may leave one king in check, and even walk into it, as long as the other is safe. Kings are never captured.</Text>
           <Text style={styles.tipText}>Losing? The further behind you are, by material and by the engine's judgement, the more your pieces can do: purple targets are comeback moves, and the computer gets them too when it is losing.</Text>
           <View style={styles.resultButtons}>
@@ -436,7 +449,9 @@ function PowerMeter({ state, color }: { state: GameState; color: Color }) {
       <Text style={[styles.meterText, { color: p.level > 0 ? theme.power : theme.textMuted }]}>
         {p.level > 0 ? `${POWER_NAMES[p.level]} ${'★'.repeat(p.level)}` : 'Behind'}
       </Text>
-      <Text style={styles.meterSub}>−{behind.toFixed(1)}</Text>
+      <Text style={styles.meterSub}>
+        −{behind.toFixed(1)} · M {(p.material / 100).toFixed(1)} · E {(p.engine / 100).toFixed(1)}
+      </Text>
     </View>
   );
 }

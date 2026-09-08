@@ -89,6 +89,18 @@ export function HomeScreen({ config, onChange, onStart, onDaily, daily, onRanked
           ]}
         />
 
+        <Label hint={config.doubleCheck === 'loses' ? 'Both kings in check at the start of your turn is an instant loss (short, brutal games).' : 'A double check must be answered: you lose only if no move leaves a king safe.'}>
+          Double check
+        </Label>
+        <Segmented<'loses' | 'answer'>
+          value={config.doubleCheck === 'loses' ? 'loses' : 'answer'}
+          onChange={(v) => set('doubleCheck', v)}
+          options={[
+            { value: 'answer', label: 'Must be answered' },
+            { value: 'loses', label: 'Instant loss' },
+          ]}
+        />
+
         <Label hint="The side that is losing, by material and by the engine's judgement, gets stronger pieces: Nudge, Slide, Leap, Ascend.">
           Comeback powers
         </Label>
@@ -239,6 +251,7 @@ function summarize(config: GameConfig): string {
   if (config.mode === 'ai') {
     parts.push({ easy: 'Easy', medium: 'Medium', hard: 'Hard' }[config.difficulty]);
     if (config.comeback !== false) parts.push('comeback powers');
+    if (config.doubleCheck === 'loses') parts.push('double check loses instantly');
     parts.push(config.playAs === 'random' ? 'random colour' : config.playAs === 'w' ? 'you play White' : 'you play Black');
     if (config.cheating !== 'off') parts.push(config.cheating === 'low' ? 'computer cheats sometimes' : 'computer cheats often');
     if (config.playerCheats) parts.push('you may cheat once');

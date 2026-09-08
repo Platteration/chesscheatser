@@ -19,8 +19,9 @@ const SECTIONS: { title: string; body: string[] }[] = [
   {
     title: 'How you lose',
     body: [
-      '1. Both of your kings are in check at the same time when your turn begins. Your opponent wins instantly.',
+      '1. Both of your kings are in check when your turn begins and no move leaves at least one of them safe.',
       '2. One of your kings is checkmated: it is in check and no legal move can get that king out of check, no matter what your other king does.',
+      'Optional rule ("Double check: instant loss"): both kings in check at the start of your turn loses on the spot, no rescue allowed. Short, brutal games.',
     ],
   },
   {
@@ -43,7 +44,7 @@ const SECTIONS: { title: string; body: string[] }[] = [
     title: 'Comeback powers',
     body: [
       'Losing is where the game starts. At the start of every turn the game measures how far behind the side to move is: half from material (a pawn is one point) and half from the engine\'s own evaluation of the position.',
-      'That deficit sets a power level, and the powers stack: Nudge (about 1.5 points behind): pawns step sideways or back, kings step two squares, knights may also step one square. Slide (3.5): bishops and rooks move like queens, pawns capture straight ahead, move diagonally, and double-push from anywhere. Leap (6.5): sliders jump over one piece, kings hop over a neighbour, queens jump like knights. Ascend (10): knights, bishops and rooks may arrive as queens, and a captured piece may return to your home ranks.',
+      'That deficit sets a power level, and the powers stack: Nudge (about 2.5 points behind): pawns step sideways or back, kings step two squares, knights may also step one square. Slide (5): bishops and rooks may also step one square any way; pawns capture straight ahead, move diagonally, and double-push from anywhere. Leap (8): sliders jump over one piece, kings hop over a neighbour, queens jump like knights. Ascend (12): bishops, rooks and knights move like queens, and a captured piece may return to your home ranks. Powers build up one level per turn.',
       'Power moves are legal and shown in purple. The computer gets them too when it is losing, so a runaway lead invites a runaway comeback. Turn them off in the game settings for plain two-king chess.',
     ],
   },

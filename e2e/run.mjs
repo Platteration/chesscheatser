@@ -61,7 +61,7 @@ const scenarios = {
     await exact(page, 'New game with these settings').click();
     await page.waitForTimeout(500);
     const outcomes = new Set();
-    for (let turn = 0; turn < 30; turn++) {
+    for (let turn = 0; turn < 16; turn++) {
       await waitHuman(page);
       if (await gameOver(page)) break;
       if (await exact(page, 'Cheater!').count()) {

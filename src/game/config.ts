@@ -22,6 +22,8 @@ export interface GameConfig {
   playerCheats?: boolean;
   /** Comeback powers: the side that is losing gets stronger pieces. */
   comeback?: boolean;
+  /** Both kings in check at once: instant loss (original rule) or must be answered. */
+  doubleCheck?: 'loses' | 'answer';
 }
 
 export type ClockMinutes = 0 | 1 | 3 | 5 | 10;
@@ -34,6 +36,7 @@ export const DEFAULT_CONFIG: GameConfig = {
   armySize: 'any',
   cheating: 'off',
   comeback: true,
+  doubleCheck: 'answer',
 };
 
 export const ARMY_SIZES: Record<ArmySize, { label: string; min: number; max: number }> = {
@@ -71,6 +74,8 @@ export interface Stats {
   ownCheats: number;
   ownCheatsCaught: number;
   gamesPlayed: number;
+  /** Largest deficit (in pawns, x100) you were at during a game you went on to win. */
+  biggestComeback: number;
 }
 
 export const EMPTY_STATS: Stats = {
@@ -83,4 +88,5 @@ export const EMPTY_STATS: Stats = {
   ownCheats: 0,
   ownCheatsCaught: 0,
   gamesPlayed: 0,
+  biggestComeback: 0,
 };

@@ -13,20 +13,24 @@ stronger its pieces become, in four stacking levels:
 
 | Level | Behind by | Powers |
 | --- | --- | --- |
-| Nudge | 1.5 | pawns step sideways/back, kings step two, knights may step one |
-| Slide | 3.5 | bishops and rooks move like queens; pawn tricks |
-| Leap | 6.5 | sliders jump over one piece; kings hop a neighbour; queens jump like knights |
-| Ascend | 10 | minor pieces arrive as queens; a captured piece may return home |
+| Nudge | 2.5 | pawns step sideways/back, kings step two, knights may step one |
+| Slide | 5 | bishops and rooks may also step one square any way; pawn tricks |
+| Leap | 8 | sliders jump over one piece; kings hop a neighbour; queens jump like knights |
+| Ascend | 12 | bishops, rooks and knights move like queens; a captured piece may return home |
 
-Power moves are legal, shown in purple, and the computer gets them too when it
-is losing. Turn them off for plain two-king chess.
+Powers build up one level per turn. Power moves are legal, shown in purple, and
+the computer gets them too when it is losing. Turn them off for plain two-king
+chess.
 
 ## Rules
 
 - Each side starts with two kings. Kings can never be captured.
 - You **lose** when either
-  1. **both** of your kings are in check at the same time at the start of your turn, or
-  2. **one** of your kings is checkmated: it is in check and no legal move rescues it.
+  1. **one** of your kings is checkmated: it is in check and no legal move rescues it, or
+  2. **both** of your kings are in check and no move leaves at least one safe.
+     (Optional "instant loss" rule: a double check at the start of your turn loses
+     on the spot. Self-play shows those games last about ten plies, so it is off
+     by default.)
 - Because of that, leaving a single king in check is legal, and a king may even
   step into check while the other king is safe. A move is illegal only if it
   would leave *both* kings in check.
@@ -133,6 +137,20 @@ hints/undo/resume, computer cheating and accusations, player cheating, the
 daily challenge, the ladder, puzzles, the pass-and-play clock, review and Pro
 gating. `.github/workflows/pages.yml` publishes the web build to GitHub Pages
 once Pages is enabled for the repository (Settings → Pages → GitHub Actions).
+
+## Balance harness
+
+```sh
+npx tsx scripts/simulate.ts 12 medium fair    # games, difficulty, army mode
+```
+
+Plays the computer against itself with comeback powers off and on and reports
+decisive rate, game length, how often the weaker starting side wins, and which
+power levels were reached. Thresholds live in `src/engine/powers.ts`.
+
+Reference numbers (medium AI, double check must be answered, 16 games):
+chaos armies run 58 plies with the weaker starting side winning 8/16 with
+powers (about 4/11 without); fair armies run 46 plies.
 
 ## Tests
 

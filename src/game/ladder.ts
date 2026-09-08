@@ -34,7 +34,7 @@ export function ladderParams(rank: number): LadderParams {
 
 export function ladderConfig(rank: number): GameConfig {
   const p = ladderParams(rank);
-  return { mode: 'ai', difficulty: p.difficulty, material: 'handicap', playAs: 'w', armySize: 'any', cheating: p.cheating, comeback: true };
+  return { mode: 'ai', difficulty: p.difficulty, material: 'handicap', playAs: 'w', armySize: 'any', cheating: p.cheating, comeback: true, doubleCheck: 'answer' };
 }
 
 export function applyLadderResult(state: LadderState, outcome: 'win' | 'loss' | 'draw'): LadderState {

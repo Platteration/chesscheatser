@@ -112,6 +112,12 @@ export class Position {
   readonly powers: Record<Color, number> = { w: 0, b: 0 };
   /** Pieces each colour may resurrect at power level 4 (set by the game layer). */
   resurrectable: Record<Color, PieceType[]> = { w: [], b: [] };
+  /**
+   * Rule for all kings being in check at the start of a turn:
+   * true = immediate loss (the original rule); false = it must be answered like a
+   * check, and you lose only when no move leaves at least one king safe.
+   */
+  doubleCheckLoses = true;
   private undoStack: Undo[] = [];
 
   constructor(board: Board, turn: Color = 'w') {
@@ -131,6 +137,7 @@ export class Position {
     p.history = this.history.slice();
     p.powers.w = this.powers.w;
     p.powers.b = this.powers.b;
+    p.doubleCheckLoses = this.doubleCheckLoses;
     p.resurrectable = { w: this.resurrectable.w.slice(), b: this.resurrectable.b.slice() };
     return p;
   }
@@ -454,10 +461,14 @@ export class Position {
     const winner = opposite(this.turn);
     // The two-king twist: every king in check at once is an immediate loss.
     // (A degenerate single-king army just plays normal chess.)
-    if (kings.length >= 2 && checked.length >= kings.length) {
+    if (this.doubleCheckLoses && kings.length >= 2 && checked.length >= kings.length) {
       return { kind: 'both-in-check', winner, kings: checked };
     }
     const moves = legal ?? this.legalMoves();
+    // Under the "must answer" rule a double check with no rescuing move is the loss.
+    if (kings.length >= 2 && checked.length >= kings.length && moves.length === 0) {
+      return { kind: 'both-in-check', winner, kings: checked };
+    }
     for (const k of checked) {
       const canEscape = moves.some((m) => !m.checkedAfter.includes(k));
       if (!canEscape) return { kind: 'checkmate', winner, king: k };

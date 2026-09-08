@@ -17,7 +17,8 @@ describe('deficit measurement', () => {
     const pos = new Position(boardFromString('k6k/p7/8/8/8/8/8/K2QR2K'), 'b');
     const black = measureDeficit(pos, 'b', 200);
     expect(black.material).toBe(1300);
-    expect(black.level).toBe(4);
+    expect(black.level).toBe(1); // ramps one level per turn
+    expect(measureDeficit(pos, 'b', 200, 3).level).toBe(4);
     pos.turn = 'w';
     const white = measureDeficit(pos, 'w', 200);
     expect(white.total).toBe(0);

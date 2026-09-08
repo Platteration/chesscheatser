@@ -45,10 +45,17 @@ export interface Folded {
   caughtMove: Move | null;
   /** Latest power grant per colour. */
   powers: Record<Color, { level: number; material: number; engine: number }>;
+  /** Largest blended deficit each colour has recorded during this game. */
+  maxDeficit: Record<Color, number>;
 }
 
-export function fold(setup: Setup, events: GameEvent[], aiColor: Color | null): Folded {
+export interface FoldOptions {
+  doubleCheckLoses?: boolean;
+}
+
+export function fold(setup: Setup, events: GameEvent[], aiColor: Color | null, options: FoldOptions = {}): Folded {
   const pos = new Position(setup.board);
+  if (options.doubleCheckLoses === false) pos.doubleCheckLoses = false;
   const moveList: Move[] = [];
   const boards: Board[] = [pos.board.slice()];
   const snap = () => boards.push(pos.board.slice());
@@ -57,6 +64,7 @@ export function fold(setup: Setup, events: GameEvent[], aiColor: Color | null): 
   let lastBy: Color | null = null;
   let caughtMove: Move | null = null;
   const powers: Folded['powers'] = { w: { level: 0, material: 0, engine: 0 }, b: { level: 0, material: 0, engine: 0 } };
+  const maxDeficit: Record<Color, number> = { w: 0, b: 0 };
 
   const syncResurrectable = () => {
     for (const c of ['w', 'b'] as Color[]) pos.resurrectable[c] = lostPieces(setup.board, pos.board, c);
@@ -76,6 +84,7 @@ export function fold(setup: Setup, events: GameEvent[], aiColor: Color | null): 
       case 'power':
         pos.setPower(e.color, e.level);
         powers[e.color] = { level: e.level, material: e.material, engine: e.engine };
+        maxDeficit[e.color] = Math.max(maxDeficit[e.color], Math.round(0.5 * e.material + 0.5 * e.engine));
         break;
       case 'pass':
         pos.makeMove(PASS_MOVE);
@@ -127,7 +136,7 @@ export function fold(setup: Setup, events: GameEvent[], aiColor: Color | null): 
     }
   }
   const canAccuse = aiColor !== null && lastAction?.type === 'move' && lastBy === aiColor;
-  return { pos, bonus, canAccuse, moveList, boards, lastBy, lastEvent, lastAction, cheats, caughtMove, powers };
+  return { pos, bonus, canAccuse, moveList, boards, lastBy, lastEvent, lastAction, cheats, caughtMove, powers, maxDeficit };
 }
 
 /** Piece types `color` has fewer of than at the start (candidates for resurrection). */
@@ -164,7 +173,7 @@ export function stripMove(m: Move): Move {
  * one of their own moves taken back. Accusations are never "un-accused": once
  * you know whether a move was a cheat, that whole exchange is rolled back.
  */
-export function undoEvents(setup: Setup, events: GameEvent[], aiColor: Color | null): GameEvent[] {
+export function undoEvents(setup: Setup, events: GameEvent[], aiColor: Color | null, options: FoldOptions = {}): GameEvent[] {
   if (events.length === 0) return events;
   const withoutTrailingPowers = (evs: GameEvent[]) => {
     let n = evs.length;
@@ -179,14 +188,14 @@ export function undoEvents(setup: Setup, events: GameEvent[], aiColor: Color | n
   let evs = events;
   let poppedHumanMove = false;
   while (evs.length) {
-    const before = fold(setup, evs, aiColor);
+    const before = fold(setup, evs, aiColor, options);
     const last = evs[evs.length - 1];
     evs = evs.slice(0, -1);
     if (last.type === 'move' && before.lastBy === human) poppedHumanMove = true;
     // Popping an accusation exposes the move it judged; keep going until a
     // further human move is gone so that exchange cannot be replayed.
     if (last.type === 'accuse') poppedHumanMove = false;
-    const after = fold(setup, evs, aiColor);
+    const after = fold(setup, evs, aiColor, options);
     if (poppedHumanMove && after.pos.turn === human && after.lastAction?.type !== 'accuse') break;
   }
   return evs;

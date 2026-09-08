@@ -196,3 +196,23 @@ describe('hashing', () => {
     }
   });
 });
+
+describe('double check rule option', () => {
+  it('under "must answer", a double check with an escape is not a loss', () => {
+    // Black kings a8 and c8 both checked by rooks a1/c1; the c8 king can step to d7 (safe), leaving a8 in check.
+    const pos = new Position(boardFromString('k1k5/8/8/8/8/8/8/R1R1K3'), 'b');
+    expect(pos.result().kind).toBe('both-in-check');
+    pos.doubleCheckLoses = false;
+    const res = pos.result();
+    expect(res.kind).toBe('ongoing');
+    expect(pos.legalMoves().some((m) => m.from === parseSquare('c8') && m.to === parseSquare('d7'))).toBe(true);
+  });
+
+  it('under "must answer", a double check with no rescuing move is still the loss', () => {
+    // Black kings a8 and c8 checked by rooks a1/c1; the white king b6 and queen d6 cover every escape square.
+    const pos = new Position(boardFromString('k1k5/8/1K1Q4/8/8/8/8/R1R5'), 'b');
+    pos.doubleCheckLoses = false;
+    expect(pos.legalMoves()).toHaveLength(0);
+    expect(pos.result().kind).toBe('both-in-check');
+  });
+});

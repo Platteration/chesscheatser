@@ -1,4 +1,4 @@
-import { offset, rankOf } from './board';
+import { fileOf, offset, rankOf } from './board';
 import type { Position } from './position';
 import { DIRS, KING_TARGETS, KNIGHT_TARGETS, RAYS } from './tables';
 import type { CheatKind, Move, PieceType, Square } from './types';
@@ -9,12 +9,16 @@ import type { CheatKind, Move, PieceType, Square } from './types';
  *
  *  1 Nudge   pawns step sideways or backwards; kings step two squares through
  *            an empty square; knights may also step one square like a king.
- *  2 Slide   bishops and rooks move like queens; pawns capture straight ahead,
- *            move diagonally without capturing, and double-push from anywhere.
- *  3 Leap    sliders (and bishops/rooks sliding as queens) may pass over exactly
- *            one blocking piece; kings hop over a neighbour; queens jump like knights.
- *  4 Ascend  knights, bishops and rooks may arrive as queens; instead of moving,
+ *  2 Slide   bishops and rooks may also step one square in any direction; pawns
+ *            capture straight ahead, move diagonally without capturing, and
+ *            double-push from anywhere.
+ *  3 Leap    sliders may pass over exactly one blocking piece; kings hop over a
+ *            neighbour; queens jump like knights.
+ *  4 Ascend  bishops, rooks and knights move like queens; instead of moving,
  *            one captured piece (`resurrectable`) may return to the home ranks.
+ *
+ * Levels ramp: a side gains at most one level per turn (see rampLevel), so a
+ * hopeless-looking army builds up instead of starting at full power.
  */
 export const MAX_POWER = 4;
 
@@ -23,13 +27,18 @@ export const POWER_NAMES = ['None', 'Nudge', 'Slide', 'Leap', 'Ascend'] as const
 export const POWER_DESCRIPTIONS = [
   'No extra powers.',
   'Pawns may step sideways or back. Kings may step two squares. Knights may also step one square.',
-  'Bishops and rooks move like queens. Pawns may capture straight ahead, move diagonally, and double-push from anywhere.',
+  'Bishops and rooks may also step one square any way. Pawns may capture straight ahead, move diagonally, and double-push from anywhere.',
   'Sliders may jump over one piece. Kings may hop over a neighbour. Queens may jump like knights.',
-  'Knights, bishops and rooks may arrive as queens, and a captured piece may return to your home ranks.',
+  'Bishops, rooks and knights move like queens, and a captured piece may return to your home ranks.',
 ] as const;
 
 /** Deficit thresholds (centipawns) for each level; index = level. */
-export const POWER_THRESHOLDS = [0, 150, 350, 650, 1000] as const;
+export const POWER_THRESHOLDS = [0, 250, 500, 800, 1200] as const;
+
+/** Powers build up one level per turn: the granted level is capped at the previous level plus one. */
+export function rampLevel(target: number, previous: number): number {
+  return Math.min(target, previous + 1);
+}
 
 export function powerLevelFor(deficit: number): number {
   let level = 0;
@@ -124,12 +133,14 @@ export function powerMoves(pos: Position, level: number, resurrectable: PieceTyp
         for (const to of KING_TARGETS[from]) add(from, to, 'n', 'geometry');
         break;
       case 'b':
-        if (level >= 2) slide(from, 'b', 4, 8, 'geometry', level >= 3);
+        if (level >= 2 && level < 4) for (const to of KING_TARGETS[from]) if (fileOf(to) === fileOf(from) || rankOf(to) === rankOf(from)) add(from, to, 'b', 'geometry');
         if (level >= 3) slide(from, 'b', 0, 4, 'jump', true);
+        if (level >= 4) slide(from, 'b', 4, 8, 'geometry', false);
         break;
       case 'r':
-        if (level >= 2) slide(from, 'r', 0, 4, 'geometry', level >= 3);
+        if (level >= 2 && level < 4) for (const to of KING_TARGETS[from]) if (fileOf(to) !== fileOf(from) && rankOf(to) !== rankOf(from)) add(from, to, 'r', 'geometry');
         if (level >= 3) slide(from, 'r', 4, 8, 'jump', true);
+        if (level >= 4) slide(from, 'r', 0, 4, 'geometry', false);
         break;
       case 'q':
         if (level >= 3) {
@@ -141,12 +152,9 @@ export function powerMoves(pos: Position, level: number, resurrectable: PieceTyp
   }
 
   if (level >= 4) {
-    // Arrive as a queen: every ordinary move of a knight, bishop or rook, plus the slides above.
-    for (const m of plain) {
-      if (m.piece === 'n' || m.piece === 'b' || m.piece === 'r') add(m.from, m.to, m.piece, 'upgrade', { promotion: 'q' });
-    }
-    for (const m of out.slice()) {
-      if ((m.piece === 'n' || m.piece === 'b' || m.piece === 'r') && !m.promotion) add(m.from, m.to, m.piece, 'upgrade', { promotion: 'q' });
+    for (let from = 0; from < 64; from++) {
+      const p = board[from];
+      if (p && p.color === color && p.type === 'n') slide(from, 'n', 0, 8, 'geometry', false);
     }
     const types = [...new Set(resurrectable.filter((t) => t !== 'k'))];
     const ranks = color === 'w' ? [0, 1] : [7, 6];

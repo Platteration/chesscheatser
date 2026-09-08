@@ -15,8 +15,8 @@ describe('power levels', () => {
     expect(powerLevelFor(0)).toBe(0);
     expect(powerLevelFor(149)).toBe(0);
     expect(powerLevelFor(POWER_THRESHOLDS[1])).toBe(1);
-    expect(powerLevelFor(400)).toBe(2);
-    expect(powerLevelFor(700)).toBe(3);
+    expect(powerLevelFor(600)).toBe(2);
+    expect(powerLevelFor(900)).toBe(3);
     expect(powerLevelFor(5000)).toBe(4);
   });
 });
@@ -35,10 +35,10 @@ describe('power moves', () => {
     expect(has(m, 'a1', 'a3')).toBe(false); // jumping is level 3
   });
 
-  it('level 2: bishops and rooks become queens, pawn tricks', () => {
+  it('level 2: bishops and rooks step one square any way, pawn tricks', () => {
     const m = powerMoves(pos(), 2);
     expect(has(m, 'c1', 'c2', 'geometry')).toBe(true);
-    expect(has(m, 'c1', 'c8', 'geometry')).toBe(true);
+    expect(has(m, 'c1', 'c8')).toBe(false); // full queen mobility is Ascend
     expect(has(m, 'a1', 'b2', 'geometry')).toBe(true);
     expect(has(m, 'd4', 'd5', 'pawn')).toBe(true); // straight capture
     expect(has(m, 'd4', 'c5', 'pawn')).toBe(true); // diagonal without capture
@@ -53,9 +53,11 @@ describe('power moves', () => {
     expect(has(m, 'h3', 'g5', 'geometry')).toBe(true);
   });
 
-  it('level 4: minor pieces arrive as queens and captured pieces return', () => {
+  it('level 4: knights move like queens and captured pieces return', () => {
     const m = powerMoves(pos(), 4, ['q', 'p']);
-    expect(m.some((x) => x.cheat === 'upgrade' && x.piece === 'n' && x.promotion === 'q')).toBe(true);
+    expect(m.some((x) => x.cheat === 'upgrade')).toBe(false);
+    expect(has(m, 'g1', 'g8', 'geometry')).toBe(true); // knight slides up the file like a queen
+    expect(has(m, 'c1', 'c8', 'geometry')).toBe(true); // bishop as queen
     expect(m.some((x) => x.cheat === 'resurrect' && x.piece === 'q' && x.from === -1)).toBe(true);
     expect(m.filter((x) => x.cheat === 'resurrect' && x.piece === 'p').every((x) => x.to >= 8 && x.to < 16)).toBe(true);
   });
