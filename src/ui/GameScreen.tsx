@@ -8,6 +8,7 @@ import type { Color, Move, PieceType, Square } from '../engine/types';
 import type { GameConfig, SavedGame } from '../game/config';
 import { blend } from '../game/comeback';
 import { shareText, type DailyRecord } from '../game/daily';
+import { canUndo, reportKey } from '../game/flow';
 import { useGame, type GameState, type StartOptions } from '../game/useGame';
 import { Board } from './Board';
 import { Button } from './components';
@@ -74,7 +75,7 @@ export function GameScreen({ start, onExit, onSave, onFinished, dailyStreak = 0,
   // Report the outcome exactly once per finished game (vs computer only).
   useEffect(() => {
     if (!state.gameOver || state.config.mode !== 'ai') return;
-    const key = `${state.gameId}:${state.setup.seed}:${state.moves.length}:${state.resigned ?? ''}:${state.flagged ?? ''}`;
+    const key = reportKey(state);
     if (reported.current === key) return;
     reported.current = key;
     onFinished(outcomeOf(state));
@@ -343,7 +344,7 @@ export function GameScreen({ start, onExit, onSave, onFinished, dailyStreak = 0,
           onPress={onHint}
           disabled={state.gameOver || state.thinking || hinting || !humanTurn}
         />
-        <Button title="Undo" variant="secondary" small onPress={undo} disabled={state.moves.length === 0 || state.thinking || state.flagged !== null} />
+        <Button title="Undo" variant="secondary" small onPress={undo} disabled={!canUndo(state)} />
         <Button title="New armies" variant="secondary" small onPress={() => newGame()} />
         {state.gameOver ? (
           <Button title="Result" variant="secondary" small onPress={() => setShowResult(true)} />
