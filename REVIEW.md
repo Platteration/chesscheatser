@@ -2,6 +2,17 @@
 
 Two independent reviewers read every first-party file in this repository; a third then re-read each security or bug claim against the code and tried to refute it. Only claims that survived that check are listed as findings; the ones that did not are recorded at the end so they are not re-raised.
 
+## Status — what has been fixed
+
+These findings are now fixed on `claude/repo-review-security-baiyud`, each with a regression test:
+
+- **BUG-1**
+- **BUG-2**
+
+The rest of this document is the review as written, and the fixed items are left in place so the reasoning behind each change stays with it.
+
+Repository hardening applied here as well: every GitHub Action is pinned to a commit rather than a floating tag, each workflow declares a least-privilege `permissions` block, and a Dependabot config, a licence and a security policy are in place.
+
 ## Summary
 
 Two Kings Chess is a polished, feature-complete Expo SDK 57 / RN 0.86 mobile chess variant: two kings a side, seeded random armies, comeback powers for whoever is losing, a computer that plays plausible illegal moves you can call out, plus daily challenge, ranked ladder, 62 mined puzzles and a Pro entitlement scaffold. The engine (src/engine, ~1500 lines of dependency-free TypeScript with alpha-beta, quiescence, a transposition table and killer/history ordering) is genuinely well built and well tested — 23 commits, perft checks, two-king rule tests, power-move tests and a 13-scenario Playwright suite over the web export. Every dependency is already current for SDK 57 and the 10 moderate npm advisories are all build-time transitives under @expo/config-plugins (xcode -> uuid) whose only 'fix' is a downgrade to Expo 46, so there is nothing to do there. The real gaps are tooling and store readiness, not dependencies: there is no linter or formatter at all (an orphaned eslint-disable sits in src/game/puzzles.ts pointing at a rule that never runs), the LICENSE is still Expo's template with 650 Industries as copyright holder, app.json sets userInterfaceStyle:"dark" which silently defeats the app's own 'System' appearance setting, Android's hardware back button does nothing on any screen, and there is no error boundary, no Dependabot, no pinned actions and no lint/audit/iOS-bundle step in CI. In the product itself the most visible loose end is Stats.biggestComeback: the whole maxDeficit pipeline is computed in fold() and carried through GameState but never written or displayed, so the app's headline mechanic has no scoreboard.
