@@ -273,7 +273,7 @@ function DailyCard({ daily, onDaily }: { daily: DailyState; onDaily: () => void 
       : rec.outcome === 'loss'
         ? `Lost today after ${rec.moves} moves`
         : `Drew today after ${rec.moves} moves`
-    : 'Same armies for everyone, once a day. Fair, medium, occasional cheating.';
+    : 'Same armies for everyone, once a day. Fair armies, medium, comeback powers on.';
   const streak = liveStreak(daily, today);
   return (
     <View style={styles.dailyCard}>

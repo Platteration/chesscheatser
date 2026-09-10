@@ -37,9 +37,14 @@ export interface GameOutcome {
   falseAccusations: number;
   ownCheats: number;
   ownCheatsCaught: number;
+  /** Largest deficit the human sat at during this game, in centipawns. */
+  comebackFrom: number;
   daily: string | null;
   ranked: number | null;
 }
+
+/** A win from at least this far behind counts as a comeback worth celebrating. */
+export const COMEBACK_THRESHOLD = 350;
 
 const COLOR_NAME: Record<Color, string> = { w: 'White', b: 'Black' };
 const DIFFICULTY_LABEL = { easy: 'Easy', medium: 'Medium', hard: 'Hard' } as const;
@@ -382,6 +387,13 @@ export function GameScreen({ start, onExit, onSave, onFinished, dailyStreak = 0,
             )}
             <Text style={styles.resultText}>{status.text}</Text>
             {status.detail ? <Text style={styles.resultDetail}>{status.detail}</Text> : null}
+            {state.config.comeback &&
+              winnerOf(state) === state.humanColor &&
+              state.maxDeficit[state.humanColor] >= COMEBACK_THRESHOLD && (
+                <Text style={styles.resultComeback}>
+                  Comeback! You were {(state.maxDeficit[state.humanColor] / 100).toFixed(1)} behind.
+                </Text>
+              )}
             {state.config.mode === 'ai' && (state.config.cheating !== 'off' || state.config.playerCheats) && (
               <Text style={styles.resultCheats}>{cheatReport(state)}</Text>
             )}
@@ -431,6 +443,7 @@ function outcomeOf(state: GameState): GameOutcome {
     falseAccusations: state.cheats.falseAccusations,
     ownCheats: state.cheats.humanMade,
     ownCheatsCaught: state.cheats.humanCaught,
+    comebackFrom: state.maxDeficit[state.humanColor],
     daily: state.daily,
     ranked: state.ranked,
   };
@@ -733,6 +746,7 @@ const useStyles = themedStyles((theme) => ({
   resultRank: { color: theme.text, fontSize: 15, fontWeight: '700', textAlign: 'center', marginTop: 6 },
   resultText: { color: theme.text, fontSize: 16, textAlign: 'center', marginTop: 8 },
   resultDetail: { color: theme.textMuted, fontSize: 13, textAlign: 'center', marginTop: 4 },
+  resultComeback: { color: theme.power, fontSize: 15, fontWeight: '700', textAlign: 'center', marginTop: 10 },
   resultButtons: { marginTop: 18, gap: 10 },
   tipText: { color: theme.text, fontSize: 15, lineHeight: 22, textAlign: 'center', marginTop: 10 },
 }));

@@ -89,3 +89,31 @@ describe('power events in the fold', () => {
     expect(lostPieces(start, now, 'w')).toEqual([]);
   });
 });
+
+describe('maxDeficit feeds the biggest-comeback stat', () => {
+  const setup: Setup = {
+    board: boardFromString('k6k/pppppppp/8/8/8/8/PPPPPPPP/K6K'),
+    seed: 1,
+    mode: 'mirror',
+    whiteValue: 800,
+    blackValue: 800,
+  };
+
+  it('records the largest blended deficit each side ever sat at', () => {
+    const events: GameEvent[] = [
+      { type: 'power', color: 'w', level: 1, material: 400, engine: 200 },
+      { type: 'power', color: 'w', level: 2, material: 900, engine: 700 },
+      // A later, smaller deficit must not lower the recorded maximum.
+      { type: 'power', color: 'w', level: 2, material: 100, engine: 0 },
+      { type: 'power', color: 'b', level: 1, material: 300, engine: 300 },
+    ];
+    const f = fold(setup, events, 'b');
+    expect(f.maxDeficit.w).toBe(blend(900, 700));
+    expect(f.maxDeficit.b).toBe(300);
+  });
+
+  it('uses the shared blend so the meter and the stat cannot drift apart', () => {
+    const events: GameEvent[] = [{ type: 'power', color: 'w', level: 1, material: 333, engine: 777 }];
+    expect(fold(setup, events, 'b').maxDeficit.w).toBe(blend(333, 777));
+  });
+});

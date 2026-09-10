@@ -98,6 +98,7 @@ function Root() {
         ownCheats: s.ownCheats + o.ownCheats,
         ownCheatsCaught: s.ownCheatsCaught + o.ownCheatsCaught,
         gamesPlayed: s.gamesPlayed + 1,
+        biggestComeback: o.outcome === 'win' ? Math.max(s.biggestComeback, o.comebackFrom) : s.biggestComeback,
       };
       void saveJSON(STORAGE_KEYS.stats, next);
       return next;

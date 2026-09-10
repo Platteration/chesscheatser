@@ -2,6 +2,7 @@ import { opposite } from '../engine/board';
 import { Position } from '../engine/position';
 import type { Setup } from '../engine/setup';
 import { PASS_MOVE, type Board, type Color, type Move, type PieceType } from '../engine/types';
+import { blend } from './comeback';
 
 /**
  * A game is an append-only list of events replayed onto the starting setup.
@@ -84,7 +85,7 @@ export function fold(setup: Setup, events: GameEvent[], aiColor: Color | null, o
       case 'power':
         pos.setPower(e.color, e.level);
         powers[e.color] = { level: e.level, material: e.material, engine: e.engine };
-        maxDeficit[e.color] = Math.max(maxDeficit[e.color], Math.round(0.5 * e.material + 0.5 * e.engine));
+        maxDeficit[e.color] = Math.max(maxDeficit[e.color], blend(e.material, e.engine));
         break;
       case 'pass':
         pos.makeMove(PASS_MOVE);
