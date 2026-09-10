@@ -117,15 +117,22 @@ function PuzzlePlayer({ puzzles, progress, onSolved, onBack }: Props) {
         }
         setPhase('reply');
         playSound('move');
-        chooseMoveAsync(p, 'hard').then((res) => {
-          if (posRef.current !== p) return;
-          if (res) {
-            p.makeMove(res.move);
-            setLastMove(res.move);
-          }
-          setPhase('finish');
-          setTick((t) => t + 1);
-        });
+        chooseMoveAsync(p, 'hard')
+          .then((res) => {
+            if (posRef.current !== p) return;
+            if (res) {
+              p.makeMove(res.move);
+              setLastMove(res.move);
+            }
+          })
+          // A failed search must still hand the board back, or the puzzle stays
+          // stuck on "Opponent is defending…" with every square disabled.
+          .catch(() => {})
+          .then(() => {
+            if (posRef.current !== p) return;
+            setPhase('finish');
+            setTick((t) => t + 1);
+          });
         return;
       }
       if (phase === 'finish') {

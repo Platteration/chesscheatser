@@ -1,20 +1,7 @@
 // Shared helpers for the end-to-end suite (web build driven by Playwright).
 import { chromium } from 'playwright';
-import http from 'node:http';
-import fs from 'node:fs';
-import path from 'node:path';
 
-const TYPES = { '.html': 'text/html', '.js': 'application/javascript', '.ico': 'image/x-icon', '.ttf': 'font/ttf', '.wav': 'audio/wav', '.json': 'application/json', '.png': 'image/png' };
-
-export function serve(root, port) {
-  const server = http.createServer((req, res) => {
-    let p = path.join(root, decodeURIComponent(req.url.split('?')[0]));
-    if (!fs.existsSync(p) || fs.statSync(p).isDirectory()) p = path.join(root, 'index.html');
-    res.setHeader('Content-Type', TYPES[path.extname(p)] || 'application/octet-stream');
-    fs.createReadStream(p).pipe(res);
-  });
-  return new Promise((resolve) => server.listen(port, () => resolve(server)));
-}
+export { serve } from './serve.mjs';
 
 export async function launch() {
   const executablePath = process.env.PW_CHROMIUM || undefined;

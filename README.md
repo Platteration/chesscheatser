@@ -94,9 +94,12 @@ Cheats are revealed at the end of the game.
 interface. The bundled provider is a **local mock** (purchases are recorded on
 the device only) so the UI can be built and tested; swap in a real store
 provider (e.g. `react-native-iap` / `expo-iap` with App Store and Google Play
-products) before release. Pro is a one-time unlock covering unlimited hints,
-all board and piece styles, and mid-game review. It never affects the
-computer's strength.
+products) before release. `EntitlementsProvider` takes its store as a required
+prop, so the mock is always named at the mount site rather than shipped by
+default, and the mock's "price" is not a currency amount because the public web
+build serves it. Pro is a one-time unlock covering unlimited hints, all board
+and piece styles, and mid-game review. It never affects the computer's
+strength.
 
 ## Tech
 
@@ -158,3 +161,7 @@ powers (about 4/11 without); fair armies run 46 plies.
 npm test           # engine unit tests (perft, two-king rules, setup generator, AI)
 npm run typecheck
 ```
+
+## Licence
+
+MIT — see [LICENSE](LICENSE).

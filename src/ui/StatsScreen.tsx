@@ -34,6 +34,7 @@ export function StatsScreen({ stats, daily, ladder, puzzlesSolved, puzzleCount, 
         ['Games', String(stats.gamesPlayed)],
         ['Record', `${stats.wins} W · ${stats.losses} L · ${stats.draws} D`],
         ['Win rate', pct(stats.wins, stats.gamesPlayed)],
+        ['Biggest comeback', stats.biggestComeback > 0 ? `${(stats.biggestComeback / 100).toFixed(1)} behind, then won` : '—'],
       ],
     },
     {

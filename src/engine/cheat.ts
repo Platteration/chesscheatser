@@ -139,20 +139,32 @@ export interface CheatChoice {
  * Picks the most profitable cheat that neither leaves the cheater's own kings
  * all in check nor ends the game on the spot (a cheat must leave the victim a
  * turn in which to call it out).
+ *
+ * Scored first, verified second. There are typically a few hundred candidates
+ * and this runs on the JS thread once the search has finished yielding, so
+ * asking `result()` — a whole legal-move generation plus a repetition scan —
+ * about every one of them stalls a frame. The cheap checks pick the order; the
+ * expensive one is only paid until a candidate survives it, which is the same
+ * choice the exhaustive scan made.
  */
 export function chooseCheat(pos: Position, rng: Rng, resurrectable: PieceType[] = []): CheatChoice | null {
   const me = pos.turn;
-  let best: CheatChoice | null = null;
+  const scored: CheatChoice[] = [];
   for (const m of cheatCandidates(pos, resurrectable)) {
     pos.makeMove(m);
-    let score = -Infinity;
-    if (!pos.allKingsInCheck(me) && pos.result().kind === 'ongoing') {
-      score = -evaluate(pos) + (rng.next() - 0.5) * 30;
-    }
+    const playable = !pos.allKingsInCheck(me);
+    const score = playable ? -evaluate(pos) + (rng.next() - 0.5) * 30 : 0;
     pos.unmakeMove();
-    if (score > -Infinity && (!best || score > best.score)) best = { move: m, score };
+    if (playable) scored.push({ move: m, score });
   }
-  return best;
+  scored.sort((a, b) => b.score - a.score);
+  for (const choice of scored) {
+    pos.makeMove(choice.move);
+    const ongoing = pos.result().kind === 'ongoing';
+    pos.unmakeMove();
+    if (ongoing) return choice;
+  }
+  return null;
 }
 
 export interface Action {

@@ -31,10 +31,15 @@ export const PRO_FEATURES = [
   'Support an indie chess variant',
 ];
 
-/** Local mock store: "purchases" are recorded on the device only. Replace for release. */
+/**
+ * Local mock store: "purchases" are recorded on the device only, and nothing is
+ * charged. Replace with a real store provider before release. The price is
+ * deliberately not a currency amount: the public web build ships this mock, and
+ * a button reading "$3.99" that takes no payment would misrepresent it.
+ */
 export const mockStore: StoreProvider = {
   async getProducts() {
-    return [{ id: 'pro', title: 'Two Kings Pro', description: PRO_FEATURES.join(' · '), price: '$3.99' }];
+    return [{ id: 'pro', title: 'Two Kings Pro', description: PRO_FEATURES.join(' · '), price: 'free in this build' }];
   },
   async purchase() {
     return true;
@@ -67,7 +72,15 @@ const Ctx = createContext<EntitlementsValue>({
   restore: async () => {},
 });
 
-export function EntitlementsProvider({ children, store = mockStore }: { children: React.ReactNode; store?: StoreProvider }) {
+/**
+ * `store` has no default on purpose: which provider ships is a release decision,
+ * so it has to be named at the mount site rather than silently falling back to
+ * the mock. The entitlement is cached in AsyncStorage, which is plain
+ * localStorage on the web build — when a real store lands, derive `isPro` from
+ * the store on every launch and treat the stored record as an offline cache
+ * only, never as the source of truth.
+ */
+export function EntitlementsProvider({ children, store }: { children: React.ReactNode; store: StoreProvider }) {
   const [state, setState] = useState<EntitlementState>({ owned: [] });
   const [products, setProducts] = useState<Product[]>([]);
   const [purchasing, setPurchasing] = useState(false);

@@ -1,7 +1,7 @@
 import { useFonts } from 'expo-font';
 import { StatusBar } from 'expo-status-bar';
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, BackHandler, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { DEFAULT_CONFIG, EMPTY_STATS, type GameConfig, type SavedGame, type Stats } from './src/game/config';
 import { DAILY_CONFIG, dailySeed, EMPTY_DAILY, recordDaily, todayKey, type DailyState } from './src/game/daily';
@@ -10,14 +10,16 @@ import { EMPTY_PUZZLE_PROGRESS, loadPuzzles, type PuzzleProgress } from './src/g
 import { PuzzleScreen } from './src/ui/PuzzleScreen';
 import type { StartOptions } from './src/game/useGame';
 import { loadJSON, remove, saveJSON, STORAGE_KEYS } from './src/storage';
-import { GameScreen, type GameOutcome } from './src/ui/GameScreen';
+import { applyOutcome, type GameOutcome } from './src/game/flow';
+import { cleanConfig, cleanSavedGame } from './src/validate';
+import { GameScreen } from './src/ui/GameScreen';
 import { HomeScreen } from './src/ui/HomeScreen';
 import { RulesScreen } from './src/ui/RulesScreen';
-import { EntitlementsProvider } from './src/entitlements';
+import { EntitlementsProvider, mockStore } from './src/entitlements';
 import { SettingsProvider, useSettings } from './src/settings';
 import { ProScreen } from './src/ui/ProScreen';
 import { StatsScreen } from './src/ui/StatsScreen';
-import { useTheme } from './src/ui/theme';
+import { theme as staticTheme, useTheme } from './src/ui/theme';
 
 type Screen =
   | { name: 'home' }
@@ -31,14 +33,57 @@ const PUZZLES = loadPuzzles();
 
 export default function App() {
   return (
-    <SettingsProvider>
-      <EntitlementsProvider>
-        <SafeAreaProvider>
-          <Root />
-        </SafeAreaProvider>
-      </EntitlementsProvider>
-    </SettingsProvider>
+    <ErrorBoundary>
+      <SettingsProvider>
+        <EntitlementsProvider store={mockStore}>
+          <SafeAreaProvider>
+            <Root />
+          </SafeAreaProvider>
+        </EntitlementsProvider>
+      </SettingsProvider>
+    </ErrorBoundary>
   );
+}
+
+/**
+ * Without this, one throw during render takes the whole app down: a blank page
+ * on the web build, a crash on device, and no way back because the record that
+ * caused it is still stored. Several throw sites run during render (the setup
+ * builder and the event fold both run inside hooks), so the recovery offered
+ * here is the one that fixes those: drop the saved game and start over.
+ * Deliberately dependency-free, and it uses the static theme because the
+ * providers it wraps may be exactly what failed.
+ */
+class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { failed: boolean; attempt: number }> {
+  state = { failed: false, attempt: 0 };
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  reset = () => {
+    void remove(STORAGE_KEYS.game);
+    this.setState((s) => ({ failed: false, attempt: s.attempt + 1 }));
+  };
+
+  render() {
+    if (!this.state.failed) return <React.Fragment key={this.state.attempt}>{this.props.children}</React.Fragment>;
+    return (
+      <View style={[styles.failed, { backgroundColor: staticTheme.bg }]}>
+        <Text style={[styles.failedTitle, { color: staticTheme.text }]}>Something went wrong</Text>
+        <Text style={[styles.failedText, { color: staticTheme.textMuted }]}>
+          The game could not be shown. Starting a new game clears the game in progress and returns to the menu.
+        </Text>
+        <Pressable
+          accessibilityRole="button"
+          onPress={this.reset}
+          style={({ pressed }) => [styles.failedButton, { backgroundColor: staticTheme.accent, opacity: pressed ? 0.7 : 1 }]}
+        >
+          <Text style={[styles.failedButtonText, { color: staticTheme.accentText }]}>Start a new game</Text>
+        </Pressable>
+      </View>
+    );
+  }
 }
 
 function Root() {
@@ -57,8 +102,8 @@ function Root() {
   useEffect(() => {
     (async () => {
       const [cfg, game, st, dy, ld, pz] = await Promise.all([
-        loadJSON<GameConfig>(STORAGE_KEYS.settings, DEFAULT_CONFIG),
-        loadJSON<SavedGame | null>(STORAGE_KEYS.game, null),
+        loadJSON<unknown>(STORAGE_KEYS.settings, DEFAULT_CONFIG),
+        loadJSON<unknown>(STORAGE_KEYS.game, null),
         loadJSON<Stats>(STORAGE_KEYS.stats, EMPTY_STATS),
         loadJSON<DailyState>(STORAGE_KEYS.daily, EMPTY_DAILY),
         loadJSON<LadderState>(STORAGE_KEYS.ladder, EMPTY_LADDER),
@@ -67,8 +112,12 @@ function Root() {
       setDaily(dy);
       setLadder(ld);
       setPuzzleProgress(pz);
-      setConfig(cfg);
-      setSaved(game && Array.isArray(game.events) && typeof game.seed === 'number' ? game : null);
+      setConfig(cleanConfig(cfg));
+      // A record that cannot be replayed is dropped rather than left to crash
+      // Resume on this launch and every launch after it.
+      const resumable = cleanSavedGame(game);
+      if (!resumable && game) void remove(STORAGE_KEYS.game);
+      setSaved(resumable);
       setStats(st);
       setReady(true);
     })();
@@ -87,18 +136,7 @@ function Root() {
 
   const onFinished = useCallback((o: GameOutcome) => {
     setStats((s) => {
-      const next: Stats = {
-        ...s,
-        wins: s.wins + (o.outcome === 'win' ? 1 : 0),
-        losses: s.losses + (o.outcome === 'loss' ? 1 : 0),
-        draws: s.draws + (o.outcome === 'draw' ? 1 : 0),
-        cheatsCaught: s.cheatsCaught + o.cheatsCaught,
-        cheatsMissed: s.cheatsMissed + o.cheatsMissed,
-        falseAccusations: s.falseAccusations + o.falseAccusations,
-        ownCheats: s.ownCheats + o.ownCheats,
-        ownCheatsCaught: s.ownCheatsCaught + o.ownCheatsCaught,
-        gamesPlayed: s.gamesPlayed + 1,
-      };
+      const next = applyOutcome(s, o);
       void saveJSON(STORAGE_KEYS.stats, next);
       return next;
     });
@@ -159,6 +197,18 @@ function Root() {
   }, [saved]);
 
   const goHome = useCallback(() => setScreen({ name: 'home' }), []);
+
+  // Android's back gesture has no router to fall back on: without this it
+  // finishes the activity, so back on any screen closes the app.
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (screen.name === 'home') return false; // let the system close the app
+      setScreen({ name: 'home' });
+      return true;
+    });
+    return () => sub.remove();
+  }, [screen.name]);
 
   const onPuzzleSolved = useCallback((id: string) => {
     setPuzzleProgress((p) => {
@@ -231,4 +281,9 @@ function Root() {
 const styles = StyleSheet.create({
   root: { flex: 1 },
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  failed: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 12 },
+  failedTitle: { fontSize: 20, fontWeight: '800' },
+  failedText: { fontSize: 14, lineHeight: 20, textAlign: 'center' },
+  failedButton: { paddingVertical: 12, paddingHorizontal: 20, borderRadius: 12 },
+  failedButtonText: { fontWeight: '700' },
 });

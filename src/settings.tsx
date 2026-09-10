@@ -2,6 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 import { setHapticsEnabled } from './haptics';
 import { setSoundsEnabled } from './sounds';
 import { loadJSON, saveJSON } from './storage';
+import { cleanSettings } from './validate';
 
 export type ColorSchemeSetting = 'system' | 'dark' | 'light';
 export type BoardTheme = 'wood' | 'marble' | 'slate' | 'neon' | 'tournament';
@@ -45,8 +46,10 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    loadJSON<AppSettings>(KEY, DEFAULT_SETTINGS).then((s) => {
-      setSettings(s);
+    // Clamped on the way in: an unknown boardTheme or colorScheme would make
+    // the theme tables return undefined and throw on every render.
+    loadJSON<unknown>(KEY, DEFAULT_SETTINGS).then((s) => {
+      setSettings(cleanSettings(s, DEFAULT_SETTINGS));
       setLoaded(true);
     });
   }, []);

@@ -8,7 +8,7 @@ import type { Color, Move, PieceType, Square } from '../engine/types';
 import type { GameConfig, SavedGame } from '../game/config';
 import { blend } from '../game/comeback';
 import { shareText, type DailyRecord } from '../game/daily';
-import { canUndo, reportKey } from '../game/flow';
+import { canUndo, reportKey, type GameOutcome } from '../game/flow';
 import { useGame, type GameState, type StartOptions } from '../game/useGame';
 import { Board } from './Board';
 import { Button } from './components';
@@ -17,6 +17,7 @@ import { FREE_HINTS_PER_GAME, useEntitlements } from '../entitlements';
 import { useSettings } from '../settings';
 import { haptics } from '../haptics';
 import { playSound } from '../sounds';
+import { pickerChoices, type PendingPick } from './picker';
 import { PromotionPicker } from './PromotionPicker';
 import { themedStyles, useTheme } from './theme';
 
@@ -30,17 +31,7 @@ interface Props {
   onPro?: () => void;
 }
 
-export interface GameOutcome {
-  outcome: 'win' | 'loss' | 'draw';
-  moves: number;
-  cheatsCaught: number;
-  cheatsMissed: number;
-  falseAccusations: number;
-  ownCheats: number;
-  ownCheatsCaught: number;
-  daily: string | null;
-  ranked: number | null;
-}
+export type { GameOutcome };
 
 const COLOR_NAME: Record<Color, string> = { w: 'White', b: 'Black' };
 const DIFFICULTY_LABEL = { easy: 'Easy', medium: 'Medium', hard: 'Hard' } as const;
@@ -58,7 +49,7 @@ export function GameScreen({ start, onExit, onSave, onFinished, dailyStreak = 0,
   const [hint, setHint] = useState<Move | null>(null);
   const [selected, setSelected] = useState<Square | null>(null);
   /** A pending choice: pawn promotion, an optional "arrive as queen" upgrade, or which captured piece to bring back. */
-  const [pendingPromotion, setPendingPromotion] = useState<{ from: Square; to: Square; kind: 'promote' | 'upgrade' | 'resurrect' } | null>(null);
+  const [pendingPromotion, setPendingPromotion] = useState<PendingPick | null>(null);
   const [flipped, setFlipped] = useState<boolean | null>(null);
   const [showResult, setShowResult] = useState(true);
   const { width, height } = useWindowDimensions();
@@ -168,6 +159,7 @@ export function GameScreen({ start, onExit, onSave, onFinished, dailyStreak = 0,
     setHintsUsed((n) => n + 1);
     getHint()
       .then((m) => setHint(m))
+      .catch(() => setHint(null))
       .finally(() => setHinting(false));
   }, [getHint, hintsLeft, onPro]);
 
@@ -226,14 +218,7 @@ export function GameScreen({ start, onExit, onSave, onFinished, dailyStreak = 0,
     },
     [pendingPromotion, state, play],
   );
-  const pickerChoices = useMemo<PieceType[]>(() => {
-    if (!pendingPromotion) return [];
-    if (pendingPromotion.kind === 'resurrect') {
-      return [...new Set(state.legal.filter((x) => x.from < 0 && x.to === pendingPromotion.to).map((x) => x.piece))];
-    }
-    if (pendingPromotion.kind === 'upgrade') return ['q'];
-    return ['q', 'r', 'b', 'n'];
-  }, [pendingPromotion, state.legal]);
+  const choices = useMemo(() => pickerChoices(state.legal, pendingPromotion), [pendingPromotion, state.legal]);
 
   const topColor: Color = isFlipped ? 'w' : 'b';
   const bottomColor: Color = opposite(topColor);
@@ -362,7 +347,7 @@ export function GameScreen({ start, onExit, onSave, onFinished, dailyStreak = 0,
         visible={pendingPromotion !== null}
         color={state.turn}
         title={pendingPromotion?.kind === 'resurrect' ? 'Bring back' : pendingPromotion?.kind === 'upgrade' ? 'Arrive as a queen?' : 'Promote to'}
-        choices={pickerChoices}
+        choices={choices}
         keepLabel={pendingPromotion?.kind === 'upgrade' ? 'Just move' : undefined}
         onPick={onPromote}
         onCancel={() => setPendingPromotion(null)}
@@ -434,6 +419,7 @@ function outcomeOf(state: GameState): GameOutcome {
     ownCheatsCaught: state.cheats.humanCaught,
     daily: state.daily,
     ranked: state.ranked,
+    maxDeficit: state.maxDeficit[state.humanColor],
   };
 }
 

@@ -22,7 +22,13 @@ an optional cheating computer opponent.
 - `src/game/` — `events.ts` folds an append-only event log (move / pass /
   accuse, with `by: 'ai'` for the computer catching the human) onto a setup;
   `useGame.ts` is the React hook that drives a game. `daily.ts`, `ladder.ts`
-  and `puzzles.ts` hold the mode-specific logic.
+  and `puzzles.ts` hold the mode-specific logic. `flow.ts` holds the pure
+  decisions the screens fold through (undo eligibility, reporting a result once,
+  folding an outcome into the stats), so they can be tested without a renderer.
+- `src/validate.ts` — everything loaded from storage goes through it first.
+  `loadJSON` only spreads defaults under the parsed object, so an unknown enum
+  (a board theme, an army size) reaches a lookup table as `undefined` and throws
+  during render; these clamp to a known value or drop the record.
 - `src/settings.tsx` (appearance/feedback settings) and `src/entitlements.tsx`
   (Pro unlock behind a `StoreProvider`; bundled provider is a local mock).
 - `scripts/mine-puzzles.ts` regenerates `assets/puzzles.json`

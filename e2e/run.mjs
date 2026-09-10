@@ -6,7 +6,8 @@ import { assert, cellCounts, clickSquares, exact, gameOver, launch, makeAnyMove,
 
 const root = process.env.E2E_ROOT || path.resolve('dist-web');
 const port = Number(process.env.E2E_PORT || 4190);
-const url = `http://localhost:${port}/`;
+// 127.0.0.1 rather than localhost: the server binds loopback v4 only.
+const url = `http://127.0.0.1:${port}/`;
 const shots = process.env.E2E_SHOTS || '';
 const KIND_ORDER = ['double-1', 'mate-1', 'win-2'];
 const puzzles = JSON.parse(fs.readFileSync(path.resolve('assets/puzzles.json'), 'utf8')).sort(
