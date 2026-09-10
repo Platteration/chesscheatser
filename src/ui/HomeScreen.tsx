@@ -39,6 +39,11 @@ const CHEAT_HINT: Record<CheatLevel, string> = {
   high: 'The computer cheats whenever it thinks it can get away with it.',
 };
 
+const KINGS_HINT: Record<number, string> = {
+  2: 'The variant: two kings a side. You lose to a checkmate, or when every king is in check with no way out.',
+  1: 'Handicap Chess: one king and ordinary chess rules, but keep the random armies and comeback powers.',
+};
+
 const MATERIAL_HINT: Record<MaterialMode, string> = {
   fair: 'Different random armies, roughly equal in strength.',
   mirror: 'Both sides get the same random set of pieces.',
@@ -70,6 +75,7 @@ export function HomeScreen({ config, onChange, onStart, onDaily, daily, onRanked
   const label = (c: Cosmetic) => c.label + (unlocked.has(c.id) ? '' : ' 🔒');
   const set = <K extends keyof GameConfig>(key: K, value: GameConfig[K]) => onChange({ ...config, [key]: value });
   const size = ARMY_SIZES[config.armySize];
+  const kings = config.kings ?? 2;
 
   return (
     <ScrollView
@@ -104,17 +110,31 @@ export function HomeScreen({ config, onChange, onStart, onDaily, daily, onRanked
           ]}
         />
 
-        <Label hint={config.doubleCheck === 'loses' ? 'Both kings in check at the start of your turn is an instant loss (short, brutal games).' : 'A double check must be answered: you lose only if no move leaves a king safe.'}>
-          Double check
-        </Label>
-        <Segmented<'loses' | 'answer'>
-          value={config.doubleCheck === 'loses' ? 'loses' : 'answer'}
-          onChange={(v) => set('doubleCheck', v)}
+        <Label hint={KINGS_HINT[kings]}>Kings</Label>
+        <Segmented<string>
+          value={String(kings)}
+          onChange={(v) => set('kings', Number(v) as 1 | 2)}
           options={[
-            { value: 'answer', label: 'Must be answered' },
-            { value: 'loses', label: 'Instant loss' },
+            { value: '2', label: 'Two (the variant)' },
+            { value: '1', label: 'One (handicap)' },
           ]}
         />
+
+        {kings > 1 && (
+          <>
+            <Label hint={config.doubleCheck === 'loses' ? 'Both kings in check at the start of your turn is an instant loss (short, brutal games).' : 'A double check must be answered: you lose only if no move leaves a king safe.'}>
+              Double check
+            </Label>
+            <Segmented<'loses' | 'answer'>
+              value={config.doubleCheck === 'loses' ? 'loses' : 'answer'}
+              onChange={(v) => set('doubleCheck', v)}
+              options={[
+                { value: 'answer', label: 'Must be answered' },
+                { value: 'loses', label: 'Instant loss' },
+              ]}
+            />
+          </>
+        )}
 
         <Label hint="The side that is losing, by material and by the engine's judgement, gets stronger pieces: Nudge, Slide, Leap, Ascend.">
           Comeback powers
@@ -200,7 +220,9 @@ export function HomeScreen({ config, onChange, onStart, onDaily, daily, onRanked
           ]}
         />
 
-        <Label hint={`${size.min}–${size.max} pieces per side, two of them kings.`}>Army size</Label>
+        <Label hint={`${size.min}–${size.max} pieces per side, ${kings === 1 ? 'one of them a king' : 'two of them kings'}.`}>
+          Army size
+        </Label>
         <Segmented<ArmySize>
           value={config.armySize}
           onChange={(v) => set('armySize', v)}
@@ -263,10 +285,11 @@ export function HomeScreen({ config, onChange, onStart, onDaily, daily, onRanked
 /** One line describing the current game settings under the main Play button. */
 function summarize(config: GameConfig): string {
   const parts: string[] = [];
+  if (config.kings === 1) parts.push('one king');
   if (config.mode === 'ai') {
     parts.push({ easy: 'Easy', medium: 'Medium', hard: 'Hard' }[config.difficulty]);
     if (config.comeback !== false) parts.push('comeback powers');
-    if (config.doubleCheck === 'loses') parts.push('double check loses instantly');
+    if (config.doubleCheck === 'loses' && config.kings !== 1) parts.push('double check loses instantly');
     parts.push(config.playAs === 'random' ? 'random colour' : config.playAs === 'w' ? 'you play White' : 'you play Black');
     if (config.cheating !== 'off') parts.push(config.cheating === 'low' ? 'computer cheats sometimes' : 'computer cheats often');
     if (config.playerCheats) parts.push('you may cheat once');

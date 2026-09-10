@@ -235,6 +235,29 @@ const scenarios = {
     await context.close();
   },
 
+  async 'handicap chess gives each side one king'(browser) {
+    const { page, context, errors } = await openApp(browser, url);
+    await exact(page, 'One (handicap)').click();
+    await page.waitForTimeout(200);
+    // The double-check rule means nothing with a single king, so its control goes away.
+    assert((await exact(page, 'Must be answered').count()) === 0, 'double-check control hidden');
+    assert((await text(page, '/one king/')) !== null, 'settings summary mentions one king');
+    await exact(page, 'White').first().click();
+    await exact(page, 'Never').click();
+    await exact(page, 'New game with these settings').click();
+    await page.waitForTimeout(600);
+    const kings = await page.$$eval('[aria-label]', (els) =>
+      els.map((e) => e.getAttribute('aria-label') || '').filter((l) => l.endsWith(' king')),
+    );
+    assert(kings.filter((l) => l.includes('white')).length === 1, 'one white king: ' + kings);
+    assert(kings.filter((l) => l.includes('black')).length === 1, 'one black king: ' + kings);
+    assert(await makeAnyMove(page), 'move played in handicap chess');
+    await waitHuman(page);
+    assert((await text(page, '/^1\\. /')) !== null, 'the game plays on');
+    assert(errors.length === 0, errors.join('\n'));
+    await context.close();
+  },
+
   async 'pro gating'(browser) {
     const { page, context, errors } = await openApp(browser, url);
     assert((await exact(page, 'Neon 🔒').count()) === 1, 'neon starts locked');

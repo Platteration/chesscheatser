@@ -48,6 +48,10 @@ an optional cheating computer opponent.
   your kings are in check and no move leaves one safe. Optional rule
   (`doubleCheck: 'loses'`, `Position.doubleCheckLoses`): all kings in check at
   the start of your turn is an instant loss. Kings are never captured.
+- Kings per side is a setting (`GameConfig.kings`, `SetupOptions.kings`).
+  With one king ("Handicap Chess") the rules above collapse to ordinary chess:
+  `allKingsInCheck` and `result()` already guard on `kings.length >= 2`, and
+  `setupIsPlayable` skips the instant-win test.
 - No castling. En passant, promotion, 50-move and threefold repetition apply.
 - Comeback powers (default on): at the start of each turn a `draft` event
   records the side to move's measured deficit (a blend of material and a quick

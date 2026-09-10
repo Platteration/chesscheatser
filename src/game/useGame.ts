@@ -116,7 +116,14 @@ export interface StartOptions {
 
 function buildSetup(config: GameConfig, seed?: number, handicap?: number): Setup {
   const size = ARMY_SIZES[config.armySize];
-  return generateSetup({ mode: config.material, seed, minPieces: size.min, maxPieces: size.max, handicap });
+  return generateSetup({
+    mode: config.material,
+    seed,
+    minPieces: size.min,
+    maxPieces: size.max,
+    handicap,
+    kings: config.kings,
+  });
 }
 
 /** Replays saved events defensively: anything that fails to apply is dropped. */

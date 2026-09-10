@@ -20,6 +20,12 @@ export interface SetupOptions {
   seed?: number;
   /** For mode 'handicap': black's army value as a multiple of white's (1 = fair). */
   handicap?: number;
+  /**
+   * Kings per side. Two is the variant; one gives ordinary chess rules with
+   * random armies, because the engine's loss conditions already degrade to
+   * "your only king is mated" when a side has a single king.
+   */
+  kings?: number;
 }
 
 export interface Setup {
@@ -31,6 +37,8 @@ export interface Setup {
 }
 
 export const KINGS_PER_SIDE = 2;
+/** Kings per side, clamped to what a back rank can actually hold. */
+const kingCount = (options: SetupOptions) => Math.max(1, Math.min(4, options.kings ?? KINGS_PER_SIDE));
 export const DEFAULT_MIN_PIECES = 8;
 export const DEFAULT_MAX_PIECES = 16;
 
@@ -47,8 +55,8 @@ export function armyValue(army: PieceType[]): number {
 }
 
 /** Picks the non-king pieces for one side. */
-function randomArmy(rng: Rng, min: number, max: number): PieceType[] {
-  const count = rng.int(min, max) - KINGS_PER_SIDE;
+function randomArmy(rng: Rng, min: number, max: number, kings: number): PieceType[] {
+  const count = Math.max(0, rng.int(min, max) - kings);
   const army: PieceType[] = [];
   let pawns = 0;
   while (army.length < count) {
@@ -69,11 +77,19 @@ const BY_VALUE: PieceType[] = ['p', 'n', 'b', 'r', 'q'];
  * first, then a hill-climb that swaps single pieces up or down (or adds/removes
  * one) until the value lands in range. Non-king counts stay within min..max.
  */
-function matchValue(rng: Rng, fallback: PieceType[], target: number, min: number, max: number, tolerance: number): PieceType[] {
+function matchValue(
+  rng: Rng,
+  fallback: PieceType[],
+  target: number,
+  min: number,
+  max: number,
+  tolerance: number,
+  kings: number,
+): PieceType[] {
   let best = fallback;
   let bestDiff = Math.abs(armyValue(fallback) - target);
   for (let i = 0; i < 200; i++) {
-    const candidate = randomArmy(rng, min, max);
+    const candidate = randomArmy(rng, min, max, kings);
     const diff = Math.abs(armyValue(candidate) - target);
     if (diff < bestDiff) {
       best = candidate;
@@ -81,8 +97,8 @@ function matchValue(rng: Rng, fallback: PieceType[], target: number, min: number
     }
     if (diff <= tolerance) return best;
   }
-  const lo = Math.max(1, min - KINGS_PER_SIDE);
-  const hi = Math.max(lo, max - KINGS_PER_SIDE);
+  const lo = Math.max(1, min - kings);
+  const hi = Math.max(lo, max - kings);
   const army = best.slice();
   for (let step = 0; step < 400 && Math.abs(armyValue(army) - target) > tolerance; step++) {
     const tooWeak = armyValue(army) < target;
@@ -109,16 +125,16 @@ function matchValue(rng: Rng, fallback: PieceType[], target: number, min: number
 }
 
 /** Places kings + army on a side's two home ranks. Pawns never start on the back rank. */
-function placeArmy(board: Board, rng: Rng, color: Color, army: PieceType[]) {
+function placeArmy(board: Board, rng: Rng, color: Color, army: PieceType[], kings: number) {
   const backRank = color === 'w' ? 0 : 7;
   const frontRank = color === 'w' ? 1 : 6;
   const files = rng.shuffle([0, 1, 2, 3, 4, 5, 6, 7]);
   const back = files.slice(0, 8);
-  const kingFiles = back.slice(0, KINGS_PER_SIDE);
+  const kingFiles = back.slice(0, kings);
   for (const f of kingFiles) board[sq(f, backRank)] = { type: 'k', color };
 
   const free = new Set<number>();
-  for (const f of back.slice(KINGS_PER_SIDE)) free.add(sq(f, backRank));
+  for (const f of back.slice(kings)) free.add(sq(f, backRank));
   const frontSquares = rng.shuffle([0, 1, 2, 3, 4, 5, 6, 7].map((f) => sq(f, frontRank)));
   for (const s of frontSquares) free.add(s);
 
@@ -154,18 +170,25 @@ function hasInstantWin(board: Board, color: Color): boolean {
   return false;
 }
 
-/** A playable start: no king in check, and neither side can win on the spot. */
-export function setupIsPlayable(board: Board): boolean {
+/**
+ * A playable start: no king in check, and neither side can win on the spot.
+ *
+ * The instant-win test only makes sense with two or more kings, where it means
+ * "can fork every king at once". With a single king it would reject any board
+ * where a side can simply give check, which is most of them.
+ */
+export function setupIsPlayable(board: Board, kings = KINGS_PER_SIDE): boolean {
   if (kingsInCheck(board, 'w').length > 0 || kingsInCheck(board, 'b').length > 0) return false;
+  if (kings < 2) return true;
   return !hasInstantWin(board, 'w') && !hasInstantWin(board, 'b');
 }
 
-function tryBuild(rng: Rng, white: PieceType[], black: PieceType[]): Board | null {
+function tryBuild(rng: Rng, white: PieceType[], black: PieceType[], kings: number): Board | null {
   for (let attempt = 0; attempt < 20; attempt++) {
     const board = emptyBoard();
-    placeArmy(board, rng, 'w', white);
-    placeArmy(board, rng, 'b', black);
-    if (setupIsPlayable(board)) return board;
+    placeArmy(board, rng, 'w', white, kings);
+    placeArmy(board, rng, 'b', black, kings);
+    if (setupIsPlayable(board, kings)) return board;
   }
   return null;
 }
@@ -173,34 +196,35 @@ function tryBuild(rng: Rng, white: PieceType[], black: PieceType[]): Board | nul
 export function generateSetup(options: SetupOptions): Setup {
   const seed = options.seed ?? randomSeed();
   const rng = createRng(seed);
-  const min = Math.max(3, Math.min(16, options.minPieces ?? DEFAULT_MIN_PIECES));
+  const kings = kingCount(options);
+  const min = Math.max(kings + 1, Math.min(16, options.minPieces ?? DEFAULT_MIN_PIECES));
   const max = Math.max(min, Math.min(16, options.maxPieces ?? DEFAULT_MAX_PIECES));
 
   for (;;) {
     // A steep handicap needs a modest white army so the target stays reachable within 16 pieces.
     const ratio = options.mode === 'handicap' ? Math.max(0.3, Math.min(4, options.handicap ?? 1)) : 1;
     const whiteMax = ratio > 1.4 ? Math.max(min, Math.min(max, Math.floor(16 / ratio) + 2)) : max;
-    const white = randomArmy(rng, Math.min(min, whiteMax), whiteMax);
+    const white = randomArmy(rng, Math.min(min, whiteMax), whiteMax, kings);
     let black: PieceType[];
     switch (options.mode) {
       case 'mirror':
         black = white.slice();
         break;
       case 'fair':
-        black = matchValue(rng, white, armyValue(white), min, max, 100);
+        black = matchValue(rng, white, armyValue(white), min, max, 100, kings);
         break;
       case 'handicap': {
         const target = armyValue(white) * ratio;
         // A much stronger or weaker army may need more or fewer pieces than white's range allows.
         const lo = ratio < 1 ? 3 : min;
         const hi = ratio > 1 ? 16 : max;
-        black = matchValue(rng, white, target, lo, hi, Math.max(100, target * 0.08));
+        black = matchValue(rng, white, target, lo, hi, Math.max(100, target * 0.08), kings);
         break;
       }
       default:
-        black = randomArmy(rng, min, max);
+        black = randomArmy(rng, min, max, kings);
     }
-    const board = tryBuild(rng, white, black);
+    const board = tryBuild(rng, white, black, kings);
     if (board) {
       return { board, seed, mode: options.mode, whiteValue: armyValue(white), blackValue: armyValue(black) };
     }

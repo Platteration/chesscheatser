@@ -353,7 +353,7 @@ export function GameScreen({ start, onExit, onSave, onFinished, dailyStreak = 0,
       </View>
       </View>
 
-      <IntroTip />
+      <IntroTip kings={state.config.kings ?? 2} />
 
       <PowerDraftPicker
         draft={state.pendingDraft}
@@ -411,17 +411,24 @@ export function GameScreen({ start, onExit, onSave, onFinished, dailyStreak = 0,
 }
 
 /** One-time explanation of the two rules that surprise new players. */
-function IntroTip() {
+function IntroTip({ kings }: { kings: number }) {
   const styles = useStyles();
   const { settings, update } = useSettings();
   if (settings.seenIntro) return null;
+  const oneKing = kings < 2;
   return (
     <Modal transparent animationType="fade" onRequestClose={() => update({ seenIntro: true })}>
       <View style={styles.overlay}>
         <View style={styles.resultCard}>
-          <Text style={styles.resultTitle}>Two kings, one rule</Text>
-          <Text style={styles.tipText}>You lose when one of your kings is checkmated, or when both are in check and no move can free either.</Text>
-          <Text style={styles.tipText}>So you may leave one king in check, and even walk into it, as long as the other is safe. Kings are never captured.</Text>
+          <Text style={styles.resultTitle}>{oneKing ? 'Random armies, one rule' : 'Two kings, one rule'}</Text>
+          {oneKing ? (
+            <Text style={styles.tipText}>Handicap Chess: ordinary chess rules, but both armies are random, so one of you starts behind.</Text>
+          ) : (
+            <>
+              <Text style={styles.tipText}>You lose when one of your kings is checkmated, or when both are in check and no move can free either.</Text>
+              <Text style={styles.tipText}>So you may leave one king in check, and even walk into it, as long as the other is safe. Kings are never captured.</Text>
+            </>
+          )}
           <Text style={styles.tipText}>Losing? The further behind you are, by material and by the engine's judgement, the more your pieces can do: purple targets are comeback moves, and the computer gets them too when it is losing.</Text>
           <View style={styles.resultButtons}>
             <Button title="Got it" onPress={() => update({ seenIntro: true })} />

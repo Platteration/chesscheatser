@@ -1,6 +1,6 @@
 /**
  * Self-play tuning harness for comeback powers.
- *   npx tsx scripts/simulate.ts [games] [difficulty] [mode]
+ *   npx tsx scripts/simulate.ts [games] [difficulty] [mode] [doubleCheck] [kings]
  * Plays computer vs computer with powers on and off and reports how games end,
  * how long they last, and how often the side that started weaker wins.
  */
@@ -15,6 +15,7 @@ const games = Number(process.argv[2] ?? 20);
 const difficulty = (process.argv[3] ?? 'easy') as Difficulty;
 const mode = (process.argv[4] ?? 'chaos') as MaterialMode;
 const rule = process.argv[5] ?? 'loses'; // 'loses' | 'answer'
+const kings = Number(process.argv[6] ?? 2); // 1 = handicap chess
 const MAX_PLIES = 200;
 
 interface Outcome {
@@ -28,7 +29,7 @@ interface Outcome {
 
 function play(seed: number, comeback: boolean): Outcome {
   clearTranspositionTable();
-  const setup = generateSetup({ mode, seed });
+  const setup = generateSetup({ mode, seed, kings });
   const pos = new Position(setup.board);
   pos.doubleCheckLoses = rule !== 'answer';
   const weaker = setup.whiteValue === setup.blackValue ? null : setup.whiteValue < setup.blackValue ? 'w' : 'b';
@@ -87,7 +88,7 @@ for (const comeback of [false, true]) {
     byKind[k] = (byKind[k] ?? 0) + 1;
   }
   const comebacks = outcomes.filter((o) => o.biggestComebackWin >= 350).length;
-  console.log(`\n== comeback ${comeback ? 'ON' : 'OFF'} · double check ${rule} · ${games} ${mode} games · ${difficulty} · ${((Date.now() - t0) / 1000).toFixed(0)}s ==`);
+  console.log(`\n== comeback ${comeback ? 'ON' : 'OFF'} · ${kings} king(s) · double check ${rule} · ${games} ${mode} games · ${difficulty} · ${((Date.now() - t0) / 1000).toFixed(0)}s ==`);
   console.log(`decisive ${decisive}/${games} · avg plies ${avgPlies.toFixed(0)} · endings ${JSON.stringify(byKind)}`);
   console.log(`weaker side won ${weakerWins}/${weakerGames.length} · wins from >=3.5 behind: ${comebacks}`);
   if (comeback) {

@@ -24,6 +24,11 @@ export interface GameConfig {
   comeback?: boolean;
   /** Both kings in check at once: instant loss (original rule) or must be answered. */
   doubleCheck?: 'loses' | 'answer';
+  /**
+   * Kings per side. Two is the variant; one is Handicap Chess — ordinary chess
+   * loss conditions, but still random armies and comeback powers.
+   */
+  kings?: 1 | 2;
 }
 
 export type ClockMinutes = 0 | 1 | 3 | 5 | 10;

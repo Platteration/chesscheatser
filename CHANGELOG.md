@@ -25,6 +25,8 @@
   are revealed at the end.
 - You can cheat too: one illegal move per game; the computer notices with a
   chance tied to difficulty and how blatant it is.
+- Handicap Chess: a one-king setting that plays by ordinary chess loss
+  conditions while keeping the random armies and the comeback draft.
 - Modes: quick game, pass-and-play with optional clock, daily challenge with
   streaks and sharing, ranked ladder, 62 mined puzzles.
 - Hints, undo, resign, rematch with colours swapped, move list, review

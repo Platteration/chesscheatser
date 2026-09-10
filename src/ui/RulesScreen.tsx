@@ -38,6 +38,7 @@ const SECTIONS: { title: string; body: string[] }[] = [
       'Every game generates a fresh army for each side: a random number of pieces, of random types, placed randomly on the two home ranks. Kings always start on the back rank and pawns never do.',
       'Fair: different armies with roughly equal total value. Mirror: both sides get the same set of pieces. Chaos: anything goes, one side may be much stronger.',
       'The seed shown above the board identifies a setup, so a rematch replays the same armies with the colours swapped.',
+      'Kings: two is the variant. Set it to one for Handicap Chess, which keeps the random armies and the comeback draft but goes back to ordinary chess: you lose to checkmate and nothing else.',
     ],
   },
   {

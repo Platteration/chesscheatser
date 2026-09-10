@@ -87,6 +87,48 @@ describe('random setup', () => {
     }
   });
 
+  it('handicap chess gives each side a single king and still a quiet start', () => {
+    for (let seed = 1; seed <= 150; seed++) {
+      const setup = generateSetup({ mode: 'fair', seed, kings: 1 });
+      for (const color of ['w', 'b'] as const) {
+        const kings = kingSquares(setup.board, color);
+        expect(kings).toHaveLength(1);
+        expect(rankOf(kings[0])).toBe(color === 'w' ? 0 : 7);
+      }
+      expect(setupIsQuiet(setup.board)).toBe(true);
+      expect(setupIsPlayable(setup.board, 1)).toBe(true);
+    }
+  });
+
+  it('plays ordinary chess loss conditions with one king', () => {
+    // With a single king "every king in check" is just "in check", which must
+    // never be an instant loss however `doubleCheckLoses` is set.
+    for (let seed = 1; seed <= 40; seed++) {
+      const setup = generateSetup({ mode: 'chaos', seed, kings: 1 });
+      for (const color of ['w', 'b'] as const) {
+        const pos = new Position(setup.board, color);
+        expect(pos.allKingsInCheck()).toBe(false);
+        for (const m of pos.legalMoves()) {
+          pos.makeMove(m);
+          expect(pos.result().kind).not.toBe('both-in-check');
+          pos.unmakeMove();
+        }
+      }
+    }
+  });
+
+  it('keeps room for an army when only one square goes to a king', () => {
+    for (let seed = 1; seed <= 40; seed++) {
+      const setup = generateSetup({ mode: 'chaos', seed, kings: 1, minPieces: 4, maxPieces: 6 });
+      for (const color of ['w', 'b'] as const) {
+        const n = setup.board.filter((p) => p?.color === color).length;
+        expect(n).toBeGreaterThanOrEqual(4);
+        expect(n).toBeLessThanOrEqual(6);
+        expect(armyOf(setup.board, color).length).toBe(n - 1);
+      }
+    }
+  });
+
   it('chaos mode actually varies material between sides', () => {
     let different = 0;
     for (let seed = 1; seed <= 30; seed++) {

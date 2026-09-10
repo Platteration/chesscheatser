@@ -54,6 +54,10 @@ a king already in check are rejected and regenerated.
 - **Mirror**: both sides get the same set of pieces, placed independently.
 - **Chaos**: fully independent random armies.
 
+The *Kings* setting picks how many kings each army gets. Two is the variant;
+one is Handicap Chess, where the rules above collapse to ordinary chess (you
+lose to checkmate alone) while everything else stays.
+
 Setups are seeded, so the seed shown above the board reproduces the same armies.
 
 ## A cheating opponent
@@ -78,6 +82,7 @@ Cheats are revealed at the end of the game.
 - **Daily challenge**: one seeded set of armies per calendar day, with streaks and a shareable result.
 - **Ranked ladder**: win to climb, lose to drop. Rank drives the computer's strength, how much it cheats and how much material it gets (you start with the bigger army).
 - **Puzzles**: double check in one, mate in one, and forced win in two, mined from random games by `scripts/mine-puzzles.ts` into `assets/puzzles.json`.
+- **Handicap Chess**: set *Kings* to one and the game plays by ordinary chess loss conditions — random armies and the comeback draft stay. Good for chess players who bounce off two kings.
 - **You can cheat too**: one illegal move per game for the player; the computer notices more often on harder levels and for blatant cheats.
 
 ## Features
@@ -167,7 +172,8 @@ once Pages is enabled for the repository (Settings → Pages → GitHub Actions)
 ## Balance harness
 
 ```sh
-npx tsx scripts/simulate.ts 12 medium fair    # games, difficulty, army mode
+npx tsx scripts/simulate.ts 12 medium fair            # games, difficulty, army mode
+npx tsx scripts/simulate.ts 12 medium fair answer 1  # ...double-check rule, kings per side
 ```
 
 Plays the computer against itself with comeback powers off and on and reports
