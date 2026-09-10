@@ -4,11 +4,12 @@ import { opposite } from '../engine/board';
 import { chooseMoveAsync, clearTranspositionTable } from '../engine/ai';
 import { cheatCandidates, chooseActionAsync } from '../engine/cheat';
 import { isAttacked, Position } from '../engine/position';
+import { offerPowers, type PowerTag } from '../engine/powers';
 import { generateSetup, type Setup } from '../engine/setup';
 import type { Board, Color, GameResult, LegalMove, Move, PieceType, Square } from '../engine/types';
 import { ARMY_SIZES, type GameConfig, type SavedGame } from './config';
-import { measureDeficit } from './comeback';
-import { fold, lostPieces, stripMove, undoEvents, type CheatStats, type Folded, type GameEvent } from './events';
+import { chooseDraft, measureDeficit } from './comeback';
+import { fold, isGrant, lostPieces, stripMove, undoEvents, type CheatStats, type Folded, type GameEvent } from './events';
 
 export interface CapturedSummary {
   /** Pieces each colour has captured from the opponent. */
@@ -63,6 +64,18 @@ export interface GameState {
   /** True once the side to move has its power for this turn (or comeback is off). */
   powerReady: boolean;
   maxDeficit: Record<Color, number>;
+  /** Set while a human must choose a comeback power before playing. */
+  pendingDraft: PendingDraft | null;
+}
+
+/** A comeback draft awaiting a human choice. */
+export interface PendingDraft {
+  color: Color;
+  offered: PowerTag[];
+  /** How many powers this side will hold once the pick is made. */
+  level: number;
+  material: number;
+  engine: number;
 }
 
 export const HUMAN_CHEATS_PER_GAME = 1;
@@ -138,6 +151,7 @@ export function useGame(initial: StartOptions, onSave?: (saved: SavedGame | null
   const clockMs = (initial.config.clock ?? 0) * 60_000;
   const [clocks, setClocks] = useState<Record<Color, number>>(initial.clocks ?? { w: clockMs, b: clockMs });
   const [flagged, setFlagged] = useState<Color | null>(null);
+  const [pendingDraft, setPendingDraft] = useState<PendingDraft | null>(null);
   const aiTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const foldOptions = useMemo(() => ({ doubleCheckLoses: config.doubleCheck === 'loses' }), [config.doubleCheck]);
@@ -195,7 +209,7 @@ export function useGame(initial: StartOptions, onSave?: (saved: SavedGame | null
 
   const comeback = !!config.comeback;
   // The side to move needs a power grant recorded for this turn before anyone moves.
-  const powerReady = !comeback || folded.lastEvent?.type === 'power' || derived.positionOver;
+  const powerReady = !comeback || isGrant(folded.lastEvent) || derived.positionOver;
 
   const state: GameState = useMemo(() => {
     const gameOver = derived.positionOver || resigned !== null || flagged !== null;
@@ -224,8 +238,9 @@ export function useGame(initial: StartOptions, onSave?: (saved: SavedGame | null
       powers: folded.powers,
       powerReady,
       maxDeficit: folded.maxDeficit,
+      pendingDraft: gameOver ? null : pendingDraft,
     };
-  }, [derived, folded, captured, setup, humanColor, config, thinking, resigned, flagged, clocks, daily, ranked, gameId, powerReady]);
+  }, [derived, folded, captured, setup, humanColor, config, thinking, resigned, flagged, clocks, daily, ranked, gameId, powerReady, pendingDraft]);
 
   // Pass-and-play clock: runs for the side to move once the first move has been made.
   const clockActive = (config.clock ?? 0) > 0 && config.mode === 'local' && !state.gameOver && events.length > 0;
@@ -289,12 +304,27 @@ export function useGame(initial: StartOptions, onSave?: (saved: SavedGame | null
       append({ type: 'pass' });
       return;
     }
-    // Comeback: measure how far behind the side to move is and grant its power for this turn.
-    // Runs in a timeout so the previous move paints before the short search.
-    if (comeback && folded.lastEvent?.type !== 'power') {
+    // Comeback: measure how far behind the side to move is, and offer it a draft
+    // if that earned a new power. Runs in a timeout so the previous move paints
+    // before the short search.
+    if (comeback && !isGrant(folded.lastEvent)) {
       const id = setTimeout(() => {
-        const d = measureDeficit(folded.pos, folded.pos.turn, 100);
-        append({ type: 'power', color: folded.pos.turn, level: d.level, material: d.material, engine: d.engine });
+        const color = folded.pos.turn;
+        const d = measureDeficit(folded.pos, color, 100);
+        const owned = folded.pos.powerTags[color];
+        const offered = d.level > owned.size ? offerPowers(owned, d.level, setup.seed + events.length) : [];
+        const base = { color, material: d.material, engine: d.engine } as const;
+        if (offered.length === 0) {
+          append({ type: 'draft', ...base, offered: [], taken: null, level: owned.size });
+          return;
+        }
+        // The computer drafts for itself; a human is asked.
+        if (aiColor !== null && color === aiColor) {
+          const taken = chooseDraft(folded.pos, offered, setup.seed + events.length);
+          append({ type: 'draft', ...base, offered, taken, level: owned.size + 1 });
+        } else {
+          setPendingDraft({ ...base, offered, level: owned.size + 1 });
+        }
       }, 0);
       return () => clearTimeout(id);
     }
@@ -321,7 +351,39 @@ export function useGame(initial: StartOptions, onSave?: (saved: SavedGame | null
       if (aiTimer.current) clearTimeout(aiTimer.current);
       setThinking(false);
     };
-  }, [folded, captured, state.gameOver, state.turn, aiColor, config.difficulty, config.cheating, comeback, append]);
+  }, [
+    folded,
+    captured,
+    state.gameOver,
+    state.turn,
+    aiColor,
+    config.difficulty,
+    config.cheating,
+    comeback,
+    append,
+    setup.seed,
+    events.length,
+  ]);
+
+  /** Take one of the offered powers. Only meaningful while `state.pendingDraft` is set. */
+  const draft = useCallback(
+    (taken: PowerTag) => {
+      setPendingDraft((pending) => {
+        if (!pending || !pending.offered.includes(taken)) return pending;
+        append({
+          type: 'draft',
+          color: pending.color,
+          offered: pending.offered,
+          taken,
+          level: pending.level,
+          material: pending.material,
+          engine: pending.engine,
+        });
+        return null;
+      });
+    },
+    [append],
+  );
 
   const play = useCallback(
     (m: Move) => {
@@ -358,6 +420,7 @@ export function useGame(initial: StartOptions, onSave?: (saved: SavedGame | null
   const undo = useCallback(() => {
     if (flagged) return; // a lost clock cannot be wound back
     setResigned(null);
+    setPendingDraft(null); // the rolled-back turn is re-measured from scratch
     setEvents((prev) => undoEvents(setup, prev, aiColor, foldOptions));
   }, [setup, aiColor, flagged, foldOptions]);
 
@@ -374,6 +437,7 @@ export function useGame(initial: StartOptions, onSave?: (saved: SavedGame | null
     setEvents([]);
     setResigned(null);
     setFlagged(null);
+    setPendingDraft(null);
     const ms = (cfg.clock ?? 0) * 60_000;
     setClocks({ w: ms, b: ms });
     setDaily(null);
@@ -405,5 +469,5 @@ export function useGame(initial: StartOptions, onSave?: (saved: SavedGame | null
     setResigned(config.mode === 'ai' ? humanColor : state.turn);
   }, [state.gameOver, state.turn, config.mode, humanColor]);
 
-  return { state, play, playCheat, accuse, undo, newGame, rematch, resign, getHint };
+  return { state, play, playCheat, draft, accuse, undo, newGame, rematch, resign, getHint };
 }

@@ -29,8 +29,10 @@ an optional cheating computer opponent.
   (`npx tsx scripts/mine-puzzles.ts 25 1000 12`).
 - `scripts/simulate.ts` is the balance harness: computer vs computer with
   comeback powers on and off (`npx tsx scripts/simulate.ts 12 medium fair`).
-  Tuning knobs: `POWER_THRESHOLDS` in `src/engine/powers.ts`, the
-  material/engine weights in `src/game/comeback.ts`.
+  Tuning knobs: `POWER_THRESHOLDS` and `MAX_POWER` in `src/engine/powers.ts`,
+  the material/engine weights in `src/game/comeback.ts`, and the AI's pick
+  policy `chooseDraft`. Watch "weaker side won" in the harness: it should sit
+  near half with powers on, versus roughly a third with them off.
 - `src/ui/` — screens and the board. Pieces are text glyphs in the bundled
   `assets/fonts/ChessGlyphs.ttf` (DejaVu subset).
 
@@ -42,12 +44,16 @@ an optional cheating computer opponent.
   (`doubleCheck: 'loses'`, `Position.doubleCheckLoses`): all kings in check at
   the start of your turn is an instant loss. Kings are never captured.
 - No castling. En passant, promotion, 50-move and threefold repetition apply.
-- Comeback powers (default on): at the start of each turn a `power` event
-  records the side to move's level (0–4) from a blend of material deficit and
-  a quick engine search (`src/game/comeback.ts`); `Position.powers` makes the
-  extra moves from `src/engine/powers.ts` legal for that side. Levels ramp by
-  at most one per turn. Power moves carry `power: true` and are never counted
-  as cheats.
+- Comeback powers (default on): at the start of each turn a `draft` event
+  records the side to move's measured deficit (a blend of material and a quick
+  engine search, `src/game/comeback.ts`) and which power it drafted, if the
+  level rose. Powers are `PowerTag`s from `src/engine/powers.ts`; each level-up
+  offers three unowned tags (`offerPowers`) and the side keeps one, up to
+  `MAX_POWER` picks, at most one per turn. `Position.powerTags` makes those
+  moves legal and is part of the Zobrist key. Power moves carry `power: true`
+  and are never counted as cheats.
+- Legacy `power` events (a whole numeric level) still replay, via
+  `TAGS_FOR_LEVEL`/`tagsForLevel`, so saved games from before drafting work.
 - Caught cheat: move undone, computer skips, human moves twice. False
   accusation: computer moves twice. The computer never cheats on the first
   half of a double move (only its last move can be accused).

@@ -6,21 +6,26 @@ army is **randomly generated**.
 
 ## The idea
 
-Losing is where the fun starts. At the start of every turn the game measures
-how far behind the side to move is (half material, half the engine's own
-evaluation) and grants that side comeback powers. The further behind, the
-stronger its pieces become, in four stacking levels:
+Losing is where the fun starts. At the start of every turn the game measures how
+far behind the side to move is (half material, half the engine's own evaluation).
+Fall far enough behind and you **draft a power**: three are offered, you keep one,
+and they stack. Up to six picks, at most one per turn, so a hopeless army builds
+into something strange rather than starting at full strength.
 
-| Level | Behind by | Powers |
+The thirteen powers arrive in four tiers, and the offer opens up as you sink:
+
+| Tier | Behind by | What comes into the pool |
 | --- | --- | --- |
-| Nudge | 2.5 | pawns step sideways/back, kings step two, knights may step one |
-| Slide | 5 | bishops and rooks may also step one square any way; pawn tricks |
-| Leap | 8 | sliders jump over one piece; kings hop a neighbour; queens jump like knights |
-| Ascend | 12 | bishops, rooks and knights move like queens; a captured piece may return home |
+| Nudge | 2 | pawns step sideways or back, kings stride two squares, knights step one |
+| Slide | 4 | bishops and rooks step one square off their usual line; pawn tricks |
+| Leap | 6.5 | sliders jump one piece, kings hop a neighbour, queens jump like knights |
+| Ascend | 9 | bishops, rooks and knights gain queen mobility; captured pieces return home |
 
-Powers build up one level per turn. Power moves are legal, shown in purple, and
-the computer gets them too when it is losing. Turn them off for plain two-king
-chess.
+Because you pick rather than receive, two games at the same deficit play
+differently: a rook that vaults is a different problem from a pawn wall that
+walks sideways. Power moves are ordinary legal moves, shown in purple, and the
+computer drafts too when it is losing. Turn the whole system off for plain
+two-king chess.
 
 ## Rules
 
@@ -148,9 +153,10 @@ Plays the computer against itself with comeback powers off and on and reports
 decisive rate, game length, how often the weaker starting side wins, and which
 power levels were reached. Thresholds live in `src/engine/powers.ts`.
 
-Reference numbers (medium AI, double check must be answered, 16 games):
-chaos armies run 58 plies with the weaker starting side winning 8/16 with
-powers (about 4/11 without); fair armies run 46 plies.
+Reference numbers (medium AI, double check must be answered, 16 chaos games,
+drafting): games run about 56 plies and the weaker starting side wins 8/15 with
+powers, against 5/14 with them off. If a tuning change pushes that first number
+much below half, the draft has stopped doing its job.
 
 ## Tests
 

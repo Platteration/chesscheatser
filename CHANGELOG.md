@@ -3,11 +3,12 @@
 ## Unreleased (1.0.0 candidate)
 
 ### Game
-- Comeback powers (the core idea): the side that is losing, by material and
-  by the engine's evaluation, gets stronger pieces in four stacking levels
-  (Nudge, Slide, Leap, Ascend), building up one level per turn. Power moves
-  are legal, shown in purple, and the computer gets them too. Tuned with the
-  self-play harness in `scripts/simulate.ts`.
+- Comeback powers (the core idea): the side that is losing, by material and by
+  the engine's evaluation, drafts powers. Three are offered at each level-up
+  and you keep one, up to six picks, at most one per turn, from thirteen
+  powers across four tiers. Power moves are legal, shown in purple, and the
+  computer drafts too. Tuned with the self-play harness in
+  `scripts/simulate.ts`.
 - Double check: by default both kings in check must be answered (you lose
   only if no move frees a king); the original instant-loss rule is optional.
 - Two-king chess: each side has two kings; lose when both are in check at

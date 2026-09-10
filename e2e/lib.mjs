@@ -57,9 +57,23 @@ export const cellCounts = (page) =>
     return out;
   });
 
+/**
+ * The comeback draft opens at the *start* of a turn rather than after a tap, and
+ * blocks play until answered, so every wait has to be able to clear it.
+ * Takes the first offered power. Returns true if a draft was answered.
+ */
+export async function settleDraft(page) {
+  const options = page.locator('[data-testid="power-option"]');
+  if ((await options.count()) === 0) return false;
+  await options.first().click({ timeout: 3000 }).catch(() => {});
+  await page.waitForTimeout(150);
+  return true;
+}
+
 export async function waitHuman(page, ms = 12000) {
   const until = Date.now() + ms;
   while (Date.now() < until) {
+    await settleDraft(page);
     if (!(await page.locator('text=/Computer is thinking|takes its extra move|Opponent is defending/').count())) return;
     await page.waitForTimeout(100);
   }
@@ -75,6 +89,7 @@ export const gameOver = (page) => page.locator('text=/Rematch/').count().then((n
  */
 async function settlePicker(page) {
   await page.waitForTimeout(120);
+  if (await settleDraft(page)) return false; // a draft is not a move; the caller retries
   if (await page.getByText('Just move', { exact: true }).count()) {
     await page.getByText('Just move', { exact: true }).click();
     return true;
@@ -90,6 +105,7 @@ async function settlePicker(page) {
 
 /** Plays some legal move for the side to move by probing squares for markers. */
 export async function makeAnyMove(page) {
+  await settleDraft(page); // a pending draft blocks every move
   const base = await cellCounts(page);
   for (const label of Object.keys(base)) {
     await sq(page, label).click();
@@ -112,6 +128,7 @@ export async function makeAnyMove(page) {
 export const sq = (page, name) => page.locator(`[aria-label="${name}"], [aria-label^="${name},"]`).first();
 
 export async function clickSquares(page, from, to) {
+  await settleDraft(page);
   await sq(page, from).click();
   await page.waitForTimeout(100);
   await sq(page, to).click();

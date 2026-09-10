@@ -215,18 +215,27 @@ const scenarios = {
     await exact(page, 'White').first().click();
     await exact(page, 'Never').click();
     await exact(page, 'Chaos').click();
-    let seen = null;
-    for (let attempt = 0; attempt < 6 && !seen; attempt++) {
+    // Chaos armies are lopsided, so somebody falls behind and is offered a draft.
+    let drafted = false;
+    let powered = null;
+    for (let attempt = 0; attempt < 6 && !powered; attempt++) {
       if (attempt === 0) await exact(page, 'New game with these settings').click();
       else await exact(page, 'New armies').click();
       await page.waitForTimeout(700);
-      await waitHuman(page);
-      // Either side may be behind from the start; play a ply so both sides get measured.
-      if (await makeAnyMove(page)) await waitHuman(page);
-      await page.waitForTimeout(400);
-      seen = await text(page, '/Nudge|Slide|Leap|Ascend/');
+      for (let ply = 0; ply < 6 && !powered; ply++) {
+        if (await page.locator('[data-testid="power-draft"]').count()) {
+          drafted = true;
+          if (shots) await page.screenshot({ path: `${shots}/draft.png` });
+        }
+        await waitHuman(page); // settles any draft, for either side
+        if (await gameOver(page)) break;
+        // The meter shows a star per power once a side has drafted one.
+        powered = await text(page, '/★/');
+        if (!powered && !(await makeAnyMove(page))) break;
+      }
     }
-    assert(seen !== null, 'a power label showed up within six chaos games');
+    assert(drafted, 'a draft was offered within six chaos games');
+    assert(powered !== null, 'the meter shows a drafted power');
     if (shots) await page.screenshot({ path: `${shots}/comeback.png` });
     assert(errors.length === 0, errors.join('\n'));
     await context.close();

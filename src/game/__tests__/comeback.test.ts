@@ -117,3 +117,77 @@ describe('maxDeficit feeds the biggest-comeback stat', () => {
     expect(fold(setup, events, 'b').maxDeficit.w).toBe(blend(333, 777));
   });
 });
+
+describe('drafting through the event log', () => {
+  const setup: Setup = {
+    board: boardFromString('k6k/pppppppp/8/8/8/8/PPPPPPPP/K6K'),
+    seed: 1,
+    mode: 'mirror',
+    whiteValue: 800,
+    blackValue: 800,
+  };
+
+  it('grants only the drafted power, not a whole level', () => {
+    const events: GameEvent[] = [
+      { type: 'draft', color: 'w', offered: ['pawn.nudge', 'king.step2', 'knight.step'], taken: 'king.step2', level: 1, material: 400, engine: 400 },
+    ];
+    const f = fold(setup, events, 'b');
+    expect(f.powers.w.tags).toEqual(['king.step2']);
+    expect(f.pos.powerTags.w.has('pawn.nudge')).toBe(false);
+    // A king two-step is legal; a pawn sidestep is not, because it was not taken.
+    const legal = f.pos.legalMoves();
+    expect(legal.some((m) => m.piece === 'k' && m.power)).toBe(true);
+    expect(legal.some((m) => m.piece === 'p' && m.power)).toBe(false);
+  });
+
+  it('accumulates picks across level-ups and leaves the opponent alone', () => {
+    const events: GameEvent[] = [
+      { type: 'draft', color: 'w', offered: ['pawn.nudge'], taken: 'pawn.nudge', level: 1, material: 300, engine: 300 },
+      { type: 'move', move: { from: parseSquare('e2'), to: parseSquare('e3'), piece: 'p' } },
+      { type: 'draft', color: 'b', offered: [], taken: null, level: 0, material: 0, engine: 0 },
+      { type: 'move', move: { from: parseSquare('e7'), to: parseSquare('e6'), piece: 'p' } },
+      { type: 'draft', color: 'w', offered: ['king.step2'], taken: 'king.step2', level: 2, material: 600, engine: 600 },
+    ];
+    const f = fold(setup, events, 'b');
+    expect(f.powers.w.tags.sort()).toEqual(['king.step2', 'pawn.nudge']);
+    expect(f.powers.w.level).toBe(2);
+    expect(f.powers.b.tags).toEqual([]);
+    expect(f.pos.powerTags.b.size).toBe(0);
+  });
+
+  it('records a measurement without a pick when nothing was earned', () => {
+    const events: GameEvent[] = [{ type: 'draft', color: 'w', offered: [], taken: null, level: 0, material: 120, engine: 80 }];
+    const f = fold(setup, events, 'b');
+    expect(f.powers.w.tags).toEqual([]);
+    expect(f.maxDeficit.w).toBe(blend(120, 80));
+    expect(f.lastEvent?.type).toBe('draft');
+    expect(f.lastAction).toBeNull(); // a grant is not an action
+  });
+
+  it('replays a legacy power event as that level cumulative set', () => {
+    const legacy: GameEvent[] = [{ type: 'power', color: 'w', level: 2, material: 600, engine: 600 }];
+    const f = fold(setup, legacy, 'b');
+    expect(f.powers.w.tags).toContain('pawn.nudge');
+    expect(f.powers.w.tags).toContain('bishop.step');
+    expect(f.powers.w.tags).not.toContain('slider.jump');
+    expect(f.powers.w.level).toBe(2);
+  });
+
+  it('undo strips a trailing draft along with the ply it preceded', () => {
+    const events: GameEvent[] = [
+      { type: 'draft', color: 'w', offered: [], taken: null, level: 0, material: 0, engine: 0 },
+      { type: 'move', move: { from: parseSquare('e2'), to: parseSquare('e3'), piece: 'p' } },
+      { type: 'draft', color: 'b', offered: [], taken: null, level: 0, material: 0, engine: 0 },
+      { type: 'move', move: { from: parseSquare('e7'), to: parseSquare('e6'), piece: 'p' } },
+      { type: 'draft', color: 'w', offered: [], taken: null, level: 0, material: 0, engine: 0 },
+    ];
+    // Versus the computer, a take-back rolls the pair back to the human's turn.
+    const vsAi = undoEvents(setup, events, 'b');
+    expect(fold(setup, vsAi, 'b').pos.turn).toBe('w');
+    expect(vsAi.some((e) => e.type === 'move')).toBe(false);
+    // Pass-and-play takes back a single ply, dropping the pending grant.
+    const local = undoEvents(setup, events, null);
+    expect(local).toHaveLength(2);
+    expect(fold(setup, local, null).pos.turn).toBe('b');
+  });
+});

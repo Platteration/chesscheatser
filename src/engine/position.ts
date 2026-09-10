@@ -1,5 +1,5 @@
 import { boardToString, cloneBoard, fileOf, kingSquares, opposite, rankOf } from './board';
-import { powerMoves } from './powers';
+import { MAX_POWER, POWER_TAGS, powerMoves, tagsForLevel, type PowerTag } from './powers';
 import { KING_TARGETS, KNIGHT_TARGETS, PAWN_ATTACKERS, PAWN_CAPTURES, RAYS } from './tables';
 import type { Board, Color, GameResult, LegalMove, Move, Piece, PieceType, Square } from './types';
 
@@ -11,8 +11,8 @@ const PROMOTIONS: PieceType[] = ['q', 'r', 'b', 'n'];
 const PIECE_INDEX: Record<PieceType, number> = { p: 0, n: 1, b: 2, r: 3, q: 4, k: 5 };
 const ZOBRIST_PIECE: Int32Array = new Int32Array(12 * 64);
 const ZOBRIST_EP: Int32Array = new Int32Array(8);
-/** [colour][level] — comeback power levels change the legal move set, so they are part of the key. */
-const ZOBRIST_POWER: Int32Array = new Int32Array(2 * 8);
+/** [colour][power tag] — granted powers change the legal move set, so they are part of the key. */
+const ZOBRIST_POWER: Int32Array = new Int32Array(2 * POWER_TAGS.length);
 let ZOBRIST_TURN = 0;
 (() => {
   let a = 0x9e3779b9;
@@ -29,15 +29,31 @@ let ZOBRIST_TURN = 0;
   ZOBRIST_TURN = next();
 })();
 
-function powerHash(color: Color, level: number): number {
-  return level > 0 ? ZOBRIST_POWER[(color === 'w' ? 0 : 8) + level] : 0;
+function powerHash(color: Color, tag: PowerTag): number {
+  const i = POWER_TAGS.indexOf(tag);
+  return i < 0 ? 0 : ZOBRIST_POWER[(color === 'w' ? 0 : POWER_TAGS.length) + i];
+}
+
+function powersHash(color: Color, tags: Iterable<PowerTag>): number {
+  let h = 0;
+  for (const t of tags) h ^= powerHash(color, t);
+  return h | 0;
 }
 
 function pieceHash(p: Piece, s: Square): number {
   return ZOBRIST_PIECE[(PIECE_INDEX[p.type] + (p.color === 'w' ? 0 : 6)) * 64 + s];
 }
 
-export function hashPosition(board: Board, turn: Color, ep: Square, powers: Record<Color, number> = { w: 0, b: 0 }): number {
+/**
+ * `powers` may be granted tag sets, or numeric levels for legacy callers (a
+ * level resolves to the cumulative set that level used to grant).
+ */
+export function hashPosition(
+  board: Board,
+  turn: Color,
+  ep: Square,
+  powers: Record<Color, Iterable<PowerTag> | number> = { w: 0, b: 0 },
+): number {
   let h = 0;
   for (let s = 0; s < 64; s++) {
     const p = board[s];
@@ -45,7 +61,8 @@ export function hashPosition(board: Board, turn: Color, ep: Square, powers: Reco
   }
   if (turn === 'b') h ^= ZOBRIST_TURN;
   if (ep >= 0) h ^= ZOBRIST_EP[fileOf(ep)];
-  h ^= powerHash('w', powers.w) ^ powerHash('b', powers.b);
+  const tagsOf = (v: Iterable<PowerTag> | number) => (typeof v === 'number' ? tagsForLevel(v) : v);
+  h ^= powersHash('w', tagsOf(powers.w)) ^ powersHash('b', tagsOf(powers.b));
   return h | 0;
 }
 
@@ -108,8 +125,13 @@ export class Position {
   history: number[] = [];
   /** King squares per colour, kept in sync by make/unmake. */
   kings: Record<Color, Square[]>;
-  /** Comeback power level per colour (0 = none). Change it with setPower so the hash follows. */
+  /**
+   * How many comeback powers each colour has earned (0 = none). Tracked for
+   * display and ramping; the granted tags are what actually change the rules.
+   */
   readonly powers: Record<Color, number> = { w: 0, b: 0 };
+  /** The powers each colour has drafted. Change via grantPower/setPowerTags so the hash follows. */
+  readonly powerTags: Record<Color, Set<PowerTag>> = { w: new Set(), b: new Set() };
   /** Pieces each colour may resurrect at power level 4 (set by the game layer). */
   resurrectable: Record<Color, PieceType[]> = { w: [], b: [] };
   /**
@@ -137,17 +159,48 @@ export class Position {
     p.history = this.history.slice();
     p.powers.w = this.powers.w;
     p.powers.b = this.powers.b;
+    for (const t of this.powerTags.w) p.powerTags.w.add(t);
+    for (const t of this.powerTags.b) p.powerTags.b.add(t);
     p.doubleCheckLoses = this.doubleCheckLoses;
     p.resurrectable = { w: this.resurrectable.w.slice(), b: this.resurrectable.b.slice() };
     return p;
   }
 
-  /** Grants a comeback power level; part of the hash because it changes the legal moves. */
+  /**
+   * Grants the cumulative tag set an old numeric level used to give. Kept for
+   * legacy events, the balance harness and tests.
+   */
   setPower(color: Color, level: number) {
-    const clamped = Math.max(0, Math.min(7, level | 0));
-    if (this.powers[color] === clamped) return;
-    this.hash = (this.hash ^ powerHash(color, this.powers[color]) ^ powerHash(color, clamped)) | 0;
-    this.powers[color] = clamped;
+    const clamped = Math.max(0, Math.min(MAX_POWER, level | 0));
+    this.setPowerTags(color, tagsForLevel(clamped), clamped);
+  }
+
+  /** Adds one drafted power. Part of the hash because it changes the legal moves. */
+  grantPower(color: Color, tag: PowerTag) {
+    if (this.powerTags[color].has(tag)) return;
+    this.powerTags[color].add(tag);
+    this.powers[color] = this.powerTags[color].size;
+    this.rehashPowers(color, tag);
+  }
+
+  /** Replaces a colour's drafted powers outright (replay). `level` defaults to the tag count. */
+  setPowerTags(color: Color, tags: Iterable<PowerTag>, level?: number) {
+    const next = new Set(tags);
+    const current = this.powerTags[color];
+    let delta = 0;
+    for (const t of next) if (!current.has(t)) delta ^= powerHash(color, t);
+    for (const t of current) if (!next.has(t)) delta ^= powerHash(color, t);
+    current.clear();
+    for (const t of next) current.add(t);
+    this.powers[color] = level ?? next.size;
+    if (delta !== 0) {
+      this.hash = (this.hash ^ delta) | 0;
+      this.history[this.history.length - 1] = this.hash;
+    }
+  }
+
+  private rehashPowers(color: Color, tag: PowerTag) {
+    this.hash = (this.hash ^ powerHash(color, tag)) | 0;
     this.history[this.history.length - 1] = this.hash;
   }
 
@@ -263,9 +316,10 @@ export class Position {
     const color = this.turn;
     const enemy = opposite(color);
     const out: LegalMove[] = [];
-    const level = this.powers[color];
+    const tags = this.powerTags[color];
     const ordinary = this.pseudoLegalMoves();
-    const candidates = level > 0 ? ordinary.concat(powerMoves(this, level, this.resurrectable[color], ordinary)) : ordinary;
+    const candidates =
+      tags.size > 0 ? ordinary.concat(powerMoves(this, tags, this.resurrectable[color], ordinary)) : ordinary;
     for (const m of candidates) {
       this.makeMove(m);
       const kings = this.kings[color];

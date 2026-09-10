@@ -7,7 +7,8 @@
 import { chooseMove, clearTranspositionTable, type Difficulty } from '../src/engine/ai';
 import { Position } from '../src/engine/position';
 import { generateSetup, type MaterialMode } from '../src/engine/setup';
-import { measureDeficit } from '../src/game/comeback';
+import { MAX_POWER, offerPowers } from '../src/engine/powers';
+import { chooseDraft, measureDeficit } from '../src/game/comeback';
 import { lostPieces } from '../src/game/events';
 
 const games = Number(process.argv[2] ?? 20);
@@ -39,11 +40,17 @@ function play(seed: number, comeback: boolean): Outcome {
   for (; plies < MAX_PLIES; plies++) {
     for (const c of ['w', 'b'] as const) pos.resurrectable[c] = lostPieces(setup.board, pos.board, c);
     if (comeback) {
-      const d = measureDeficit(pos, pos.turn, 60);
-      pos.setPower(pos.turn, d.level);
-      maxLevel = Math.max(maxLevel, d.level);
-      if (d.level > 0) poweredTurns++;
-      maxDeficitBy[pos.turn] = Math.max(maxDeficitBy[pos.turn], d.total);
+      const color = pos.turn;
+      const d = measureDeficit(pos, color, 60);
+      const owned = pos.powerTags[color];
+      // Same draft the game plays: one pick per level-up, chosen by the AI policy.
+      if (d.level > owned.size) {
+        const offered = offerPowers(owned, d.level, seed * 1000 + plies);
+        if (offered.length) pos.grantPower(color, chooseDraft(pos, offered, seed * 1000 + plies));
+      }
+      maxLevel = Math.max(maxLevel, pos.powerTags[color].size);
+      if (pos.powerTags[color].size > 0) poweredTurns++;
+      maxDeficitBy[color] = Math.max(maxDeficitBy[color], d.total);
     }
     const res = pos.result();
     if (res.kind !== 'ongoing') {
@@ -85,7 +92,7 @@ for (const comeback of [false, true]) {
   console.log(`weaker side won ${weakerWins}/${weakerGames.length} · wins from >=3.5 behind: ${comebacks}`);
   if (comeback) {
     const avgPowered = outcomes.reduce((a, o) => a + o.poweredTurns, 0) / outcomes.length;
-    const levels = [0, 1, 2, 3, 4].map((l) => outcomes.filter((o) => o.maxLevel === l).length);
-    console.log(`avg powered turns/game ${avgPowered.toFixed(1)} · max level reached [none,nudge,slide,leap,ascend] = ${JSON.stringify(levels)}`);
+    const levels = Array.from({ length: MAX_POWER + 1 }, (_, l) => outcomes.filter((o) => o.maxLevel === l).length);
+    console.log(`avg powered turns/game ${avgPowered.toFixed(1)} · picks reached (0..${MAX_POWER}) = ${JSON.stringify(levels)}`);
   }
 }

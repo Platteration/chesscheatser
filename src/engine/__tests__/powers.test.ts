@@ -3,7 +3,7 @@ import { chooseMove } from '../ai';
 import { boardFromString, parseSquare, squareName } from '../board';
 import { cheatCandidates } from '../cheat';
 import { hashPosition, Position } from '../position';
-import { powerLevelFor, powerMoves, POWER_THRESHOLDS } from '../powers';
+import { MAX_POWER, powerLevelFor, powerMoves, POWER_TAGS, POWER_THRESHOLDS } from '../powers';
 import { createRng } from '../random';
 import { generateSetup } from '../setup';
 
@@ -13,11 +13,20 @@ const has = (moves: { from: number; to: number; cheat?: string; promotion?: stri
 describe('power levels', () => {
   it('map deficits to levels at the documented thresholds', () => {
     expect(powerLevelFor(0)).toBe(0);
-    expect(powerLevelFor(149)).toBe(0);
-    expect(powerLevelFor(POWER_THRESHOLDS[1])).toBe(1);
-    expect(powerLevelFor(600)).toBe(2);
-    expect(powerLevelFor(900)).toBe(3);
-    expect(powerLevelFor(5000)).toBe(4);
+    expect(powerLevelFor(POWER_THRESHOLDS[1] - 1)).toBe(0);
+    // Every threshold is the exact point its level begins, and they only rise.
+    for (let l = 1; l <= MAX_POWER; l++) {
+      expect(powerLevelFor(POWER_THRESHOLDS[l])).toBe(l);
+      expect(powerLevelFor(POWER_THRESHOLDS[l] - 1)).toBe(l - 1);
+      expect(POWER_THRESHOLDS[l]).toBeGreaterThan(POWER_THRESHOLDS[l - 1]);
+    }
+    expect(powerLevelFor(500_000)).toBe(MAX_POWER);
+    // There is a threshold for every level a side can reach.
+    expect(POWER_THRESHOLDS).toHaveLength(MAX_POWER + 1);
+  });
+
+  it('never offers more picks than there are powers to draft', () => {
+    expect(MAX_POWER).toBeLessThanOrEqual(POWER_TAGS.length);
   });
 });
 
@@ -144,5 +153,80 @@ describe('powers and the rest of the engine', () => {
         }
       }
     }
+  });
+});
+
+describe('power tags and drafting', () => {
+  it('reproduces the old cumulative levels exactly', async () => {
+    const { TAGS_FOR_LEVEL, POWER_SPECS } = await import('../powers');
+    for (let level = 0; level <= 4; level++) {
+      const expected = POWER_SPECS.filter((s) => s.tier <= level).map((s) => s.tag);
+      expect([...TAGS_FOR_LEVEL[level]]).toEqual(expected);
+    }
+    // A numeric level and its tag set generate the same moves.
+    const p = new Position(boardFromString('k6k/8/8/3p4/3P4/7Q/P7/R1B1K1N1'), 'w');
+    for (let level = 1; level <= 4; level++) {
+      const byLevel = powerMoves(p, level).map((m) => `${m.from}:${m.to}:${m.promotion ?? ''}`).sort();
+      const byTags = powerMoves(p, TAGS_FOR_LEVEL[level]).map((m) => `${m.from}:${m.to}:${m.promotion ?? ''}`).sort();
+      expect(byTags).toEqual(byLevel);
+    }
+  });
+
+  it('grants only what a single tag allows', async () => {
+    const { powerMoves: pm } = await import('../powers');
+    const p = new Position(boardFromString('k6k/8/8/8/8/8/P7/R3K1N1'), 'w');
+    // Sidestep moves pawns only; it must not touch the knight or the king.
+    const nudge = pm(p, ['pawn.nudge']);
+    expect(nudge.length).toBeGreaterThan(0);
+    expect(nudge.every((m) => m.piece === 'p')).toBe(true);
+    // Trot moves knights only.
+    const trot = pm(p, ['knight.step']);
+    expect(trot.every((m) => m.piece === 'n')).toBe(true);
+    // Vault lets the rook jump its own pawn; Sidestep does not.
+    expect(pm(p, ['slider.jump']).some((m) => m.from === parseSquare('a1') && m.to === parseSquare('a3'))).toBe(true);
+    expect(nudge.some((m) => m.from === parseSquare('a1'))).toBe(false);
+  });
+
+  it('offers unowned powers from the tiers reached, deterministically', async () => {
+    const { offerPowers, POWER_SPECS } = await import('../powers');
+    const first = offerPowers([], 1, 42);
+    expect(first).toHaveLength(3);
+    expect(first.every((t) => POWER_SPECS.find((s) => s.tag === t)!.tier === 1)).toBe(true);
+    expect(offerPowers([], 1, 42)).toEqual(first); // same seed, same offer
+    // Owning one tier-1 power leaves it out of the next offer.
+    const second = offerPowers([first[0]], 2, 7);
+    expect(second).not.toContain(first[0]);
+    expect(second).toHaveLength(3);
+    // Every tag eventually becomes offerable, and nothing above the level does.
+    expect(offerPowers([], 4, 1).every((t) => POWER_SPECS.find((s) => s.tag === t)!.tier <= 4)).toBe(true);
+  });
+
+  it('hashes each granted tag so the transposition table cannot mix them up', async () => {
+    const { hashPosition } = await import('../position');
+    const p = new Position(boardFromString('k6k/8/8/8/8/8/8/K6K'), 'w');
+    const base = p.hash;
+    p.grantPower('w', 'pawn.nudge');
+    const withNudge = p.hash;
+    expect(withNudge).not.toBe(base);
+    p.grantPower('w', 'king.step2');
+    expect(p.hash).not.toBe(withNudge);
+    expect(p.hash).toBe(hashPosition(p.board, p.turn, p.ep, { w: ['pawn.nudge', 'king.step2'], b: [] }));
+    // Two different single powers must not collide.
+    const q = new Position(boardFromString('k6k/8/8/8/8/8/8/K6K'), 'w');
+    q.grantPower('w', 'king.step2');
+    expect(q.hash).not.toBe(withNudge);
+    // Clearing back to nothing restores the original key.
+    p.setPowerTags('w', []);
+    expect(p.hash).toBe(base);
+  });
+
+  it('carries drafted powers through clone without sharing the set', async () => {
+    const p = new Position(boardFromString('k6k/8/8/8/8/8/8/K6K'), 'w');
+    p.grantPower('w', 'slider.jump');
+    const c = p.clone();
+    expect([...c.powerTags.w]).toEqual(['slider.jump']);
+    expect(c.hash).toBe(p.hash);
+    c.grantPower('w', 'king.hop');
+    expect([...p.powerTags.w]).toEqual(['slider.jump']); // original untouched
   });
 });

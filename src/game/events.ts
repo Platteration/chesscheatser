@@ -1,5 +1,6 @@
 import { opposite } from '../engine/board';
 import { Position } from '../engine/position';
+import type { PowerTag } from '../engine/powers';
 import type { Setup } from '../engine/setup';
 import { PASS_MOVE, type Board, type Color, type Move, type PieceType } from '../engine/types';
 import { blend } from './comeback';
@@ -13,8 +14,26 @@ export type GameEvent =
   | { type: 'pass' }
   /** The human calls out the computer's last move (default), or the computer catches the human's (`by: 'ai'`). */
   | { type: 'accuse'; caught: boolean; by?: 'ai' }
-  /** Comeback power granted to `color` for the turn that starts now (recorded so replays are deterministic). */
-  | { type: 'power'; color: Color; level: number; material: number; engine: number };
+  /** Legacy: a whole comeback level granted at once. Replays as that level's cumulative tag set. */
+  | { type: 'power'; color: Color; level: number; material: number; engine: number }
+  /**
+   * `color`'s deficit was measured for the turn that starts now. When the level
+   * rose it drafted `taken` from `offered`; otherwise `taken` is null and this
+   * just records the measurement.
+   */
+  | {
+      type: 'draft';
+      color: Color;
+      offered: PowerTag[];
+      taken: PowerTag | null;
+      level: number;
+      material: number;
+      engine: number;
+    };
+
+/** Both event kinds that hand a side a comeback power at the start of its turn. */
+export const isGrant = (e: GameEvent | null): e is Extract<GameEvent, { type: 'power' | 'draft' }> =>
+  e?.type === 'power' || e?.type === 'draft';
 
 export interface CheatStats {
   /** Computer cheats played / caught by the human. */
@@ -44,8 +63,8 @@ export interface Folded {
   cheats: CheatStats;
   /** The illegal move most recently undone by a successful accusation. */
   caughtMove: Move | null;
-  /** Latest power grant per colour. */
-  powers: Record<Color, { level: number; material: number; engine: number }>;
+  /** Latest power grant per colour, plus everything that colour has drafted. */
+  powers: Record<Color, { level: number; material: number; engine: number; tags: PowerTag[] }>;
   /** Largest blended deficit each colour has recorded during this game. */
   maxDeficit: Record<Color, number>;
 }
@@ -64,7 +83,10 @@ export function fold(setup: Setup, events: GameEvent[], aiColor: Color | null, o
   let bonus: Color | null = null;
   let lastBy: Color | null = null;
   let caughtMove: Move | null = null;
-  const powers: Folded['powers'] = { w: { level: 0, material: 0, engine: 0 }, b: { level: 0, material: 0, engine: 0 } };
+  const powers: Folded['powers'] = {
+    w: { level: 0, material: 0, engine: 0, tags: [] },
+    b: { level: 0, material: 0, engine: 0, tags: [] },
+  };
   const maxDeficit: Record<Color, number> = { w: 0, b: 0 };
 
   const syncResurrectable = () => {
@@ -83,8 +105,19 @@ export function fold(setup: Setup, events: GameEvent[], aiColor: Color | null, o
         }
         break;
       case 'power':
+        // Legacy grant: replay as the cumulative tag set that level used to give.
         pos.setPower(e.color, e.level);
-        powers[e.color] = { level: e.level, material: e.material, engine: e.engine };
+        powers[e.color] = { level: e.level, material: e.material, engine: e.engine, tags: [...pos.powerTags[e.color]] };
+        maxDeficit[e.color] = Math.max(maxDeficit[e.color], blend(e.material, e.engine));
+        break;
+      case 'draft':
+        if (e.taken) pos.grantPower(e.color, e.taken);
+        powers[e.color] = {
+          level: pos.powers[e.color],
+          material: e.material,
+          engine: e.engine,
+          tags: [...pos.powerTags[e.color]],
+        };
         maxDeficit[e.color] = Math.max(maxDeficit[e.color], blend(e.material, e.engine));
         break;
       case 'pass':
@@ -131,7 +164,7 @@ export function fold(setup: Setup, events: GameEvent[], aiColor: Color | null, o
   const lastEvent = events.length ? events[events.length - 1] : null;
   let lastAction: GameEvent | null = null;
   for (let i = events.length - 1; i >= 0; i--) {
-    if (events[i].type !== 'power') {
+    if (!isGrant(events[i])) {
       lastAction = events[i];
       break;
     }
@@ -178,7 +211,7 @@ export function undoEvents(setup: Setup, events: GameEvent[], aiColor: Color | n
   if (events.length === 0) return events;
   const withoutTrailingPowers = (evs: GameEvent[]) => {
     let n = evs.length;
-    while (n > 0 && evs[n - 1].type === 'power') n--;
+    while (n > 0 && isGrant(evs[n - 1])) n--;
     return evs.slice(0, n);
   };
   if (aiColor === null) {

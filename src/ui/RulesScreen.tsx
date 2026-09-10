@@ -44,8 +44,9 @@ const SECTIONS: { title: string; body: string[] }[] = [
     title: 'Comeback powers',
     body: [
       'Losing is where the game starts. At the start of every turn the game measures how far behind the side to move is: half from material (a pawn is one point) and half from the engine\'s own evaluation of the position.',
-      'That deficit sets a power level, and the powers stack: Nudge (about 2.5 points behind): pawns step sideways or back, kings step two squares, knights may also step one square. Slide (5): bishops and rooks may also step one square any way; pawns capture straight ahead, move diagonally, and double-push from anywhere. Leap (8): sliders jump over one piece, kings hop over a neighbour, queens jump like knights. Ascend (12): bishops, rooks and knights move like queens, and a captured piece may return to your home ranks. Powers build up one level per turn.',
-      'Power moves are legal and shown in purple. The computer gets them too when it is losing, so a runaway lead invites a runaway comeback. Turn them off in the game settings for plain two-king chess.',
+      'Fall far enough behind and you draft a power: three are offered and you keep one. They stack, up to six picks, at most one per turn, so a losing army builds into something strange rather than starting at full strength.',
+      'The thirteen powers arrive in four tiers, and the offer opens up as you sink. About two points behind: pawns step sideways or back, kings stride two squares, knights step one square. Four: bishops and rooks step one square off their usual line, and pawns capture straight ahead, move diagonally, and double-push from anywhere. Six and a half: sliders jump over one piece, kings hop over a neighbour, queens jump like knights. Nine: bishops, rooks and knights gain queen mobility, and a captured piece may return to your home ranks.',
+      'Because you pick rather than receive, two games at the same deficit play differently. Power moves are ordinary legal moves, shown in purple. The computer drafts too when it is losing, so a runaway lead invites a runaway comeback. Turn the whole system off in the game settings for plain two-king chess.',
     ],
   },
   {

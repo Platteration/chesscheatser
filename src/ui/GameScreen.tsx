@@ -3,7 +3,7 @@ import { Modal, ScrollView, Share, StyleSheet, Text, useWindowDimensions, View }
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { opposite, squareName } from '../engine/board';
 import { moveToSAN } from '../engine/position';
-import { POWER_DESCRIPTIONS, POWER_NAMES } from '../engine/powers';
+import { describePowers, powerSpec } from '../engine/powers';
 import type { Color, Move, PieceType, Square } from '../engine/types';
 import type { GameConfig, SavedGame } from '../game/config';
 import { blend } from '../game/comeback';
@@ -16,6 +16,7 @@ import { FREE_HINTS_PER_GAME, useEntitlements } from '../entitlements';
 import { useSettings } from '../settings';
 import { haptics } from '../haptics';
 import { playSound } from '../sounds';
+import { PowerDraftPicker } from './PowerDraftPicker';
 import { PromotionPicker } from './PromotionPicker';
 import { themedStyles, useTheme } from './theme';
 
@@ -55,7 +56,7 @@ export function GameScreen({ start, onExit, onSave, onFinished, dailyStreak = 0,
   const [hintsUsed, setHintsUsed] = useState(0);
   const styles = useStyles();
   const theme = useTheme();
-  const { state, play, playCheat, accuse, undo, newGame, rematch, resign, getHint } = useGame(start, onSave);
+  const { state, play, playCheat, draft, accuse, undo, newGame, rematch, resign, getHint } = useGame(start, onSave);
   useEffect(() => setHintsUsed(0), [state.gameId]);
   const [cheatMode, setCheatMode] = useState(false);
   useEffect(() => setCheatMode(false), [state.moves.length, state.turn]);
@@ -362,6 +363,12 @@ export function GameScreen({ start, onExit, onSave, onFinished, dailyStreak = 0,
 
       <IntroTip />
 
+      <PowerDraftPicker
+        draft={state.pendingDraft}
+        who={state.config.mode === 'local' ? COLOR_NAME[state.pendingDraft?.color ?? state.turn] : 'You'}
+        onPick={draft}
+      />
+
       <PromotionPicker
         visible={pendingPromotion !== null}
         color={state.turn}
@@ -449,22 +456,21 @@ function outcomeOf(state: GameState): GameOutcome {
   };
 }
 
-/** "Behind 4.5 · Slide" for a side that is losing; quiet when even or ahead. */
+/** The drafted powers and how far behind this side is; quiet when even or ahead. */
 function PowerMeter({ state, color }: { state: GameState; color: Color }) {
   const styles = useStyles();
   const theme = useTheme();
   const p = state.powers[color];
   const behind = blend(p.material, p.engine) / 100;
-  if (p.level === 0 && behind < 0.5) return null;
+  const owned = p.tags.length;
+  if (owned === 0 && behind < 0.5) return null;
   const on = state.turn === color && !state.gameOver;
   return (
-    <View style={[styles.meter, { borderColor: p.level > 0 ? theme.power : theme.border, opacity: on ? 1 : 0.7 }]}>
-      <Text style={[styles.meterText, { color: p.level > 0 ? theme.power : theme.textMuted }]}>
-        {p.level > 0 ? `${POWER_NAMES[p.level]} ${'★'.repeat(p.level)}` : 'Behind'}
+    <View style={[styles.meter, { borderColor: owned > 0 ? theme.power : theme.border, opacity: on ? 1 : 0.7 }]}>
+      <Text style={[styles.meterText, { color: owned > 0 ? theme.power : theme.textMuted }]} numberOfLines={1}>
+        {owned > 0 ? `${describePowers(p.tags)} ${'★'.repeat(owned)}` : 'Behind'}
       </Text>
-      <Text style={styles.meterSub}>
-        −{behind.toFixed(1)} · M {(p.material / 100).toFixed(1)} · E {(p.engine / 100).toFixed(1)}
-      </Text>
+      <Text style={styles.meterSub}>−{behind.toFixed(1)}</Text>
     </View>
   );
 }
@@ -533,8 +539,13 @@ function describeStatus(state: GameState, cheatMode = false): { text: string; de
       const details: string[] = [];
       const notice = cheatMode ? { text: 'Cheat mode', detail: 'Pick a piece and slide it somewhere it cannot go. The computer might notice…' } : cheatNotice(state);
       const power = state.config.comeback ? state.powers[mover] : null;
-      if (power && power.level > 0 && !notice && !state.thinking) {
-        details.unshift(`${POWER_NAMES[power.level]} power: ${POWER_DESCRIPTIONS[power.level]}`);
+      if (power && power.tags.length > 0 && !notice && !state.thinking) {
+        const newest = power.tags[power.tags.length - 1];
+        details.unshift(
+          power.tags.length === 1
+            ? `${powerSpec(newest).name}: ${powerSpec(newest).description}`
+            : `Your powers: ${describePowers(power.tags)}.`,
+        );
       }
       if (notice) {
         text = notice.text;
