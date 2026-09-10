@@ -68,10 +68,10 @@ export function liveStreak(state: DailyState, today = todayKey()): number {
 }
 
 /** Text for the share sheet. */
-export function shareText(rec: DailyRecord, streak: number): string {
+export function shareText(rec: DailyRecord, streak: number, supporter = false): string {
   const result = rec.outcome === 'win' ? 'won 🏆' : rec.outcome === 'loss' ? 'lost 💀' : 'drew 🤝';
   const lines = [
-    `Two Kings Chess · Daily ${rec.date}`,
+    `Two Kings Chess · Daily ${rec.date}${supporter ? ' 👑' : ''}`,
     `I ${result} in ${rec.moves} moves.`,
     `Cheats caught: ${rec.cheatsCaught}${rec.cheatsMissed ? ` · missed: ${rec.cheatsMissed}` : ''}${rec.falseAccusations ? ` · false calls: ${rec.falseAccusations}` : ''}`,
   ];

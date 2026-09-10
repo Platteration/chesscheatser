@@ -1,14 +1,17 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import type { ProductId } from './cosmetics';
 import { loadJSON, saveJSON } from './storage';
 
 /**
- * Entitlements: what the player has unlocked. The store integration is behind
- * a small provider interface so real in-app purchases (App Store / Google Play
- * via react-native-iap or expo-iap) can replace the local mock without touching
- * the UI. Nothing here affects playing strength: Pro is convenience and cosmetics.
+ * Entitlements: what the player has bought. The store integration sits behind a
+ * small provider interface so real in-app purchases (App Store / Google Play via
+ * react-native-iap or expo-iap) can replace the local mock without touching the
+ * UI.
+ *
+ * Everything sold is cosmetic, and everything sold can also be earned by playing
+ * (see src/cosmetics.ts). Nothing here changes the rules, the armies, or how the
+ * computer plays.
  */
-
-export type ProductId = 'pro';
 
 export interface Product {
   id: ProductId;
@@ -18,41 +21,59 @@ export interface Product {
   price: string;
 }
 
+interface EntitlementState {
+  owned: ProductId[];
+}
+
+const KEY = 'twokings.entitlements.v1';
+
 export interface StoreProvider {
   getProducts(): Promise<Product[]>;
   purchase(id: ProductId): Promise<boolean>;
   restore(): Promise<ProductId[]>;
 }
 
-export const PRO_FEATURES = [
-  'Unlimited hints (free: 3 per game)',
-  'Every board theme and piece style',
-  'Step through the game while it is still going',
-  'Support an indie chess variant',
+export const SUPPORTER_FEATURES = [
+  'Every comeback aura, board and piece set, now',
+  'A crown on your stats and shared results',
+  'Nothing withheld from anyone else: the whole game is free',
 ];
 
-/** Local mock store: "purchases" are recorded on the device only. Replace for release. */
+export const CATALOGUE: readonly Product[] = [
+  {
+    id: 'supporter',
+    title: 'Supporter',
+    description: SUPPORTER_FEATURES.join(' · '),
+    price: '$3.99',
+  },
+  { id: 'pack.auras', title: 'Aura pack', description: 'Embers, Frost, Static and Gold leaf comeback auras.', price: '$1.99' },
+  { id: 'pack.boards', title: 'Board pack', description: 'The Slate and Neon boards.', price: '$0.99' },
+  { id: 'pack.pieces', title: 'Piece pack', description: 'The classic print piece set.', price: '$0.99' },
+];
+
+/**
+ * Local mock store: "purchases" are recorded on the device only. Replace for
+ * release. `restore` reads back what this device already owns, so the button
+ * behaves like the real thing rather than silently doing nothing.
+ */
 export const mockStore: StoreProvider = {
   async getProducts() {
-    return [{ id: 'pro', title: 'Two Kings Pro', description: PRO_FEATURES.join(' · '), price: '$3.99' }];
+    return [...CATALOGUE];
   },
   async purchase() {
     return true;
   },
   async restore() {
-    return [];
+    const state = await loadJSON<EntitlementState>(KEY, { owned: [] });
+    return state.owned;
   },
 };
 
-interface EntitlementState {
-  owned: ProductId[];
-}
-
-const KEY = 'twokings.entitlements.v1';
-export const FREE_HINTS_PER_GAME = 3;
-
 interface EntitlementsValue {
-  isPro: boolean;
+  /** Products this device has bought. */
+  owned: ProductId[];
+  /** The one-time tip; also unlocks every cosmetic at once. */
+  isSupporter: boolean;
   products: Product[];
   purchasing: boolean;
   buy(id: ProductId): Promise<boolean>;
@@ -60,7 +81,8 @@ interface EntitlementsValue {
 }
 
 const Ctx = createContext<EntitlementsValue>({
-  isPro: false,
+  owned: [],
+  isSupporter: false,
   products: [],
   purchasing: false,
   buy: async () => false,
@@ -111,7 +133,7 @@ export function EntitlementsProvider({ children, store = mockStore }: { children
   }, [store, grant]);
 
   const value = useMemo<EntitlementsValue>(
-    () => ({ isPro: state.owned.includes('pro'), products, purchasing, buy, restore }),
+    () => ({ owned: state.owned, isSupporter: state.owned.includes('supporter'), products, purchasing, buy, restore }),
     [state.owned, products, purchasing, buy, restore],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

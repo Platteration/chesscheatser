@@ -23,8 +23,13 @@ an optional cheating computer opponent.
   accuse, with `by: 'ai'` for the computer catching the human) onto a setup;
   `useGame.ts` is the React hook that drives a game. `daily.ts`, `ladder.ts`
   and `puzzles.ts` hold the mode-specific logic.
-- `src/settings.tsx` (appearance/feedback settings) and `src/entitlements.tsx`
-  (Pro unlock behind a `StoreProvider`; bundled provider is a local mock).
+- `src/settings.tsx` (appearance/feedback settings), `src/cosmetics.ts` (the
+  catalogue plus `unlockedCosmetics`, which decides what is available from
+  progression or purchases) and `src/entitlements.tsx` (purchases behind a
+  `StoreProvider`; bundled provider is a local mock).
+- Monetization rule: only cosmetics are sold, and each one is also earnable by
+  playing. Never gate a utility (hints, undo, review) — this is a game about
+  being behind, so paywalling help contradicts it.
 - `scripts/mine-puzzles.ts` regenerates `assets/puzzles.json`
   (`npx tsx scripts/mine-puzzles.ts 25 1000 12`).
 - `scripts/simulate.ts` is the balance harness: computer vs computer with

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Difficulty } from '../engine/ai';
@@ -7,6 +7,7 @@ import type { MaterialMode } from '../engine/setup';
 import { ARMY_SIZES, type ArmySize, type ClockMinutes, type GameConfig, type GameMode, type PlayAs, type Stats } from '../game/config';
 import { liveStreak, todayKey, type DailyState } from '../game/daily';
 import { ladderParams, type LadderState } from '../game/ladder';
+import { cosmeticsOfKind, describeEarn, earnProgress, unlockedCosmetics, type Cosmetic, type Progress } from '../cosmetics';
 import { useEntitlements } from '../entitlements';
 import { useSettings, type BoardTheme, type ColorSchemeSetting, type PieceStyle } from '../settings';
 import { Button, Card, Label, Segmented } from './components';
@@ -45,14 +46,28 @@ const MATERIAL_HINT: Record<MaterialMode, string> = {
   handicap: 'Used by the ranked ladder.',
 };
 
-const PRO_BOARDS: BoardTheme[] = ['slate', 'neon'];
-
 export function HomeScreen({ config, onChange, onStart, onDaily, daily, onRanked, ladder, onResume, onRules, onPuzzles, onPro, onStats, puzzlesSolved, puzzleCount, stats }: Props) {
   const styles = useStyles();
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const { settings, update } = useSettings();
-  const { isPro } = useEntitlements();
+  const { owned } = useEntitlements();
+  const progress: Progress = useMemo(
+    () => ({ stats, daily, ladder, puzzlesSolved }),
+    [stats, daily, ladder, puzzlesSolved],
+  );
+  const unlocked = useMemo(() => unlockedCosmetics(progress, owned), [progress, owned]);
+  // Name the nearest thing still locked, so the hint is a goal rather than an advert.
+  const nextLocked = cosmeticsOfKind('aura')
+    .concat(cosmeticsOfKind('board'), cosmeticsOfKind('pieces'))
+    .find((c) => !unlocked.has(c.id) && c.earn);
+  const lockedHint = nextLocked
+    ? `${nextLocked.label}: ${describeEarn(nextLocked.earn!)} (${Math.min(
+        earnProgress(nextLocked.earn!, progress).have,
+        earnProgress(nextLocked.earn!, progress).need,
+      )}/${earnProgress(nextLocked.earn!, progress).need}), or support the game.`
+    : undefined;
+  const label = (c: Cosmetic) => c.label + (unlocked.has(c.id) ? '' : ' 🔒');
   const set = <K extends keyof GameConfig>(key: K, value: GameConfig[K]) => onChange({ ...config, [key]: value });
   const size = ARMY_SIZES[config.armySize];
 
@@ -204,23 +219,23 @@ export function HomeScreen({ config, onChange, onStart, onDaily, daily, onRanked
             { value: 'light', label: 'Light' },
           ]}
         />
-        <Label hint={isPro ? undefined : 'Slate, Neon and Classic print are part of Pro.'}>Board</Label>
+        <Label hint={lockedHint}>Comeback aura</Label>
+        <Segmented<string>
+          value={settings.aura}
+          onChange={(v) => (unlocked.has(v) ? update({ aura: v }) : onPro())}
+          options={cosmeticsOfKind('aura').map((c) => ({ value: c.id, label: label(c) }))}
+        />
+        <Label>Board</Label>
         <Segmented<BoardTheme>
           value={settings.boardTheme}
-          onChange={(v) => (isPro || !PRO_BOARDS.includes(v) ? update({ boardTheme: v }) : onPro())}
-          options={(Object.keys(BOARD_THEMES) as BoardTheme[]).map((k) => ({
-            value: k,
-            label: BOARD_THEMES[k].label + (!isPro && PRO_BOARDS.includes(k) ? ' 🔒' : ''),
-          }))}
+          onChange={(v) => (unlocked.has(v) ? update({ boardTheme: v }) : onPro())}
+          options={cosmeticsOfKind('board').map((c) => ({ value: c.id as BoardTheme, label: label(c) }))}
         />
         <Label>Pieces</Label>
         <Segmented<PieceStyle>
           value={settings.pieceStyle}
-          onChange={(v) => (isPro || v === 'solid' ? update({ pieceStyle: v }) : onPro())}
-          options={[
-            { value: 'solid', label: 'Solid' },
-            { value: 'classic', label: isPro ? 'Classic print' : 'Classic print 🔒' },
-          ]}
+          onChange={(v) => (unlocked.has(v) ? update({ pieceStyle: v }) : onPro())}
+          options={cosmeticsOfKind('pieces').map((c) => ({ value: c.id as PieceStyle, label: label(c) }))}
         />
         <Label>Feedback</Label>
         <Segmented<'both' | 'haptics' | 'sounds' | 'none'>
@@ -238,7 +253,7 @@ export function HomeScreen({ config, onChange, onStart, onDaily, daily, onRanked
       <Button title="New game with these settings" variant="secondary" onPress={onStart} style={styles.start} />
       <Button title={`Puzzles · ${puzzlesSolved}/${puzzleCount} solved`} variant="secondary" onPress={onPuzzles} />
       <Button title="How to play" variant="secondary" onPress={onRules} />
-      <Button title={isPro ? 'Two Kings Pro ✓' : 'Two Kings Pro'} variant="ghost" onPress={onPro} />
+      <Button title="Support the game" variant="ghost" onPress={onPro} />
 
       <Button title={`Stats · ${stats.wins} W · ${stats.losses} L · ${stats.draws} D`} variant="ghost" onPress={onStats} />
     </ScrollView>

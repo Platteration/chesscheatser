@@ -62,11 +62,19 @@ export const cellCounts = (page) =>
  * blocks play until answered, so every wait has to be able to clear it.
  * Takes the first offered power. Returns true if a draft was answered.
  */
+let draftsSettled = 0;
+/** How many drafts the helpers have answered; scenarios read this instead of racing the modal. */
+export const draftCount = () => draftsSettled;
+export const resetDraftCount = () => {
+  draftsSettled = 0;
+};
+
 export async function settleDraft(page) {
   const options = page.locator('[data-testid="power-option"]');
   if ((await options.count()) === 0) return false;
   await options.first().click({ timeout: 3000 }).catch(() => {});
   await page.waitForTimeout(150);
+  draftsSettled++;
   return true;
 }
 
@@ -138,10 +146,11 @@ export async function clickSquares(page, from, to) {
 export const text = (page, re) => page.locator(`text=${re}`).first().textContent().catch(() => null);
 export const exact = (page, t) => page.getByText(t, { exact: true });
 
+/** Buys the Supporter tier through the mock store, unlocking every cosmetic. */
 export async function unlockPro(page) {
-  await exact(page, 'Two Kings Pro').click();
+  await exact(page, 'Support the game').click();
   await page.waitForTimeout(300);
-  await page.locator('text=/Unlock Pro/').click();
+  await page.locator('text=/Unlock everything/').click();
   await page.waitForTimeout(300);
   await page.getByText('‹ Back').click();
   await page.waitForTimeout(300);

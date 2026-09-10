@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Stats } from '../game/config';
 import { liveStreak, type DailyState } from '../game/daily';
 import type { LadderState } from '../game/ladder';
+import { useEntitlements } from '../entitlements';
 import { Button, Card } from './components';
 import { themedStyles, useTheme } from './theme';
 
@@ -24,6 +25,7 @@ export function StatsScreen({ stats, daily, ladder, puzzlesSolved, puzzleCount, 
   const styles = useStyles();
   const theme = useTheme();
   const insets = useSafeAreaInsets();
+  const { isSupporter } = useEntitlements();
   const dailyGames = Object.values(daily.results);
   const dailyWins = dailyGames.filter((r) => r.outcome === 'win').length;
   const bestStreak = Math.max(daily.streak, 0);
@@ -67,7 +69,7 @@ export function StatsScreen({ stats, daily, ladder, puzzlesSolved, puzzleCount, 
     <View style={[styles.root, { paddingTop: insets.top }]}>
       <View style={styles.topBar}>
         <Button title="‹ Back" variant="ghost" small onPress={onBack} />
-        <Text style={styles.title}>Stats</Text>
+        <Text style={styles.title}>{isSupporter ? 'Stats 👑' : 'Stats'}</Text>
         <View style={{ width: 64 }} />
       </View>
       <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 24 }]}>

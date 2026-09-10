@@ -2,7 +2,7 @@
 // web bundle first) or point it at an existing export with E2E_ROOT.
 import fs from 'node:fs';
 import path from 'node:path';
-import { assert, cellCounts, clickSquares, exact, gameOver, launch, makeAnyMove, openApp, serve, text, unlockPro, waitHuman } from './lib.mjs';
+import { assert, cellCounts, clickSquares, draftCount, exact, gameOver, launch, makeAnyMove, openApp, resetDraftCount, serve, text, unlockPro, waitHuman } from './lib.mjs';
 
 const root = process.env.E2E_ROOT || path.resolve('dist-web');
 const port = Number(process.env.E2E_PORT || 4190);
@@ -147,9 +147,8 @@ const scenarios = {
     await context.close();
   },
 
-  async 'pass and play with clock, review scrubber (Pro)'(browser) {
+  async 'pass and play with clock and review scrubber'(browser) {
     const { page, context, errors } = await openApp(browser, url);
-    await unlockPro(page);
     await exact(page, 'Pass & play').click();
     await exact(page, '1').click();
     await exact(page, 'New game with these settings').click();
@@ -212,30 +211,25 @@ const scenarios = {
 
   async 'comeback powers appear for the side that is behind'(browser) {
     const { page, context, errors } = await openApp(browser, url);
-    await exact(page, 'White').first().click();
-    await exact(page, 'Never').click();
+    // Pass-and-play makes this deterministic: both colours are human, so whichever
+    // side falls behind is *shown* the draft rather than the computer taking it
+    // silently. Chaos armies guarantee somebody is behind within a few plies.
+    await exact(page, 'Pass & play').click();
     await exact(page, 'Chaos').click();
-    // Chaos armies are lopsided, so somebody falls behind and is offered a draft.
-    let drafted = false;
-    let powered = null;
-    for (let attempt = 0; attempt < 6 && !powered; attempt++) {
-      if (attempt === 0) await exact(page, 'New game with these settings').click();
-      else await exact(page, 'New armies').click();
-      await page.waitForTimeout(700);
-      for (let ply = 0; ply < 6 && !powered; ply++) {
-        if (await page.locator('[data-testid="power-draft"]').count()) {
-          drafted = true;
-          if (shots) await page.screenshot({ path: `${shots}/draft.png` });
-        }
-        await waitHuman(page); // settles any draft, for either side
-        if (await gameOver(page)) break;
-        // The meter shows a star per power once a side has drafted one.
-        powered = await text(page, '/★/');
-        if (!powered && !(await makeAnyMove(page))) break;
+    await exact(page, 'New game with these settings').click();
+    await page.waitForTimeout(700);
+
+    resetDraftCount();
+    for (let ply = 0; ply < 14 && draftCount() === 0; ply++) {
+      if (shots && (await page.locator('[data-testid="power-draft"]').count())) {
+        await page.screenshot({ path: `${shots}/draft.png` });
       }
+      if (await gameOver(page)) break;
+      if (!(await makeAnyMove(page))) break; // settles a draft if one is open
     }
-    assert(drafted, 'a draft was offered within six chaos games');
-    assert(powered !== null, 'the meter shows a drafted power');
+    assert(draftCount() > 0, 'a draft was offered within fourteen plies of a chaos game');
+    // The meter shows a star per power once a side has drafted one.
+    assert((await text(page, '/★/')) !== null, 'the meter shows a drafted power');
     if (shots) await page.screenshot({ path: `${shots}/comeback.png` });
     assert(errors.length === 0, errors.join('\n'));
     await context.close();
@@ -243,11 +237,14 @@ const scenarios = {
 
   async 'pro gating'(browser) {
     const { page, context, errors } = await openApp(browser, url);
-    assert((await exact(page, 'Neon 🔒').count()) === 1, 'neon locked');
+    assert((await exact(page, 'Neon 🔒').count()) === 1, 'neon starts locked');
+    // Hints and mid-game review must never be behind a purchase.
+    assert((await page.locator('text=/Hint \\(/').count()) === 0, 'hints are not rationed');
     await exact(page, 'Neon 🔒').click();
     await page.waitForTimeout(300);
-    assert((await exact(page, 'Two Kings Pro').count()) === 1, 'pro screen opened');
-    await page.locator('text=/Unlock Pro/').click();
+    assert((await page.locator('text=/Support the game/').count()) > 0, 'store opened');
+    assert((await page.locator('text=/Win 5 games/').count()) > 0, 'the store shows how to earn it instead');
+    await page.locator('text=/Unlock everything/').click();
     await page.waitForTimeout(300);
     await page.getByText('‹ Back').click();
     await page.waitForTimeout(300);

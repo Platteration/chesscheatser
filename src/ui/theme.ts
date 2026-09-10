@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { StyleSheet, useColorScheme } from 'react-native';
+import { AURAS, DEFAULT_AURA } from '../cosmetics';
 import { useSettings, type BoardTheme } from '../settings';
 
 export interface BoardColors {
@@ -86,12 +87,14 @@ const LIGHT: Omit<Theme, 'board' | 'scheme'> = {
   radius: 12,
 };
 
-export function makeTheme(scheme: 'dark' | 'light', boardTheme: BoardTheme): Theme {
+export function makeTheme(scheme: 'dark' | 'light', boardTheme: BoardTheme, aura: string = DEFAULT_AURA): Theme {
   const b = BOARD_THEMES[boardTheme];
   const base = scheme === 'dark' ? DARK : LIGHT;
+  const a = AURAS[aura] ?? AURAS[DEFAULT_AURA];
   return {
     ...base,
     scheme,
+    power: scheme === 'dark' ? a.dark : a.light,
     board: { light: b.light, dark: b.dark, border: b.border, ...OVERLAYS },
   };
 }
@@ -103,7 +106,7 @@ export function useTheme(): Theme {
   const { settings } = useSettings();
   const system = useColorScheme();
   const scheme = settings.colorScheme === 'system' ? (system === 'light' ? 'light' : 'dark') : settings.colorScheme;
-  return useMemo(() => makeTheme(scheme, settings.boardTheme), [scheme, settings.boardTheme]);
+  return useMemo(() => makeTheme(scheme, settings.boardTheme, settings.aura), [scheme, settings.boardTheme, settings.aura]);
 }
 
 /**

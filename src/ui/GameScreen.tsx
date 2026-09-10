@@ -12,7 +12,7 @@ import { useGame, type GameState, type StartOptions } from '../game/useGame';
 import { Board } from './Board';
 import { Button } from './components';
 import { CHESS_FONT, GLYPH } from './PieceGlyph';
-import { FREE_HINTS_PER_GAME, useEntitlements } from '../entitlements';
+import { useEntitlements } from '../entitlements';
 import { useSettings } from '../settings';
 import { haptics } from '../haptics';
 import { playSound } from '../sounds';
@@ -52,12 +52,10 @@ const DIFFICULTY_LABEL = { easy: 'Easy', medium: 'Medium', hard: 'Hard' } as con
 const MATERIAL_LABEL = { chaos: 'Chaos', fair: 'Fair', mirror: 'Mirror', handicap: 'Ranked' } as const;
 
 export function GameScreen({ start, onExit, onSave, onFinished, dailyStreak = 0, onPro }: Props) {
-  const { isPro } = useEntitlements();
-  const [hintsUsed, setHintsUsed] = useState(0);
   const styles = useStyles();
   const theme = useTheme();
+  const { isSupporter } = useEntitlements();
   const { state, play, playCheat, draft, accuse, undo, newGame, rematch, resign, getHint } = useGame(start, onSave);
-  useEffect(() => setHintsUsed(0), [state.gameId]);
   const [cheatMode, setCheatMode] = useState(false);
   useEffect(() => setCheatMode(false), [state.moves.length, state.turn]);
   const [hint, setHint] = useState<Move | null>(null);
@@ -89,8 +87,8 @@ export function GameScreen({ start, onExit, onSave, onFinished, dailyStreak = 0,
   const onShare = useCallback(() => {
     const o = outcomeOf(state);
     const rec: DailyRecord = { date: o.daily ?? state.setup.seed.toString(), ...o };
-    Share.share({ message: shareText(rec, dailyStreak) }).catch(() => {});
-  }, [state, dailyStreak]);
+    Share.share({ message: shareText(rec, dailyStreak, isSupporter) }).catch(() => {});
+  }, [state, dailyStreak, isSupporter]);
 
   useEffect(() => {
     if (state.gameOver) setShowResult(true);
@@ -151,7 +149,6 @@ export function GameScreen({ start, onExit, onSave, onFinished, dailyStreak = 0,
   useEffect(() => setViewPly(null), [state.moves.length]);
   const reviewing = viewPly !== null && viewPly < state.boards.length - 1;
   const shownBoard = reviewing ? state.boards[viewPly] : state.board;
-  const hintsLeft = isPro ? Infinity : Math.max(0, FREE_HINTS_PER_GAME - hintsUsed);
   // Power-up feedback when the human's level rises for the new turn.
   const lastLevel = useRef(0);
   useEffect(() => {
@@ -165,16 +162,11 @@ export function GameScreen({ start, onExit, onSave, onFinished, dailyStreak = 0,
   }, [state.turn, state.powerReady, state.powers, state.humanColor, state.config.mode]);
 
   const onHint = useCallback(() => {
-    if (hintsLeft <= 0) {
-      onPro?.();
-      return;
-    }
     setHinting(true);
-    setHintsUsed((n) => n + 1);
     getHint()
       .then((m) => setHint(m))
       .finally(() => setHinting(false));
-  }, [getHint, hintsLeft, onPro]);
+  }, [getHint]);
 
   const targets = useMemo(() => {
     if (selected === null) return [];
@@ -298,7 +290,7 @@ export function GameScreen({ start, onExit, onSave, onFinished, dailyStreak = 0,
       </View>
 
       <MoveList state={state} />
-      {state.moves.length > 0 && (isPro || state.gameOver) && (
+      {state.moves.length > 0 && (
         <View style={styles.scrubber}>
           <Button title="⏮" variant="ghost" small onPress={() => setViewPly(0)} disabled={viewPly === 0} />
           <Button
@@ -343,7 +335,7 @@ export function GameScreen({ start, onExit, onSave, onFinished, dailyStreak = 0,
           />
         )}
         <Button
-          title={hinting ? '…' : isPro ? 'Hint' : `Hint (${hintsLeft})`}
+          title={hinting ? '…' : 'Hint'}
           variant="secondary"
           small
           onPress={onHint}

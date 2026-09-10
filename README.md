@@ -87,21 +87,42 @@ Cheats are revealed at the end of the game.
 - Gold and silver crown marks tell each side's two kings apart; the computer has a face that reacts to the game.
 - Sound effects (synthesized, see `assets/sounds`) and haptic feedback on moves,
   captures, checks and accusations, each switchable.
-- Light/dark/system theme, five board colour sets, solid or classic-print pieces.
+- Light/dark/system theme, five board colour sets, five comeback auras, solid or classic-print pieces.
 - Pieces are drawn with a bundled 17 KB subset of DejaVu Sans (chess glyphs only),
   so they look identical on every device. See `assets/fonts/LICENSE-DejaVu.txt`.
 - The current game is saved automatically and can be resumed from the home screen.
 - Win/loss/draw record against the computer.
 
-## Monetization (scaffold)
+## Monetization
 
-`src/entitlements.tsx` holds a small entitlement layer behind a `StoreProvider`
-interface. The bundled provider is a **local mock** (purchases are recorded on
-the device only) so the UI can be built and tested; swap in a real store
-provider (e.g. `react-native-iap` / `expo-iap` with App Store and Google Play
-products) before release. Pro is a one-time unlock covering unlimited hints,
-all board and piece styles, and mid-game review. It never affects the
-computer's strength.
+The rule is **sell identity, never relief**. This is a game about being behind,
+so nothing that eases being behind is for sale: hints, undo and mid-game review
+are free and unlimited, and no purchase changes the armies, the powers or how
+the computer plays.
+
+What is sold is cosmetic, and **every cosmetic can also be earned by playing**
+(`src/cosmetics.ts`):
+
+| Cosmetic | Earn it by | Or buy |
+| --- | --- | --- |
+| Embers aura | winning once from 3.5 behind | Aura pack |
+| Frost aura | a 3-day daily streak | Aura pack |
+| Static aura | five comeback wins | Aura pack |
+| Gold leaf aura | ladder rank 10 | Aura pack |
+| Slate board | five wins | Board pack |
+| Neon board | ladder rank 6 | Board pack |
+| Classic pieces | ten puzzles solved | Piece pack |
+
+Comeback auras recolour the frame and meter that appear when a side has drafted
+powers, so the thing you own decorates the game's signature moment. A one-time
+**Supporter** tip unlocks the lot at once and adds a crown to your stats and
+shared results. No ads, no subscriptions, no energy, and the store is one quiet
+row on the home screen.
+
+`src/entitlements.tsx` keeps the store behind a `StoreProvider` interface. The
+bundled provider is a **local mock** (purchases recorded on the device only);
+swap in `react-native-iap` / `expo-iap` with real App Store and Google Play
+products before release.
 
 ## Tech
 

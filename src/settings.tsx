@@ -1,4 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { DEFAULT_AURA } from './cosmetics';
 import { setHapticsEnabled } from './haptics';
 import { setSoundsEnabled } from './sounds';
 import { loadJSON, saveJSON } from './storage';
@@ -13,6 +14,8 @@ export interface AppSettings {
   pieceStyle: PieceStyle;
   sounds: boolean;
   haptics: boolean;
+  /** Which comeback aura recolours the powered board frame and meter. */
+  aura: string;
   /** The first-game explanation has been dismissed. */
   seenIntro: boolean;
 }
@@ -23,6 +26,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   pieceStyle: 'solid',
   sounds: true,
   haptics: true,
+  aura: DEFAULT_AURA,
   seenIntro: false,
 };
 

@@ -10,7 +10,7 @@ import { EMPTY_PUZZLE_PROGRESS, loadPuzzles, type PuzzleProgress } from './src/g
 import { PuzzleScreen } from './src/ui/PuzzleScreen';
 import type { StartOptions } from './src/game/useGame';
 import { loadJSON, remove, saveJSON, STORAGE_KEYS } from './src/storage';
-import { GameScreen, type GameOutcome } from './src/ui/GameScreen';
+import { COMEBACK_THRESHOLD, GameScreen, type GameOutcome } from './src/ui/GameScreen';
 import { HomeScreen } from './src/ui/HomeScreen';
 import { RulesScreen } from './src/ui/RulesScreen';
 import { EntitlementsProvider } from './src/entitlements';
@@ -99,6 +99,8 @@ function Root() {
         ownCheatsCaught: s.ownCheatsCaught + o.ownCheatsCaught,
         gamesPlayed: s.gamesPlayed + 1,
         biggestComeback: o.outcome === 'win' ? Math.max(s.biggestComeback, o.comebackFrom) : s.biggestComeback,
+        comebackWins:
+          s.comebackWins + (o.outcome === 'win' && o.comebackFrom >= COMEBACK_THRESHOLD ? 1 : 0),
       };
       void saveJSON(STORAGE_KEYS.stats, next);
       return next;
@@ -196,7 +198,12 @@ function Root() {
       <StatsScreen stats={stats} daily={daily} ladder={ladder} puzzlesSolved={puzzleProgress.solved.length} puzzleCount={PUZZLES.length} onBack={goHome} />
     );
   } else if (screen.name === 'pro') {
-    content = <ProScreen onBack={goHome} />;
+    content = (
+      <ProScreen
+        progress={{ stats, daily, ladder, puzzlesSolved: puzzleProgress.solved.length }}
+        onBack={goHome}
+      />
+    );
   } else if (screen.name === 'puzzles') {
     content = <PuzzleScreen puzzles={PUZZLES} progress={puzzleProgress} onSolved={onPuzzleSolved} onBack={goHome} />;
   } else {

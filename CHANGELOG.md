@@ -36,9 +36,12 @@
   avatar, sound effects and haptics, landscape layout, accessibility labels,
   first-run explanation.
 
-### Monetization scaffold
-- Pro unlock behind a store-provider interface with a local mock: unlimited
-  hints, all boards and piece styles, mid-game review.
+### Monetization
+- Sells identity, never relief: hints, undo and mid-game review are free and
+  unlimited. Cosmetics (comeback auras, boards, piece sets) are the only thing
+  for sale, and every one can also be earned by playing. A one-time Supporter
+  tip unlocks them all and adds a crown. Behind a store-provider interface with
+  a local mock; no ads, subscriptions or energy.
 
 ### Tooling
 - Vitest engine and game-layer tests, Playwright end-to-end suite over the web

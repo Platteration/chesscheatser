@@ -76,6 +76,8 @@ export interface Stats {
   gamesPlayed: number;
   /** Largest deficit (in pawns, x100) you were at during a game you went on to win. */
   biggestComeback: number;
+  /** Wins from far enough behind to count as a comeback (see COMEBACK_THRESHOLD). */
+  comebackWins: number;
 }
 
 export const EMPTY_STATS: Stats = {
@@ -89,4 +91,5 @@ export const EMPTY_STATS: Stats = {
   ownCheatsCaught: 0,
   gamesPlayed: 0,
   biggestComeback: 0,
+  comebackWins: 0,
 };
