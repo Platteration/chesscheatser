@@ -23,6 +23,8 @@ interface Props {
   onRanked: () => void;
   ladder: LadderState;
   onResume?: () => void;
+  /** Why the saved game is missing or shorter than it was, when there is something to say. */
+  resumeNote?: string | null;
   onRules: () => void;
   onPuzzles: () => void;
   onPro: () => void;
@@ -47,7 +49,7 @@ const MATERIAL_HINT: Record<MaterialMode, string> = {
 
 const PRO_BOARDS: BoardTheme[] = ['slate', 'neon'];
 
-export function HomeScreen({ config, onChange, onStart, onDaily, daily, onRanked, ladder, onResume, onRules, onPuzzles, onPro, onStats, puzzlesSolved, puzzleCount, stats }: Props) {
+export function HomeScreen({ config, onChange, onStart, onDaily, daily, onRanked, ladder, onResume, resumeNote, onRules, onPuzzles, onPro, onStats, puzzlesSolved, puzzleCount, stats }: Props) {
   const styles = useStyles();
   const theme = useTheme();
   const insets = useSafeAreaInsets();
@@ -70,6 +72,8 @@ export function HomeScreen({ config, onChange, onStart, onDaily, daily, onRanked
       </View>
 
       {onResume && <Button title="Resume game" onPress={onResume} style={styles.resume} />}
+      {/* A saved game that was dropped or clipped says so here, rather than just not being on the menu. */}
+      {!!resumeNote && <Text style={styles.resumeNote}>{resumeNote}</Text>}
 
       <DailyCard daily={daily} onDaily={onDaily} />
       <LadderCard ladder={ladder} onRanked={onRanked} />
@@ -328,6 +332,7 @@ const useStyles = themedStyles((theme) => ({
   tagline: { color: theme.textMuted, textAlign: 'center', marginTop: 8, fontSize: 14, lineHeight: 20, maxWidth: 340 },
   resume: { marginBottom: 4 },
   summary: { color: theme.textMuted, fontSize: 12, textAlign: 'center', marginTop: -4 },
+  resumeNote: { color: theme.textMuted, fontSize: 12, textAlign: 'center', marginTop: -4 },
   cardTitle: { color: theme.text, fontSize: 16, fontWeight: '800' },
   start: { marginTop: 8 },
   stats: { color: theme.textMuted, textAlign: 'center', marginTop: 12, fontSize: 13 },

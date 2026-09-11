@@ -61,14 +61,24 @@ const DATE_KEY = /^\d{4}-\d{2}-\d{2}$/;
 const LAST_SQUARE = 63;
 
 /**
- * A saved game holds one game. The longest this variant can plausibly run is a
- * few hundred events (a move or pass plus a power grant per ply), so anything
- * past this is not a game someone played. It matters because replaying is not
- * linear: `sanitizeEvents` retries every shorter prefix when the tail does not
- * apply, so an uncapped list costs the square of its length before the first
- * frame is drawn.
+ * How many events a saved game may carry. A game is a move or a pass plus a
+ * power grant per ply, and 402 ordinary pass-and-play games driven through the
+ * app's own event generation had a median of 180 events, a 99th percentile of
+ * 1212 and a longest of 1676 — so "a few hundred" understated real games by an
+ * order of magnitude, and the first cap of 2000 sat 1.19x above the longest
+ * game anyone had measured. This one is ~4.8x above it.
+ *
+ * The ceiling is not what makes a record safe to replay: `replayablePrefix`
+ * finds the longest prefix that applies with a binary search rather than by
+ * retrying every shorter prefix, so a full-length hostile record costs a
+ * handful of folds (~30 ms measured at this cap, against ~9 s for the old
+ * scan). It is here so a record the app never wrote cannot hand the replay an
+ * unbounded list. A longer record is clipped to it and the app says so, rather
+ * than being deleted without a word. `validate.test.ts` pins both ends: the cap
+ * may not fall below 4x the longest game measured, and may not rise past what
+ * still replays inside a second.
  */
-export const MAX_EVENTS = 2000;
+export const MAX_EVENTS = 8000;
 
 /**
  * Solved puzzle ids. The bundled set is smaller than this by more than an order
@@ -200,22 +210,35 @@ function cleanEvent(raw: unknown): GameEvent | null {
   }
 }
 
+export interface SavedGameCheck {
+  /** The resumable game, or null when the record cannot be trusted at all. */
+  game: SavedGame | null;
+  /** Events dropped from the end of an over-long record, so the caller can say so. */
+  dropped: number;
+}
+
+const NO_GAME: SavedGameCheck = { game: null, dropped: 0 };
+
 /**
  * A resumable saved game, or null when the record cannot be trusted. Null means
  * "no game to resume": the caller drops the record rather than letting Resume
- * crash on every launch.
+ * crash on every launch. Length alone never costs a record its whole self — an
+ * over-long one keeps its first `MAX_EVENTS` and reports the rest as `dropped`,
+ * because losing the end of a long game is bad but losing all of it silently,
+ * which is what the cap used to do at 2001 events, is worse.
  */
-export function cleanSavedGame(raw: unknown): SavedGame | null {
-  if (raw === null || typeof raw !== 'object') return null;
+export function checkSavedGame(raw: unknown): SavedGameCheck {
+  if (raw === null || typeof raw !== 'object') return NO_GAME;
   const g = raw as Fields;
   const seed = num(g.seed);
-  if (seed === undefined) return null;
-  if (g.humanColor !== 'w' && g.humanColor !== 'b') return null;
-  if (!Array.isArray(g.events) || g.events.length > MAX_EVENTS) return null;
+  if (seed === undefined) return NO_GAME;
+  if (g.humanColor !== 'w' && g.humanColor !== 'b') return NO_GAME;
+  if (!Array.isArray(g.events)) return NO_GAME;
+  const dropped = Math.max(0, g.events.length - MAX_EVENTS);
   const events: GameEvent[] = [];
-  for (const stored of g.events) {
+  for (const stored of dropped > 0 ? g.events.slice(0, MAX_EVENTS) : g.events) {
     const event = cleanEvent(stored);
-    if (event === null) return null;
+    if (event === null) return NO_GAME;
     events.push(event);
   }
 
@@ -234,7 +257,26 @@ export function cleanSavedGame(raw: unknown): SavedGame | null {
   const w = num(clocks.w);
   const b = num(clocks.b);
   if (w !== undefined && b !== undefined) out.clocks = { w, b };
-  return out;
+  return { game: out, dropped };
+}
+
+/**
+ * What to tell the player about a stored game that did not come back as it was.
+ * A record that goes missing from the menu with no explanation is
+ * indistinguishable from a bug, and it is the player's own game — so both of
+ * the ways one can be lost say so. Null when there is nothing to report,
+ * including when there was no saved game in the first place.
+ */
+export function savedGameNote(stored: unknown, check: SavedGameCheck): string | null {
+  if (stored === null || stored === undefined) return null;
+  if (check.game === null) return 'A saved game could not be read, so it has been removed.';
+  if (check.dropped > 0) return 'The saved game was too long to restore in full, so the end of it was dropped.';
+  return null;
+}
+
+/** The game alone, for callers that have nothing to say about a clipped one. */
+export function cleanSavedGame(raw: unknown): SavedGame | null {
+  return checkSavedGame(raw).game;
 }
 
 /** Lifetime counters. Every field of `Stats` is one, so the list cannot drift from the type. */

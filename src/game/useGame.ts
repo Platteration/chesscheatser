@@ -8,7 +8,7 @@ import { generateSetup, type Setup } from '../engine/setup';
 import type { Board, Color, GameResult, LegalMove, Move, PieceType, Square } from '../engine/types';
 import { ARMY_SIZES, type GameConfig, type SavedGame } from './config';
 import { measureDeficit } from './comeback';
-import { fold, lostPieces, stripMove, undoEvents, type CheatStats, type Folded, type GameEvent } from './events';
+import { fold, lostPieces, replayablePrefix, stripMove, undoEvents, type CheatStats, type Folded, type GameEvent } from './events';
 
 export interface CapturedSummary {
   /** Pieces each colour has captured from the opponent. */
@@ -106,20 +106,6 @@ function buildSetup(config: GameConfig, seed?: number, handicap?: number): Setup
   return generateSetup({ mode: config.material, seed, minPieces: size.min, maxPieces: size.max, handicap });
 }
 
-/** Replays saved events defensively: anything that fails to apply is dropped. */
-function sanitizeEvents(setup: Setup, events: GameEvent[] | undefined, aiColor: Color | null): GameEvent[] {
-  if (!events || !events.length) return [];
-  for (let n = events.length; n > 0; n--) {
-    try {
-      fold(setup, events.slice(0, n), aiColor);
-      return events.slice(0, n);
-    } catch {
-      // try a shorter prefix
-    }
-  }
-  return [];
-}
-
 export function useGame(initial: StartOptions, onSave?: (saved: SavedGame | null) => void) {
   const [config, setConfig] = useState<GameConfig>(initial.config);
   const [humanColor, setHumanColor] = useState<Color>(initial.humanColor ?? resolveHumanColor(initial.config));
@@ -127,7 +113,7 @@ export function useGame(initial: StartOptions, onSave?: (saved: SavedGame | null
   const [setup, setSetup] = useState<Setup>(() => buildSetup(initial.config, initial.seed, initial.handicap));
   const aiColor: Color | null = config.mode === 'ai' ? opposite(humanColor) : null;
   const [events, setEvents] = useState<GameEvent[]>(() =>
-    initial.seed === undefined ? [] : sanitizeEvents(setup, initial.events, aiColor),
+    initial.seed === undefined ? [] : replayablePrefix(setup, initial.events, aiColor),
   );
   /** Increments on every new game or rematch, so callers can tell games with the same seed apart. */
   const [gameId, setGameId] = useState(0);

@@ -2,15 +2,18 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { ARMY_SIZES, DEFAULT_CONFIG, EMPTY_STATS } from '../game/config';
 import { EMPTY_LADDER } from '../game/ladder';
-import { fold } from '../game/events';
+import { fold, replayablePrefix, type GameEvent } from '../game/events';
 import { recordDaily, todayKey } from '../game/daily';
 import { generateSetup } from '../engine/setup';
 import { Position } from '../engine/position';
 import { stripMove } from '../game/events';
 import { MAX_POWER } from '../engine/powers';
+import { PASS_MOVE, type Color } from '../engine/types';
+import type { Setup } from '../engine/setup';
 import type { AppSettings } from '../settings';
 import { STORAGE_KEYS } from '../storage';
 import {
+  checkSavedGame,
   cleanConfig,
   cleanDaily,
   cleanEntitlements,
@@ -19,6 +22,8 @@ import {
   cleanSavedGame,
   cleanSettings,
   cleanStats,
+  MAX_EVENTS,
+  savedGameNote,
 } from '../validate';
 
 /** Ids of the puzzles the app actually bundles, so the cap cannot be set below the real set. */
@@ -145,12 +150,21 @@ describe('cleanSavedGame', () => {
     expect(fold(setup, g.events, 'b').pos.board.length).toBe(setup.board.length);
   });
 
-  it('drops an event list no game could produce, which replays as the square of its length', () => {
-    // sanitizeEvents re-folds every shorter prefix when the tail does not apply,
-    // so an uncapped list freezes the thread for minutes before the first frame.
-    // A long real game is a few hundred events; a hundred thousand is not a game.
+  it('bounds an event list no game could produce, and says how much it dropped', () => {
+    // The cap is a bound on what the replay is handed, not a judgement about
+    // whose game it is: a record past it keeps everything up to the cap and
+    // reports the rest, because the old behaviour — delete the whole record,
+    // show nothing — lost a long game without a word at one event past it.
     const absurd = Array.from({ length: 100_000 }, () => ({ type: 'pass' }));
-    expect(cleanSavedGame({ ...good, events: absurd })).toBeNull();
+    const clipped = checkSavedGame({ ...good, events: absurd });
+    expect(clipped.game!.events).toHaveLength(MAX_EVENTS);
+    expect(clipped.dropped).toBe(100_000 - MAX_EVENTS);
+    const justOver = checkSavedGame({ ...good, events: Array.from({ length: MAX_EVENTS + 1 }, () => ({ type: 'pass' })) });
+    expect(justOver.game).not.toBeNull();
+    expect(justOver.dropped).toBe(1);
+    const atTheCap = checkSavedGame({ ...good, events: Array.from({ length: MAX_EVENTS }, () => ({ type: 'pass' })) });
+    expect(atTheCap.game!.events).toHaveLength(MAX_EVENTS);
+    expect(atTheCap.dropped).toBe(0);
     const long = Array.from({ length: 500 }, () => ({ type: 'pass' }));
     expect(cleanSavedGame({ ...good, events: long })!.events).toHaveLength(500);
   });
@@ -167,6 +181,26 @@ describe('cleanSavedGame', () => {
     expect(cleanSavedGame({ ...good, events: [{ type: 'power', color: 'w', level: 1, material: 'lots', engine: 0 }] })).toBeNull();
   });
 
+  it('rebuilds a move rather than passing the stored object on', () => {
+    // The rebuild is the whole mechanism: a move that is validated and then
+    // handed on carries every key nobody checked. `pass` is the one that costs
+    // most — it sends makeMove down the null-move branch instead of moving the
+    // piece — but `checkedAfter` and anything else ride in the same way.
+    const stored = { from: 8, to: 16, piece: 'p', pass: true, checkedAfter: [1], junk: 1 };
+    expect(cleanSavedGame({ ...good, events: [{ type: 'move', move: stored }] })!.events[0]).toEqual({
+      type: 'move',
+      move: { from: 8, to: 16, piece: 'p' },
+    });
+    // The fields it does keep are kept exactly, so this is not just a narrower object.
+    expect(
+      cleanSavedGame({ ...good, events: [{ type: 'move', move: { from: 8, to: 16, piece: 'p', captured: 'q', promotion: 'n', cheat: 'jump', enPassant: true, doublePush: true, power: true } }] })!
+        .events[0],
+    ).toEqual({
+      type: 'move',
+      move: { from: 8, to: 16, piece: 'p', captured: 'q', promotion: 'n', cheat: 'jump', enPassant: true, doublePush: true, power: true },
+    });
+  });
+
   it('rebuilds an accusation rather than passing the stored object on', () => {
     expect(cleanSavedGame({ ...good, events: [{ type: 'accuse', caught: true, by: 'ai', extra: 1 }] })!.events).toEqual([
       { type: 'accuse', caught: true, by: 'ai' },
@@ -179,6 +213,126 @@ describe('cleanSavedGame', () => {
     expect(cleanSavedGame({ ...good, daily: todayKey() })!.daily).toBe(todayKey());
     expect(cleanSavedGame({ ...good, daily: 'x'.repeat(5000) })!.daily).toBeUndefined();
     expect(cleanSavedGame({ ...good, daily: '2026-1-2' })!.daily).toBeUndefined();
+  });
+});
+
+/**
+ * A game of `n` events as the app writes them — a power grant per turn, then a
+ * move — played with real legal moves, so the replay costs what a real record
+ * costs. Quiet moves are preferred over captures: a game that trades everything
+ * off is a short one.
+ */
+function longGame(n: number, seed = 5): { setup: Setup; events: GameEvent[] } {
+  const setup = generateSetup({ mode: 'mirror', seed, minPieces: 14, maxPieces: 16 });
+  const pos = new Position(setup.board);
+  const events: GameEvent[] = [];
+  let r = seed >>> 0;
+  const next = () => ((r = (r * 1103515245 + 12345) >>> 0), r);
+  while (events.length < n) {
+    events.push({ type: 'power', color: pos.turn, level: next() % (MAX_POWER + 1), material: 0, engine: 0 });
+    const legal = pos.legalMoves();
+    if (!legal.length) {
+      events.push({ type: 'pass' });
+      pos.makeMove(PASS_MOVE);
+      continue;
+    }
+    let move = stripMove(legal[next() % legal.length]);
+    for (let tries = 0; tries < 4 && move.captured; tries++) move = stripMove(legal[next() % legal.length]);
+    events.push({ type: 'move', move });
+    pos.makeMove(move);
+  }
+  return { setup, events: events.slice(0, n) };
+}
+
+/** A whole game, played to a real finish: what the app itself would have written. */
+function playedOut(seed: number): { setup: Setup; events: GameEvent[] } {
+  const setup = generateSetup({ mode: 'mirror', seed, minPieces: 6, maxPieces: 8 });
+  const pos = new Position(setup.board);
+  const events: GameEvent[] = [];
+  let r = seed >>> 0;
+  const next = () => ((r = (r * 1103515245 + 12345) >>> 0), r);
+  for (let ply = 0; ply < 4000; ply++) {
+    const legal = pos.legalMoves();
+    if (pos.result(legal).kind !== 'ongoing' || !legal.length) break;
+    events.push({ type: 'power', color: pos.turn, level: 0, material: 0, engine: 0 });
+    const move = stripMove(legal[next() % legal.length]);
+    events.push({ type: 'move', move });
+    pos.makeMove(move);
+  }
+  return { setup, events };
+}
+
+describe('MAX_EVENTS', () => {
+  /**
+   * The longest of 402 ordinary pass-and-play games measured through the app's
+   * own event generation (median 180, 99th percentile 1212). The cap is checked
+   * against this rather than against its own value: the first one was described
+   * as "far above any real game" while sitting 1.19x above this, and a game one
+   * event past it was deleted.
+   */
+  const LONGEST_GAME_MEASURED = 1676;
+
+  it('leaves room above the longest game anyone has measured', () => {
+    expect(MAX_EVENTS).toBeGreaterThanOrEqual(4 * LONGEST_GAME_MEASURED);
+  });
+
+  it('keeps a game played out to its finish, whole', () => {
+    for (const seed of [3, 11, 29]) {
+      const { setup, events } = playedOut(seed);
+      expect(events.length).toBeGreaterThan(20);
+      expect(() => fold(setup, events, null)).not.toThrow();
+      const check = checkSavedGame({ config: DEFAULT_CONFIG, seed, humanColor: 'w', events });
+      expect(check.dropped).toBe(0);
+      expect(check.game!.events).toHaveLength(events.length);
+      // Room for a game several times longer than the ones this actually produces.
+      expect(MAX_EVENTS).toBeGreaterThan(2 * events.length);
+    }
+  });
+
+  it('replays the worst record it still accepts well inside a second', () => {
+    // This is what the cap is really for, so this is what pins it: a full-length
+    // record, every event well formed, that stops applying early — the replay
+    // has to find that out before the first frame is drawn. It is also the other
+    // half of the bound. At 2000 events this cost 268-490 ms with the scan that
+    // tried every shorter prefix, and 9.3 s at 8000; the binary search in
+    // `replayablePrefix` costs a handful of folds instead.
+    const { setup, events } = longGame(MAX_EVENTS);
+    // Halfway is the worst place for it: a fold stops at the event that throws,
+    // so a record that fails early is cheap however it is searched. The scan
+    // this replaced paid the whole prefix for every one of the n/2 attempts.
+    const at = MAX_EVENTS >> 1;
+    const empty = fold(setup, events.slice(0, at), null).pos.board.findIndex((p) => p === null);
+    const broken = events.slice();
+    broken[at] = { type: 'move', move: { from: empty, to: (empty + 1) % 64, piece: 'r' } };
+    expect(() => fold(setup, broken, null)).toThrow();
+
+    const accepted = checkSavedGame({ config: DEFAULT_CONFIG, seed: 5, humanColor: 'w', events: broken });
+    expect(accepted.game!.events).toHaveLength(MAX_EVENTS);
+    const started = Date.now();
+    const prefix = replayablePrefix(setup, accepted.game!.events, null);
+    const ms = Date.now() - started;
+    expect(prefix).toHaveLength(at);
+    expect(ms).toBeLessThan(1000);
+  });
+});
+
+describe('savedGameNote', () => {
+  const good = { config: DEFAULT_CONFIG, seed: 7, humanColor: 'w', events: [{ type: 'pass' }] };
+
+  it('says nothing when there was nothing to say', () => {
+    expect(savedGameNote(null, checkSavedGame(null))).toBeNull();
+    expect(savedGameNote(undefined, checkSavedGame(undefined))).toBeNull();
+    expect(savedGameNote(good, checkSavedGame(good))).toBeNull();
+  });
+
+  it('says so when the record was removed, and when it was only clipped', () => {
+    // Both of the ways a saved game can be lost used to be silent: the record
+    // was removed from storage and Resume simply was not on the menu.
+    const hostile = { ...good, events: [{ type: 'move', move: { from: 0, to: 10_000_000, piece: 'r' } }] };
+    expect(checkSavedGame(hostile).game).toBeNull();
+    expect(savedGameNote(hostile, checkSavedGame(hostile))).toMatch(/removed/);
+    const tooLong = { ...good, events: Array.from({ length: MAX_EVENTS + 1 }, () => ({ type: 'pass' })) };
+    expect(savedGameNote(tooLong, checkSavedGame(tooLong))).toMatch(/too long/);
   });
 });
 
@@ -204,12 +358,16 @@ describe('cleanDaily', () => {
 
   it('drops entries that are not results, and keys that are not dates', () => {
     const d = cleanDaily({
-      results: { '2026-01-02': { outcome: 'win', moves: 12 }, '2026-01-03': 'won', nonsense: { outcome: 'win' } },
+      // The stored record carries a date of its own that disagrees with its key:
+      // with no disagreement to resolve, an implementation that trusted the
+      // record would pass this too.
+      results: { '2026-01-02': { date: '1999-01-01', outcome: 'win', moves: 12 }, '2026-01-03': 'won', nonsense: { outcome: 'win' } },
       streak: 2,
       lastPlayed: '2026-01-02',
     });
     expect(Object.keys(d.results)).toEqual(['2026-01-02']);
     // The record's own date comes from its key, so the share text cannot disagree with it.
+    expect(d.results['2026-01-02'].date).toBe('2026-01-02');
     expect(d.results['2026-01-02']).toEqual({ date: '2026-01-02', outcome: 'win', moves: 12, cheatsCaught: 0, cheatsMissed: 0, falseAccusations: 0 });
     expect(d).toMatchObject({ streak: 2, lastPlayed: '2026-01-02' });
     expect(cleanDaily({ streak: -1, lastPlayed: 'never' })).toMatchObject({ streak: 0, lastPlayed: null });
@@ -322,7 +480,7 @@ describe('records the app reads back', () => {
     const loaded = app.slice(app.lastIndexOf('[', app.indexOf('] = await Promise.all([')) + 1, app.indexOf('] = await Promise.all([')).split(',').map((v) => v.trim());
     expect(loaded).toHaveLength((loadEffect.match(/loadJSON</g) ?? []).length);
     expect(loaded.length).toBeGreaterThan(5);
-    for (const name of loaded) expect(loadEffect).toMatch(new RegExp(`clean\\w+\\(${name}[,)]`));
+    for (const name of loaded) expect(loadEffect).toMatch(new RegExp(`(clean|check)\\w+\\(${name}[,)]`));
   });
 
   it('cleans the entitlement record, which decides Pro and is a plain key on the web build', () => {
@@ -330,12 +488,24 @@ describe('records the app reads back', () => {
     expect(read('../settings.tsx')).toMatch(/cleanSettings\(/);
   });
 
+  it('says so when a saved game is dropped or clipped, instead of removing it without a word', () => {
+    // The decision itself is `savedGameNote`, tested above; this is the wiring,
+    // which is the half that cannot be imported here.
+    expect(loadEffect).toMatch(/checkSavedGame\(game\)/);
+    expect(loadEffect).toMatch(/setResumeNote\(savedGameNote\(game, check\)\)/);
+    expect(app).toMatch(/resumeNote=\{resumeNote\}/);
+    expect(read('../ui/HomeScreen.tsx')).toMatch(/resumeNote/);
+  });
+
   it('lists every storage key in STORAGE_KEYS, so the error boundary can clear all of them', () => {
     // Keys spelled out beside their own module are exactly how entitlements and
     // appsettings escaped both the key list and the recovery path.
     const keys = new Set(Object.values(STORAGE_KEYS));
     const sources = [app, ...walk(new URL('..', import.meta.url)).map((f) => readFileSync(f, 'utf8'))];
-    const found = new Set(sources.flatMap((src) => [...src.matchAll(/'(twokings\.[\w.]+)'/g)].map((m) => m[1])));
+    // Any quote, not just a single one: a key spelled "twokings.foo.v1" is the
+    // same escape this guard exists to catch, and nothing here enforces a quote
+    // style — the repository has no linter or formatter.
+    const found = new Set(sources.flatMap((src) => [...src.matchAll(/["'`](twokings\.[\w.]+)["'`]/g)].map((m) => m[1])));
     expect(found.size).toBe(keys.size);
     for (const key of found) expect(keys).toContain(key);
   });

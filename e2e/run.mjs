@@ -200,6 +200,27 @@ const scenarios = {
     await context.close();
   },
 
+  async 'a saved game that cannot be restored as it was says so'(browser) {
+    // Both halves used to be silent: the record was removed and Resume simply
+    // was not on the menu, which is indistinguishable from a bug.
+    const tooLong = JSON.stringify({ seed: 1, humanColor: 'w', config: {}, events: Array.from({ length: 8001 }, () => ({ type: 'pass' })) });
+    const clipped = await openApp(browser, url, undefined, { storage: { 'twokings.game.v1': tooLong } });
+    assert((await exact(clipped.page, 'Resume game').count()) === 1, 'an over-long game is still offered');
+    assert((await clipped.page.locator('text=/too long to restore in full/').count()) === 1, 'home screen says it was clipped');
+    assert(clipped.errors.length === 0, clipped.errors.join('\n'));
+    await clipped.context.close();
+
+    // 113 bytes that would grow the board array to ten million entries.
+    const hostile = '{"seed":1234,"humanColor":"w","config":{},"events":[{"type":"move","move":{"from":0,"to":10000000,"piece":"r"}}]}';
+    const dropped = await openApp(browser, url, undefined, { storage: { 'twokings.game.v1': hostile } });
+    assert((await exact(dropped.page, 'Resume game').count()) === 0, 'an unreadable game is not offered');
+    assert((await dropped.page.locator('text=/could not be read/').count()) === 1, 'home screen says it was removed');
+    const left = await dropped.page.evaluate(() => localStorage.getItem('twokings.game.v1'));
+    assert(left === null, 'the unreadable record is gone from storage: ' + left);
+    assert(dropped.errors.length === 0, dropped.errors.join('\n'));
+    await dropped.context.close();
+  },
+
   async 'stats screen'(browser) {
     const { page, context, errors } = await openApp(browser, url);
     await page.locator('text=/^Stats ·/').click();

@@ -9,8 +9,17 @@ export async function launch() {
 }
 
 /** Fresh page at the app root with console/page errors collected. */
-export async function openApp(browser, url, viewport = { width: 390, height: 844 }, { intro = false } = {}) {
+export async function openApp(browser, url, viewport = { width: 390, height: 844 }, { intro = false, storage = null } = {}) {
   const context = await browser.newContext({ viewport, deviceScaleFactor: 1 });
+  if (storage) {
+    // Records already on the device when the app opens, for scenarios about what
+    // it does with what it finds there.
+    await context.addInitScript((records) => {
+      try {
+        for (const [key, value] of Object.entries(records)) localStorage.setItem(key, value);
+      } catch {}
+    }, storage);
+  }
   if (!intro) {
     // Skip the one-time explanation unless a scenario wants to test it.
     await context.addInitScript(() => {

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { boardFromString, parseSquare } from '../../engine/board';
 import type { Setup } from '../../engine/setup';
 import type { Move } from '../../engine/types';
-import { fold, undoEvents, type GameEvent } from '../events';
+import { fold, replayablePrefix, undoEvents, type GameEvent } from '../events';
 
 const setup: Setup = {
   board: boardFromString('k6k/pppppppp/8/8/8/8/PPPPPPPP/K6K'),
@@ -149,5 +149,42 @@ describe('undoEvents', () => {
   it('pass-and-play undoes a single ply', () => {
     const events: GameEvent[] = [mv('e2', 'e3'), mv('e7', 'e6')];
     expect(undoEvents(setup, events, null)).toHaveLength(1);
+  });
+});
+
+describe('replayablePrefix', () => {
+  /** What the binary search replaced: the longest prefix, found by trying every one. */
+  const byScan = (events: GameEvent[]): GameEvent[] => {
+    for (let n = events.length; n > 0; n--) {
+      try {
+        fold(setup, events.slice(0, n), null);
+        return events.slice(0, n);
+      } catch {
+        // try a shorter prefix
+      }
+    }
+    return [];
+  };
+
+  const played: GameEvent[] = [mv('e2', 'e4'), mv('e7', 'e5'), mv('d2', 'd4'), mv('d7', 'd5'), mv('a2', 'a3'), mv('a7', 'a6')];
+  const stale = mv('h5', 'h6'); // no piece on h5: what a record written by another build looks like
+
+  it('agrees with trying every prefix, wherever the record stops applying', () => {
+    // A binary search is exact here because `fold` is a left fold: a prefix
+    // applies exactly when nothing before its end throws, so the prefixes that
+    // apply are themselves a prefix. Checked at every insertion point rather
+    // than argued.
+    for (let at = 0; at <= played.length; at++) {
+      const events = [...played.slice(0, at), stale, ...played.slice(at)];
+      expect(replayablePrefix(setup, events, null)).toEqual(byScan(events));
+      expect(replayablePrefix(setup, events, null)).toHaveLength(at);
+    }
+  });
+
+  it('keeps a record that replays whole, and returns nothing for one that never starts', () => {
+    expect(replayablePrefix(setup, played, null)).toEqual(played);
+    expect(replayablePrefix(setup, [stale, ...played], null)).toEqual([]);
+    expect(replayablePrefix(setup, [], null)).toEqual([]);
+    expect(replayablePrefix(setup, undefined, null)).toEqual([]);
   });
 });
