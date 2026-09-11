@@ -1,7 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { setHapticsEnabled } from './haptics';
 import { setSoundsEnabled } from './sounds';
-import { loadJSON, saveJSON } from './storage';
+import { loadJSON, saveJSON, STORAGE_KEYS } from './storage';
 import { cleanSettings } from './validate';
 
 export type ColorSchemeSetting = 'system' | 'dark' | 'light';
@@ -27,7 +27,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   seenIntro: false,
 };
 
-const KEY = 'twokings.appsettings.v1';
+const KEY = STORAGE_KEYS.appsettings;
 
 interface SettingsContextValue {
   settings: AppSettings;

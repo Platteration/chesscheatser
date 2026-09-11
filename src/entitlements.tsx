@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { loadJSON, saveJSON } from './storage';
+import { loadJSON, saveJSON, STORAGE_KEYS } from './storage';
+import { cleanEntitlements } from './validate';
 
 /**
  * Entitlements: what the player has unlocked. The store integration is behind
@@ -49,11 +50,11 @@ export const mockStore: StoreProvider = {
   },
 };
 
-interface EntitlementState {
+export interface EntitlementState {
   owned: ProductId[];
 }
 
-const KEY = 'twokings.entitlements.v1';
+const KEY = STORAGE_KEYS.entitlements;
 export const FREE_HINTS_PER_GAME = 3;
 
 interface EntitlementsValue {
@@ -86,7 +87,9 @@ export function EntitlementsProvider({ children, store }: { children: React.Reac
   const [purchasing, setPurchasing] = useState(false);
 
   useEffect(() => {
-    loadJSON<EntitlementState>(KEY, { owned: [] }).then(setState);
+    // Clamped on the way in: an `owned` that is not an array of known ids
+    // reaches `.includes` as null, or spreads a string into the next grant.
+    loadJSON<unknown>(KEY, { owned: [] }).then((e) => setState(cleanEntitlements(e)));
     store.getProducts().then(setProducts).catch(() => {});
   }, [store]);
 

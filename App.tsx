@@ -9,9 +9,9 @@ import { applyLadderResult, EMPTY_LADDER, ladderConfig, ladderParams, type Ladde
 import { EMPTY_PUZZLE_PROGRESS, loadPuzzles, type PuzzleProgress } from './src/game/puzzles';
 import { PuzzleScreen } from './src/ui/PuzzleScreen';
 import type { StartOptions } from './src/game/useGame';
-import { loadJSON, remove, saveJSON, STORAGE_KEYS } from './src/storage';
+import { clearAll, loadJSON, remove, saveJSON, STORAGE_KEYS } from './src/storage';
 import { applyOutcome, type GameOutcome } from './src/game/flow';
-import { cleanConfig, cleanSavedGame } from './src/validate';
+import { cleanConfig, cleanDaily, cleanLadder, cleanPuzzleProgress, cleanSavedGame, cleanStats } from './src/validate';
 import { GameScreen } from './src/ui/GameScreen';
 import { HomeScreen } from './src/ui/HomeScreen';
 import { RulesScreen } from './src/ui/RulesScreen';
@@ -62,24 +62,32 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { fai
   }
 
   reset = () => {
-    void remove(STORAGE_KEYS.game);
+    // The record that usually cannot be shown is the game in progress, so the
+    // first attempt drops only that. If the app fails again the culprit is one
+    // of the others, and a recovery that can clear one of eight records cannot
+    // recover from the other seven — so the second attempt clears them all.
+    if (this.state.attempt === 0) void remove(STORAGE_KEYS.game);
+    else void clearAll();
     this.setState((s) => ({ failed: false, attempt: s.attempt + 1 }));
   };
 
   render() {
     if (!this.state.failed) return <React.Fragment key={this.state.attempt}>{this.props.children}</React.Fragment>;
+    const first = this.state.attempt === 0;
     return (
       <View style={[styles.failed, { backgroundColor: staticTheme.bg }]}>
         <Text style={[styles.failedTitle, { color: staticTheme.text }]}>Something went wrong</Text>
         <Text style={[styles.failedText, { color: staticTheme.textMuted }]}>
-          The game could not be shown. Starting a new game clears the game in progress and returns to the menu.
+          {first
+            ? 'The game could not be shown. Starting a new game clears the game in progress and returns to the menu.'
+            : 'It failed again, so something else that was saved cannot be shown. Clearing erases every saved game, your stats, the daily history, the ladder rank, solved puzzles and your settings.'}
         </Text>
         <Pressable
           accessibilityRole="button"
           onPress={this.reset}
           style={({ pressed }) => [styles.failedButton, { backgroundColor: staticTheme.accent, opacity: pressed ? 0.7 : 1 }]}
         >
-          <Text style={[styles.failedButtonText, { color: staticTheme.accentText }]}>Start a new game</Text>
+          <Text style={[styles.failedButtonText, { color: staticTheme.accentText }]}>{first ? 'Start a new game' : 'Clear saved data'}</Text>
         </Pressable>
       </View>
     );
@@ -104,21 +112,24 @@ function Root() {
       const [cfg, game, st, dy, ld, pz] = await Promise.all([
         loadJSON<unknown>(STORAGE_KEYS.settings, DEFAULT_CONFIG),
         loadJSON<unknown>(STORAGE_KEYS.game, null),
-        loadJSON<Stats>(STORAGE_KEYS.stats, EMPTY_STATS),
-        loadJSON<DailyState>(STORAGE_KEYS.daily, EMPTY_DAILY),
-        loadJSON<LadderState>(STORAGE_KEYS.ladder, EMPTY_LADDER),
-        loadJSON<PuzzleProgress>(STORAGE_KEYS.puzzles, EMPTY_PUZZLE_PROGRESS),
+        loadJSON<unknown>(STORAGE_KEYS.stats, EMPTY_STATS),
+        loadJSON<unknown>(STORAGE_KEYS.daily, EMPTY_DAILY),
+        loadJSON<unknown>(STORAGE_KEYS.ladder, EMPTY_LADDER),
+        loadJSON<unknown>(STORAGE_KEYS.puzzles, EMPTY_PUZZLE_PROGRESS),
       ]);
-      setDaily(dy);
-      setLadder(ld);
-      setPuzzleProgress(pz);
+      // Every one of these is clamped: loadJSON only spreads the defaults under
+      // whatever was stored, so a `results` or `solved` that is not what it
+      // claims to be reaches the first render and throws there.
+      setDaily(cleanDaily(dy));
+      setLadder(cleanLadder(ld));
+      setPuzzleProgress(cleanPuzzleProgress(pz));
       setConfig(cleanConfig(cfg));
       // A record that cannot be replayed is dropped rather than left to crash
       // Resume on this launch and every launch after it.
       const resumable = cleanSavedGame(game);
       if (!resumable && game) void remove(STORAGE_KEYS.game);
       setSaved(resumable);
-      setStats(st);
+      setStats(cleanStats(st));
       setReady(true);
     })();
   }, []);

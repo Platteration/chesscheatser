@@ -25,10 +25,19 @@ an optional cheating computer opponent.
   and `puzzles.ts` hold the mode-specific logic. `flow.ts` holds the pure
   decisions the screens fold through (undo eligibility, reporting a result once,
   folding an outcome into the stats), so they can be tested without a renderer.
-- `src/validate.ts` — everything loaded from storage goes through it first.
-  `loadJSON` only spreads defaults under the parsed object, so an unknown enum
-  (a board theme, an army size) reaches a lookup table as `undefined` and throws
-  during render; these clamp to a known value or drop the record.
+- `src/validate.ts` — everything loaded from storage goes through it first, and
+  `STORAGE_KEYS` is the whole list of what that is (the error boundary's second
+  attempt clears every one of them, so a key spelled out beside its own module
+  escapes both). `loadJSON` only spreads defaults under the parsed object, so an
+  unknown enum (a board theme, an army size) reaches a lookup table as
+  `undefined` and throws during render; these clamp to a known value or drop the
+  record. A stored record is also an unbounded input: the saved game's event list
+  is capped (`MAX_EVENTS`) because `sanitizeEvents` re-folds every shorter prefix
+  when the tail does not apply, and each move's squares are bounded because
+  `Position.makeMove` writes `board[m.to]` — one stored `to` of ten million
+  stretches the board array and every later scan walks the holes. On the Pages
+  build these are all plain localStorage on an origin shared with every other
+  project site the account publishes, so the device owner is not the only writer.
 - `src/settings.tsx` (appearance/feedback settings) and `src/entitlements.tsx`
   (Pro unlock behind a `StoreProvider`; bundled provider is a local mock).
 - `scripts/mine-puzzles.ts` regenerates `assets/puzzles.json`

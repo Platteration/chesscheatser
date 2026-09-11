@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+/** Every key the app writes. The error boundary's last resort clears all of them, so none may be missing. */
 export const STORAGE_KEYS = {
   settings: 'twokings.settings.v1',
   game: 'twokings.game.v1',
@@ -7,6 +8,8 @@ export const STORAGE_KEYS = {
   daily: 'twokings.daily.v1',
   ladder: 'twokings.ladder.v1',
   puzzles: 'twokings.puzzles.v1',
+  appsettings: 'twokings.appsettings.v1',
+  entitlements: 'twokings.entitlements.v1',
 } as const;
 
 export async function loadJSON<T>(key: string, fallback: T): Promise<T> {
@@ -33,4 +36,9 @@ export async function remove(key: string): Promise<void> {
   } catch {
     // ignore
   }
+}
+
+/** Drops every record the app keeps: the error boundary's last way out when one of them cannot be shown. */
+export async function clearAll(): Promise<void> {
+  await Promise.all(Object.values(STORAGE_KEYS).map(remove));
 }

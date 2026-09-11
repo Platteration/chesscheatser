@@ -302,6 +302,10 @@ export class Position {
       this.makePass(m);
       return;
     }
+    // Generated moves are always on the board, so this only ever catches one
+    // that came from somewhere else: writing board[m.to] past the last square
+    // silently grows the array, and every later scan then walks the holes.
+    if (m.to < 0 || m.to > 63) throw new Error(`Off-board target ${m.to}`);
     if (m.from < 0) {
       this.makeSpawn(m);
       return;

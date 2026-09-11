@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { boardFromString, boardToString, parseSquare, squareName } from '../board';
 import { Position, isAttacked, moveToSAN } from '../position';
+import { PASS_MOVE } from '../types';
 
 const START = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR';
 
@@ -214,5 +215,21 @@ describe('double check rule option', () => {
     pos.doubleCheckLoses = false;
     expect(pos.legalMoves()).toHaveLength(0);
     expect(pos.result().kind).toBe('both-in-check');
+  });
+});
+
+describe('move bounds', () => {
+  it('refuses a target off the board instead of growing the board array to reach it', () => {
+    // Only a move from outside the generator can do this — one replayed from a
+    // stored game — and board[m.to] would otherwise stretch the array to fit,
+    // so every later snapshot and piece count walks the holes.
+    const pos = new Position(boardFromString(START));
+    const width = pos.board.length;
+    expect(() => pos.makeMove({ from: parseSquare('a2'), to: 10_000_000, piece: 'p' })).toThrow();
+    expect(() => pos.makeMove({ from: parseSquare('a2'), to: -5, piece: 'p' })).toThrow();
+    expect(() => pos.makeMove({ from: -1, to: 10_000_000, piece: 'q' })).toThrow();
+    expect(pos.board.length).toBe(width);
+    // A pass is still a pass: it carries -1 for both squares by design.
+    expect(() => pos.makeMove(PASS_MOVE)).not.toThrow();
   });
 });
