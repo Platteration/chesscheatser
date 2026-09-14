@@ -196,7 +196,7 @@ export function Board({ board, size, flipped, selected, targets, cheatMode, last
 
 const useStyles = themedStyles((theme) => ({
   board: {
-    borderRadius: 6,
+    borderRadius: 8,
     overflow: 'hidden',
     borderWidth: 2,
   },
