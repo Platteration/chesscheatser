@@ -7,8 +7,18 @@ import path from 'node:path';
 const TYPES = { '.html': 'text/html', '.js': 'application/javascript', '.ico': 'image/x-icon', '.ttf': 'font/ttf', '.wav': 'audio/wav', '.json': 'application/json', '.png': 'image/png' };
 
 export function serve(root, port) {
+  const rootPath = path.resolve(root);
   const server = http.createServer((req, res) => {
-    let p = path.join(root, decodeURIComponent(req.url.split('?')[0]));
+    let pathname = req.url?.split('?')[0] ?? '/';
+    try {
+      pathname = decodeURIComponent(pathname);
+    } catch {
+      // If decoding fails, keep the raw URL segment and keep going.
+    }
+    const safePath = pathname.replace(/^\\/g, '/').replace(/^\/+/, '');
+    const resolved = path.resolve(rootPath, safePath || '.');
+    const isInsideRoot = resolved === rootPath || resolved.startsWith(rootPath + path.sep);
+    let p = isInsideRoot ? resolved : path.join(rootPath, 'index.html');
     if (!fs.existsSync(p) || fs.statSync(p).isDirectory()) p = path.join(root, 'index.html');
     res.setHeader('Content-Type', TYPES[path.extname(p)] || 'application/octet-stream');
     fs.createReadStream(p).pipe(res);
