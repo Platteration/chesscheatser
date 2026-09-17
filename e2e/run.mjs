@@ -61,26 +61,37 @@ const scenarios = {
     await exact(page, 'New game with these settings').click();
     await page.waitForTimeout(500);
     const outcomes = new Set();
+    let accused = 0;
     for (let turn = 0; turn < 16; turn++) {
       await waitHuman(page);
       if (await gameOver(page)) break;
       if (await exact(page, 'Cheater!').count()) {
         await exact(page, 'Cheater!').click();
-        await page.waitForTimeout(250);
-        const s = await text(page, '/Caught cheating|That move was legal/');
+        accused++;
+        // The verdict shows in the same render as the accusation. "Caught cheating!"
+        // stays until the human moves; "That move was legal." is replaced as soon as
+        // the computer takes its extra move, within ~150 ms on Easy, so it can be
+        // missed under load. The end-of-game report is the durable record.
+        const s = await page.locator('text=/Caught cheating|That move was legal/').first().textContent({ timeout: 3000 }).catch(() => null);
         if (s) outcomes.add(s.includes('Caught') ? 'caught' : 'legal');
       }
       await waitHuman(page);
       if (await gameOver(page)) break;
       if (!(await makeAnyMove(page))) break;
     }
-    assert(outcomes.size > 0, 'at least one accusation resolved: ' + [...outcomes]);
+    assert(accused > 0, 'at least one accusation made');
     if (!(await gameOver(page))) {
       await exact(page, 'Resign').click();
       await page.waitForTimeout(300);
     }
     const report = await text(page, '/The computer cheated|never cheated/');
     assert(report !== null, 'cheat report shown');
+    // Every accusation is a caught cheat or a false accusation in the report.
+    const caught = Number(/you caught (\d+)/.exec(report)?.[1] ?? 0);
+    const wrong = Number(/False accusations?: (\d+)/.exec(report)?.[1] ?? 0);
+    assert(caught + wrong === accused, `report accounts for every accusation (${accused} made): ${report}`);
+    // A caught verdict is on screen until the human moves, so it must have been seen.
+    assert(caught === 0 || outcomes.has('caught'), 'caught verdict shown: ' + [...outcomes]);
     assert(errors.length === 0, errors.join('\n'));
     await context.close();
   },
