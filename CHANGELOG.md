@@ -49,3 +49,7 @@
 - Vitest engine and game-layer tests, Playwright end-to-end suite over the web
   build, CI workflow, GitHub Pages deploy workflow, EAS build profiles,
   puzzle miner script.
+- The game status box is marked `aria-busy` while the human cannot act (the
+  computer's turn, or the comeback measurement after a move). The e2e helpers
+  wait on it instead of fixed sleeps, and a failing scenario now reports the
+  locator, helper and app state it stalled on.

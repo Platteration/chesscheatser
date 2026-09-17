@@ -284,7 +284,11 @@ export function GameScreen({ start, onExit, onSave, onFinished, dailyStreak = 0,
       {landscape && <PlayerStrip state={state} color={topColor} active={state.turn === topColor && !state.gameOver} />}
       {landscape && <PlayerStrip state={state} color={bottomColor} active={state.turn === bottomColor && !state.gameOver} />}
 
-      <View style={styles.statusBox}>
+      {/* Busy while the human cannot act: the computer's turn, its search, or the
+          comeback measurement that runs after a move lands and may open a draft.
+          Nothing on screen distinguishes that last window, so it is exposed to
+          assistive tech and the browser suite here. */}
+      <View style={styles.statusBox} aria-busy={!state.gameOver && (!humanTurn || state.thinking || !state.powerReady)}>
         <Text style={[styles.status, status.danger && styles.statusDanger]}>{status.text}</Text>
         {status.detail ? <Text style={styles.statusDetail}>{status.detail}</Text> : null}
       </View>
