@@ -2,14 +2,22 @@ import { describe, expect, it } from 'vitest';
 import { chooseMove, clearTranspositionTable } from '../../engine/ai';
 import { kingSquares } from '../../engine/board';
 import { Position } from '../../engine/position';
-import { offerPowers } from '../../engine/powers';
+import { offerPowers, powerLevelFor, rampLevel } from '../../engine/powers';
 import { generateSetup } from '../../engine/setup';
-import { chooseDraft, measureDeficit } from '../comeback';
+import { blend, chooseDraft, measureDeficit } from '../comeback';
 import { lostPieces } from '../events';
 
 /**
  * Handicap Chess: one king a side. The engine's two-king rules are supposed to
  * degrade to ordinary chess, so these play whole games and check that they do.
+ *
+ * The games draft comeback powers from the material deficit alone (the same
+ * fallback `measureDeficit` takes when its search runs out of time). Its engine
+ * term runs under a wall-clock budget, so with it the games changed with machine
+ * speed and cost about 3 s idle, past vitest's 5 s limit under CI load. Material
+ * drafting keeps the powers in play and makes each game reproducible from its
+ * seed: seeds 2, 4, 5, 8, 9 and 10 reach a promotion, three checkmates, a
+ * threefold repetition and two long power-heavy games, in about a second.
  */
 describe('handicap chess (one king)', () => {
   const playGame = (seed: number, maxPlies = 60) => {
@@ -20,10 +28,11 @@ describe('handicap chess (one king)', () => {
     for (let ply = 0; ply < maxPlies; ply++) {
       for (const c of ['w', 'b'] as const) pos.resurrectable[c] = lostPieces(setup.board, pos.board, c);
       const color = pos.turn;
-      const d = measureDeficit(pos, color, 40);
+      const material = -pos.material(color);
+      const level = rampLevel(powerLevelFor(blend(material, material)), pos.powers[color]);
       const owned = pos.powerTags[color];
-      if (d.level > owned.size) {
-        const offered = offerPowers(owned, d.level, seed * 1000 + ply);
+      if (level > owned.size) {
+        const offered = offerPowers(owned, level, seed * 1000 + ply);
         if (offered.length) pos.grantPower(color, chooseDraft(pos, offered, seed * 1000 + ply));
       }
       // Nobody ever loses to "all kings in check" with a single king.
@@ -45,10 +54,14 @@ describe('handicap chess (one king)', () => {
   };
 
   it('plays to an ordinary chess ending, never a double-check loss', () => {
-    const kinds = [1, 2, 3, 4].map((seed) => playGame(seed));
+    const kinds = [2, 4, 5, 8, 9, 10].map((seed) => playGame(seed));
     for (const k of kinds) {
       expect(['ongoing', 'checkmate', 'stalemate', 'fifty-move', 'repetition']).toContain(k);
     }
+    // The games are deterministic, so the endings they reach are part of the check:
+    // a checkmate is where a one-king "both in check" loss would wrongly surface.
+    expect(kinds.filter((k) => k === 'checkmate').length).toBeGreaterThanOrEqual(3);
+    expect(kinds).toContain('repetition');
   });
 
   it('still hands comeback powers to the side that is behind', () => {
