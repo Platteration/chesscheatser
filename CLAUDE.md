@@ -1,5 +1,7 @@
 # Two Kings Chess
 
+Read AGENTS.md first. It holds the working rules every coding agent follows in this repository; this file adds the notes specific to this project.
+
 Expo (React Native, TypeScript) app for a chess variant: two kings per side,
 randomly generated armies, comeback powers for whichever side is losing, and
 an optional cheating computer opponent.
