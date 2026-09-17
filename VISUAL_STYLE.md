@@ -4,6 +4,6 @@ Keep the game readable and the interface simple. Use warm ivory (#f5f0e6) or dee
 
 Depth is shallow: a crisp outline, one short lower edge, and one small upper-left highlight. Keep boards face-on and hit areas aligned to the grid. Anime influence belongs in bold silhouettes, crown markings and restrained effects, with no extra decoration over legal moves, selection, errors or player markers.
 
-Preserve existing cosmetic choices and accessibility settings. Color is supported by existing labels, rings, symbols and patterns. Card artwork and chart semantics remain authoritative in the collection apps.
+Preserve existing cosmetic choices and accessibility settings. Color is supported by existing labels, rings, symbols and patterns.
 
 Before merging, inspect light/dark modes, a narrow phone layout, selected pieces/cells, moves and end states. Run the repository typecheck and existing tests.
