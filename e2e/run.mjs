@@ -2,7 +2,7 @@
 // web bundle first) or point it at an existing export with E2E_ROOT.
 import fs from 'node:fs';
 import path from 'node:path';
-import { assert, cellCounts, clickSquares, draftCount, exact, gameOver, launch, makeAnyMove, openApp, resetDraftCount, serve, text, unlockPro, waitHuman } from './lib.mjs';
+import { assert, cellCounts, clickSquares, currentHelper, currentPage, describeApp, draftCount, exact, gameOver, launch, makeAnyMove, openApp, resetDraftCount, serve, text, unlockPro, waitHuman } from './lib.mjs';
 
 const root = process.env.E2E_ROOT || path.resolve('dist-web');
 const port = Number(process.env.E2E_PORT || 4190);
@@ -31,22 +31,22 @@ const scenarios = {
     await exact(page, 'White').first().click();
     await exact(page, 'Never').click();
     await exact(page, 'New game with these settings').click();
-    await page.waitForTimeout(500);
-    assert(await makeAnyMove(page), 'human move played');
+    assert(await makeAnyMove(page), 'human move played'); // waits for the turn to be ready first
     await waitHuman(page);
     assert((await text(page, '/^1\\. /')) !== null, 'move list shows move 1');
     await page.locator('text=/^Hint/').click();
-    await page.waitForTimeout(2500);
+    // The button reads "…" while the hint search runs and "Hint" again once it is on the board.
+    await exact(page, 'Hint').waitFor({ timeout: 30000 });
     await exact(page, 'Undo').click();
-    await page.waitForTimeout(300);
+    await waitHuman(page); // the rolled-back turn is measured again before a move is accepted
     assert((await page.locator('text=/^1\\. /').count()) === 0, 'undo cleared the move list');
     assert(await makeAnyMove(page), 'human move after undo');
     await waitHuman(page);
     await page.getByText('‹ Home').click();
-    await page.waitForTimeout(300);
+    await exact(page, 'Resume game').waitFor({ timeout: 10000 });
     assert((await exact(page, 'Resume game').count()) === 1, 'resume offered');
     await exact(page, 'Resume game').click();
-    await page.waitForTimeout(500);
+    await waitHuman(page);
     assert((await text(page, '/^1\\. /')) !== null, 'resumed game keeps moves');
     assert(errors.length === 0, errors.join('\n'));
     await context.close();
@@ -61,26 +61,37 @@ const scenarios = {
     await exact(page, 'New game with these settings').click();
     await page.waitForTimeout(500);
     const outcomes = new Set();
+    let accused = 0;
     for (let turn = 0; turn < 16; turn++) {
       await waitHuman(page);
       if (await gameOver(page)) break;
       if (await exact(page, 'Cheater!').count()) {
         await exact(page, 'Cheater!').click();
-        await page.waitForTimeout(250);
-        const s = await text(page, '/Caught cheating|That move was legal/');
+        accused++;
+        // The verdict shows in the same render as the accusation. "Caught cheating!"
+        // stays until the human moves; "That move was legal." is replaced as soon as
+        // the computer takes its extra move, within ~150 ms on Easy, so it can be
+        // missed under load. The end-of-game report is the durable record.
+        const s = await page.locator('text=/Caught cheating|That move was legal/').first().textContent({ timeout: 3000 }).catch(() => null);
         if (s) outcomes.add(s.includes('Caught') ? 'caught' : 'legal');
       }
       await waitHuman(page);
       if (await gameOver(page)) break;
       if (!(await makeAnyMove(page))) break;
     }
-    assert(outcomes.size > 0, 'at least one accusation resolved: ' + [...outcomes]);
+    assert(accused > 0, 'at least one accusation made');
     if (!(await gameOver(page))) {
       await exact(page, 'Resign').click();
       await page.waitForTimeout(300);
     }
     const report = await text(page, '/The computer cheated|never cheated/');
     assert(report !== null, 'cheat report shown');
+    // Every accusation is a caught cheat or a false accusation in the report.
+    const caught = Number(/you caught (\d+)/.exec(report)?.[1] ?? 0);
+    const wrong = Number(/False accusations?: (\d+)/.exec(report)?.[1] ?? 0);
+    assert(caught + wrong === accused, `report accounts for every accusation (${accused} made): ${report}`);
+    // A caught verdict is on screen until the human moves, so it must have been seen.
+    assert(caught === 0 || outcomes.has('caught'), 'caught verdict shown: ' + [...outcomes]);
     assert(errors.length === 0, errors.join('\n'));
     await context.close();
   },
@@ -171,14 +182,17 @@ const scenarios = {
   async 'first-run tip shows once'(browser) {
     const { page, context, errors } = await openApp(browser, url, undefined, { intro: true });
     await exact(page, 'New game with these settings').click();
-    await page.waitForTimeout(500);
+    // The colour is random: the computer may move first, and if that leaves the
+    // human two pawns behind the comeback draft opens on top of the tip. Settle
+    // the turn (answering any draft) before touching the tip.
+    await waitHuman(page);
     assert((await text(page, '/Two kings, one rule/')) !== null, 'tip shown on first game');
     await exact(page, 'Got it').click();
-    await page.waitForTimeout(300);
     await page.getByText('‹ Home').click();
-    await page.waitForTimeout(300);
+    await exact(page, 'New game with these settings').waitFor({ timeout: 10000 });
     await exact(page, 'New game with these settings').click();
-    await page.waitForTimeout(500);
+    await page.locator('text=/to move|thinking/').first().waitFor({ timeout: 10000 }); // the game screen is up
+    await waitHuman(page);
     assert((await page.locator('text=/Two kings, one rule/').count()) === 0, 'tip not shown again');
     assert(errors.length === 0, errors.join('\n'));
     await context.close();
@@ -289,8 +303,19 @@ for (const [name, fn] of Object.entries(scenarios)) {
     console.log(`PASS  ${name} (${((Date.now() - started) / 1000).toFixed(1)}s)`);
   } catch (e) {
     failed++;
-    console.log(`FAIL  ${name}: ${e.message.split('\n')[0]}`);
-    if (shots) fs.mkdirSync(shots, { recursive: true });
+    // Playwright's message carries its call log: the locator it waited on and
+    // why the action never became possible ("element is not enabled", "<div>
+    // intercepts pointer events"). Add which helper was running and what the
+    // app showed, so a timeout in CI is diagnosable from the log alone.
+    const [head, ...rest] = String(e.message).split('\n');
+    console.log(`FAIL  ${name}: ${head}`);
+    if (currentHelper()) console.log(`      inside ${currentHelper()}`);
+    for (const line of rest.filter((l) => l.trim()).slice(0, 12)) console.log(`      ${line.trim()}`);
+    console.log(`      app: ${await describeApp(currentPage())}`);
+    if (shots) {
+      fs.mkdirSync(shots, { recursive: true });
+      await currentPage()?.screenshot({ path: `${shots}/fail-${name.replace(/[^a-z0-9]+/gi, '-')}.png` }).catch(() => {});
+    }
   }
 }
 await browser.close();

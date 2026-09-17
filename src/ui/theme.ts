@@ -78,7 +78,8 @@ const LIGHT: Omit<Theme, 'board' | 'scheme'> = {
   text: '#24333e',
   textMuted: '#5b6b72',
   accent: '#a57127',
-  accentText: '#1a1300',
+  // 4.67:1 on the accent; '#1a1300' measured 4.39:1, under AA for the 14-16 px button text.
+  accentText: '#0f0b00',
   danger: '#b4424a',
   success: '#37734d',
   power: '#8a3fc4',

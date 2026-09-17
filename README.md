@@ -166,7 +166,11 @@ npm run e2e        # export the web build and drive it in headless Chromium
 The e2e suite (`e2e/run.mjs`) plays real games through the UI: settings,
 hints/undo/resume, computer cheating and accusations, player cheating, the
 daily challenge, the ladder, puzzles, the pass-and-play clock, review and Pro
-gating. `.github/workflows/pages.yml` publishes the web build to GitHub Pages
+gating. When a scenario fails the runner prints Playwright's call log (the
+locator it waited on and why), the helper it was in and the app's state
+(status line, `aria-busy`, open overlays, disabled controls); with
+`E2E_SHOTS=<dir>` it also saves a screenshot of the failure.
+`.github/workflows/pages.yml` publishes the web build to GitHub Pages
 once Pages is enabled for the repository (Settings → Pages → GitHub Actions).
 
 ## Balance harness
