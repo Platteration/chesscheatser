@@ -1,4 +1,4 @@
-// End-to-end suite: builds nothing itself; run `npm run e2e` (which exports the
+// End-to-end suite: builds nothing itself; run `npm run test:e2e` (which exports the
 // web bundle first) or point it at an existing export with E2E_ROOT.
 import fs from 'node:fs';
 import path from 'node:path';

@@ -1,6 +1,7 @@
 {
   "name": "two-kings-chess",
   "version": "1.0.0",
+  "license": "MIT",
   "main": "index.ts",
   "dependencies": {
     "@react-native-async-storage/async-storage": "^2.2.0",
@@ -30,8 +31,15 @@
     "web": "expo start --web",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "e2e": "CI=1 expo export --platform web --output-dir dist-web && node e2e/run.mjs",
-    "e2e:run": "node e2e/run.mjs"
+    "test:conventions": "node --test test/conventions.mjs",
+    "check": "npm run typecheck && npm test && npm run test:conventions",
+    "test:e2e": "CI=1 expo export --platform web --output-dir dist-web && node e2e/run.mjs",
+    "e2e": "npm run test:e2e",
+    "e2e:run": "node e2e/run.mjs",
+    "test:all": "npm test && npm run test:e2e"
   },
-  "private": true
+  "private": true,
+  "engines": {
+    "node": ">=22"
+  }
 }

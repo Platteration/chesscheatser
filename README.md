@@ -101,17 +101,7 @@ build serves it. Pro is a one-time unlock covering unlimited hints, all board
 and piece styles, and mid-game review. It never affects the computer's
 strength.
 
-## Tech
-
-- [Expo](https://expo.dev) SDK 57 / React Native, TypeScript. No native code to maintain.
-- `src/engine`: a self-contained chess engine written for this variant
-  (move generation, two-king rules, seeded army generator, and an alpha-beta
-  search with quiescence, a transposition table, killer moves and a history
-  heuristic, driven by iterative deepening under a time budget).
-- `src/game`: event-sourced game controller (moves, passes, accusations), undo and persistence.
-- `src/ui`: screens and board rendering.
-
-## Running
+## Running it
 
 ```sh
 npm install
@@ -121,6 +111,8 @@ npm run ios        # open on the iOS simulator (macOS)
 npm run web        # run in the browser
 ```
 
+### Native builds
+
 Store builds use EAS (requires an Expo account); profiles live in `eas.json`:
 
 ```sh
@@ -128,20 +120,32 @@ npx eas build --profile preview --platform android   # installable APK
 npx eas build --profile production --platform ios
 ```
 
-CI (`.github/workflows/ci.yml`) runs the type check, the unit tests, a Metro
-bundle for Android and web, and the end-to-end suite on every push.
+### Deploy
+
+`.github/workflows/pages.yml` publishes the web build to GitHub Pages once
+Pages is enabled for the repository (Settings → Pages → GitHub Actions).
+
+## Development
 
 ```sh
-npm run e2e        # export the web build and drive it in headless Chromium
+npm test                  # engine unit tests (perft, two-king rules, setup generator, AI)
+npm run typecheck
+npm run test:conventions  # the repository's shape against CONVENTIONS.md
+npm run check             # the three above: the gate before a push
+npm run test:e2e          # export the web build and drive it in headless Chromium
+npm run test:all          # npm test, then the e2e suite
 ```
 
 The e2e suite (`e2e/run.mjs`) plays real games through the UI: settings,
 hints/undo/resume, computer cheating and accusations, player cheating, the
 daily challenge, the ladder, puzzles, the pass-and-play clock, review and Pro
-gating. `.github/workflows/pages.yml` publishes the web build to GitHub Pages
-once Pages is enabled for the repository (Settings → Pages → GitHub Actions).
+gating.
 
-## Balance harness
+CI (`.github/workflows/ci.yml`) runs the type check, the unit tests, the
+conventions test, a Metro bundle for Android and web, and the end-to-end suite
+on every push.
+
+### Balance harness
 
 ```sh
 npx tsx scripts/simulate.ts 12 medium fair    # games, difficulty, army mode
@@ -155,13 +159,16 @@ Reference numbers (medium AI, double check must be answered, 16 games):
 chaos armies run 58 plies with the weaker starting side winning 8/16 with
 powers (about 4/11 without); fair armies run 46 plies.
 
-## Tests
+## Project layout
 
-```sh
-npm test           # engine unit tests (perft, two-king rules, setup generator, AI)
-npm run typecheck
-```
+- [Expo](https://expo.dev) SDK 57 / React Native, TypeScript. No native code to maintain.
+- `src/engine`: a self-contained chess engine written for this variant
+  (move generation, two-king rules, seeded army generator, and an alpha-beta
+  search with quiescence, a transposition table, killer moves and a history
+  heuristic, driven by iterative deepening under a time budget).
+- `src/game`: event-sourced game controller (moves, passes, accusations), undo and persistence.
+- `src/ui`: screens and board rendering.
 
-## Licence
+## License
 
 MIT — see [LICENSE](LICENSE).

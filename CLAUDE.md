@@ -10,6 +10,10 @@ an optional cheating computer opponent.
 - `npm start` — Expo dev server (Expo Go on a phone, or `npm run web`)
 - `npm test` — Vitest suite for the engine and game layer
 - `npm run typecheck` — `tsc --noEmit`
+- `npm run check` — the gate before a push: the type check, the unit tests and
+  `npm run test:conventions` (the repository's shape against `CONVENTIONS.md`)
+- `npm run test:e2e` — export the web build and drive it in headless Chromium
+  (`e2e/run.mjs`); `npm run test:all` runs the unit suite and then this
 - `CI=1 npx expo export --platform web|android --output-dir <dir>` — Metro bundle check
 
 ## Layout
@@ -79,3 +83,17 @@ an optional cheating computer opponent.
   half of a double move (only its last move can be accused).
 - Human cheat (one per game) caught by the computer: move undone, human
   skips, computer moves twice.
+
+## Native configuration
+
+`app.json` states the app's native posture explicitly, and `src/__tests__/appConfig.test.ts` pins it by running `expo config --type introspect` (the merged prebuild result, not the file) and by scanning every AndroidManifest.xml under node_modules: the splash is configured through the `expo-splash-screen` plugin (SDK 57 ignores a top-level `splash` block, and the plugin no-ops without props), `expo-system-ui` is installed because `userInterfaceStyle: "automatic"` does nothing on Android without it, `allowBackup` is true on purpose (the store is the player's own record with no server copy; `validate.ts` bounds what a restore can plant), and INTERNET, the storage/media permissions and the template's SYSTEM_ALERT_WINDOW overlay are blocked because the app has no network code (`Share.share` hands text to the OS) and a game has no reason to draw over other apps; only VIBRATE survives in the merged main manifest. A dev client still needs INTERNET to fetch its bundle, so `plugins/withDebugInternet.js` (a verbatim copy of drawdraw's) adds it back to `android/app/src/debug/AndroidManifest.xml` alone at prebuild. Adding a native module means checking that test: a module manifest that brings a new permission fails it until the permission is either blocked or listed as used. The former `src/ui/__tests__/appearance.test.ts` lives inside this file now.
+
+## Conventions
+
+This repository follows `CONVENTIONS.md`, which is identical in every platteration
+repository and pinned by the conventions test (`npm run test:conventions`, or
+`tests/test_conventions.py` in a Python repository): the script set (`test`,
+`typecheck`, `lint`, `check`, `test:e2e`, `test:all`), Node 22 via `.nvmrc`, one
+`.editorconfig`, ESLint per stack, the `ci.yml` shape, the documents every repository
+carries and the README skeleton. `npm run check` is the gate before a push. To change a
+convention, change it in every repository in one pass and update the hashes in the test.

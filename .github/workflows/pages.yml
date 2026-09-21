@@ -4,7 +4,7 @@ name: Deploy web build
 
 on:
   push:
-    branches: [main, master]
+    branches: [main]
   workflow_dispatch:
 
 # The build job runs `npm ci` and the Expo exporter, so it gets no more than
