@@ -128,10 +128,11 @@ Pages is enabled for the repository (Settings → Pages → GitHub Actions).
 ## Development
 
 ```sh
-npm test                  # engine unit tests (perft, two-king rules, setup generator, AI)
+npm run lint              # eslint . (Expo's preset; warnings are advice, errors fail)
 npm run typecheck
+npm test                  # engine unit tests (perft, two-king rules, setup generator, AI)
 npm run test:conventions  # the repository's shape against CONVENTIONS.md
-npm run check             # the three above: the gate before a push
+npm run check             # the four above: the gate before a push
 npm run test:e2e          # export the web build and drive it in headless Chromium
 npm run test:all          # npm test, then the e2e suite
 ```
@@ -141,9 +142,9 @@ hints/undo/resume, computer cheating and accusations, player cheating, the
 daily challenge, the ladder, puzzles, the pass-and-play clock, review and Pro
 gating.
 
-CI (`.github/workflows/ci.yml`) runs the type check, the unit tests, the
-conventions test, a Metro bundle for Android and web, and the end-to-end suite
-on every push.
+CI (`.github/workflows/ci.yml`) runs the lint, the type check, the unit tests,
+the conventions test, a Metro bundle for Android and web, and the end-to-end
+suite on every push.
 
 ### Balance harness
 

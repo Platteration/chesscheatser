@@ -20,6 +20,9 @@
   },
   "devDependencies": {
     "@types/react": "~19.2.2",
+    "eslint": "^9.39.5",
+    "eslint-config-expo": "~57.0.2",
+    "globals": "^16.0.0",
     "playwright": "^1.56.1",
     "typescript": "~6.0.3",
     "vitest": "^5.0.0"
@@ -30,9 +33,10 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "test": "vitest run",
+    "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test:conventions": "node --test test/conventions.mjs",
-    "check": "npm run typecheck && npm test && npm run test:conventions",
+    "check": "npm run lint && npm run typecheck && npm test && npm run test:conventions",
     "test:e2e": "CI=1 expo export --platform web --output-dir dist-web && node e2e/run.mjs",
     "e2e": "npm run test:e2e",
     "e2e:run": "node e2e/run.mjs",

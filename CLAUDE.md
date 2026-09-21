@@ -9,9 +9,12 @@ an optional cheating computer opponent.
 - `npm install`
 - `npm start` — Expo dev server (Expo Go on a phone, or `npm run web`)
 - `npm test` — Vitest suite for the engine and game layer
+- `npm run lint` — `eslint .` (ESLint 9 flat config, Expo's preset; warnings are
+  advice, errors fail)
 - `npm run typecheck` — `tsc --noEmit`
-- `npm run check` — the gate before a push: the type check, the unit tests and
-  `npm run test:conventions` (the repository's shape against `CONVENTIONS.md`)
+- `npm run check` — the gate before a push: the lint, the type check, the unit
+  tests and `npm run test:conventions` (the repository's shape against
+  `CONVENTIONS.md`)
 - `npm run test:e2e` — export the web build and drive it in headless Chromium
   (`e2e/run.mjs`); `npm run test:all` runs the unit suite and then this
 - `CI=1 npx expo export --platform web|android --output-dir <dir>` — Metro bundle check

@@ -7,9 +7,9 @@ on:
     branches: [main]
   workflow_dispatch:
 
-# The build job runs `npm ci` and the Expo exporter, so it gets no more than
-# read: anything in the dependency tree would otherwise hold a token that can
-# publish the public site and mint an OIDC identity for this repository.
+# The build job runs `npm ci`, the unit tests and the Expo exporter, so it gets
+# no more than read: anything in the dependency tree would otherwise hold a token
+# that can publish the public site and mint an OIDC identity for this repository.
 permissions:
   contents: read
 
@@ -20,6 +20,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -28,21 +29,20 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: npm
       - run: npm ci
+      - run: npm test
       - name: Serve from the repository sub-path (<user>.github.io/<repo>/)
         run: node -e "const fs=require('fs');const a=JSON.parse(fs.readFileSync('app.json'));a.expo.experiments={...(a.expo.experiments||{}),baseUrl:'/${{ github.event.repository.name }}'};fs.writeFileSync('app.json',JSON.stringify(a,null,2))"
-      - name: Export web build
-        run: npx expo export --platform web --output-dir dist-web
-        env:
-          CI: 1
+      - run: npx expo export --platform web --output-dir dist-web
       - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
         with:
           path: dist-web
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       pages: write
       id-token: write
