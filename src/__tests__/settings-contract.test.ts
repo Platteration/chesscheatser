@@ -8,6 +8,7 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
 import { DEFAULT_SETTINGS, resetSettings, resolveScheme, type AppSettings } from '../appSettings';
+import { NEW_GAME_PROMPT } from '../game/flow';
 import { STORAGE_KEYS } from '../storage';
 import { SETTING_TABLES } from '../validate';
 
@@ -92,6 +93,31 @@ describe('reset to defaults', () => {
   });
 });
 
+describe('starting a game over a saved one', () => {
+  it('asks first, and only when there is a saved game to lose', () => {
+    // The contract confirms an action if and only if it destroys something the
+    // app cannot restore from inside itself. Starting a game does: GameScreen
+    // autosaves over the one save slot as soon as it mounts, so the game
+    // someone left half-played is gone before their first move. Resuming that
+    // game does not, and an empty menu has nothing to ask about.
+    expect(NEW_GAME_PROMPT).toEqual({
+      title: 'Start a new game?',
+      message: 'Your saved game will be replaced by the new one. There is only one save, so it cannot be brought back.',
+      cancelLabel: 'Cancel',
+      confirmLabel: 'Start',
+    });
+    const app = read('../../App.tsx');
+    const startGame = app.slice(app.indexOf('const startGame = useCallback('), app.indexOf('const startRanked'));
+    expect(startGame).toMatch(/if \(!saved\) \{\s*openGame\(start\);/);
+    expect(startGame).toMatch(/confirmAction\(\{ \.\.\.NEW_GAME_PROMPT, onConfirm: \(\) => openGame\(start\) \}\)/);
+    // Every way into a new game asks; the one way back into the saved game does not.
+    const body = (name: string) => app.slice(app.indexOf(`const ${name} = useCallback(`), app.indexOf(`const ${name} = useCallback(`) + 400);
+    for (const starter of ['startNew', 'startRanked', 'startDaily']) expect(body(starter), starter).toMatch(/startGame\(\{/);
+    expect(body('resume')).toMatch(/openGame\(\{/);
+    expect(body('resume')).not.toMatch(/startGame\(/);
+  });
+});
+
 describe('reduce motion', () => {
   it('reaches the one glide the app draws', () => {
     // The row exists because Board.tsx animates a moved piece; the setting has
@@ -160,5 +186,12 @@ describe('accessibility floor', () => {
     expect(openingTag(components, components.indexOf('<Switch'))).toMatch(/accessibilityLabel=\{label\}/);
     const link = openingTag(components, components.indexOf('<Pressable', components.indexOf('export function Link')));
     expect(link).toMatch(/accessibilityRole="link"/);
+    // Being announced as a link is half of it: on the web the address belongs
+    // on the element, where react-native-web turns it into a real anchor and
+    // the browser can offer open-in-new-tab, copy link address and a preview.
+    // The press handler is left off there so the address does not open twice.
+    expect(link).toMatch(/\{\.\.\.anchor\}/);
+    expect(components).toMatch(/Platform\.OS === 'web' \? \{ href: url, hrefAttrs: \{ target: '_blank', rel: 'noreferrer' \} \} : \{\}/);
+    expect(link).toMatch(/onPress=\{Platform\.OS === 'web' \? undefined : \(\) => Linking\.openURL\(url\)/);
   });
 });

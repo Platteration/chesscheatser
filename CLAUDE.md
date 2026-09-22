@@ -113,9 +113,19 @@ an empty method; `Alert.alert` elsewhere), rewrites this one record and keeps
 `seenIntro`. The About card's version is `expo-constants`' `expoConfig.version`, i.e.
 app.json's, through `src/about.ts`, which also quotes PRIVACY.md's sentence and links
 `PRIVACY.md` and `CHANGELOG.md` at `blob/HEAD/` on the source host.
+Starting a game is confirmed through the same helper when a game is saved
+(`NEW_GAME_PROMPT` in `src/game/flow.ts`, "Start a new game?"): `GameScreen` autosaves
+over the one slot as soon as it mounts, so a game left half-played is replaced before
+the first move of the new one. Only then — Resume is that saved game and never asks,
+and with nothing stored Play is still one tap. On the web the About links carry `href`
+(and `hrefAttrs`), because react-native-web renders a `View` with one as a real anchor
+and a link the browser cannot open in a new tab or copy is a link in name only; the
+press handler is left off there so the address does not open twice, and everywhere else
+`openURL` hands it to the system browser as before.
 `src/__tests__/settings-contract.test.ts` pins the keys, the rows, the tables, the
-null rule, what Reset touches, the About text, and the accessibility floor (every
-`Pressable` has a role; the shared `Button` and `Segmented` are where most get it).
+null rule, what Reset touches, what starting a game asks, the About text and its link's
+web anchor, and the accessibility floor (every `Pressable` has a role; the shared
+`Button` and `Segmented` are where most get it).
 
 ## Conventions
 

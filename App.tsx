@@ -10,7 +10,8 @@ import { EMPTY_PUZZLE_PROGRESS, loadPuzzles, type PuzzleProgress } from './src/g
 import { PuzzleScreen } from './src/ui/PuzzleScreen';
 import type { StartOptions } from './src/game/useGame';
 import { clearAll, loadJSON, remove, saveJSON, STORAGE_KEYS } from './src/storage';
-import { applyOutcome, type GameOutcome } from './src/game/flow';
+import { applyOutcome, NEW_GAME_PROMPT, type GameOutcome } from './src/game/flow';
+import { confirmAction } from './src/confirm';
 import { checkSavedGame, cleanConfig, cleanDaily, cleanLadder, cleanPuzzleProgress, cleanStats, savedGameNote } from './src/validate';
 import { FRESH, onRenderFailed, recoveryScreen, recoveryStep, SETTLE_MS, type RecoveryActionId, type RecoverySignal, type RecoveryState } from './src/recovery';
 import { GameScreen } from './src/ui/GameScreen';
@@ -217,10 +218,26 @@ function Root() {
 
   // Every game opens through here, so the note about the record that was
   // dropped or clipped cannot outlive the screen it belongs to.
-  const startGame = useCallback((start: StartOptions) => {
+  const openGame = useCallback((start: StartOptions) => {
     setResumeNote(null);
     setScreen({ name: 'game', start, key: Date.now() });
   }, []);
+
+  // A *new* game replaces the saved one: GameScreen autosaves as soon as it
+  // mounts, so the game someone left half-played is overwritten before their
+  // first move, and there is one slot and no undo. Asked only when there is
+  // something to lose — with nothing saved, Play is still one tap. Resume goes
+  // straight to `openGame`: it is the saved game, not a replacement for it.
+  const startGame = useCallback(
+    (start: StartOptions) => {
+      if (!saved) {
+        openGame(start);
+        return;
+      }
+      confirmAction({ ...NEW_GAME_PROMPT, onConfirm: () => openGame(start) });
+    },
+    [saved, openGame],
+  );
 
   const startRanked = useCallback(() => {
     const rank = ladder.rank;
@@ -238,7 +255,7 @@ function Root() {
 
   const resume = useCallback(() => {
     if (!saved) return;
-    startGame({
+    openGame({
       config: saved.config,
       seed: saved.seed,
       humanColor: saved.humanColor,
@@ -248,7 +265,7 @@ function Root() {
       handicap: saved.handicap ?? (saved.ranked ? ladderParams(saved.ranked).handicap : undefined),
       clocks: saved.clocks,
     });
-  }, [saved, startGame]);
+  }, [saved, openGame]);
 
   const goHome = useCallback(() => setScreen({ name: 'home' }), []);
 

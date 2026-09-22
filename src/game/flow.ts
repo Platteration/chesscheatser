@@ -58,3 +58,18 @@ export function applyOutcome(stats: Stats, o: GameOutcome): Stats {
     biggestComeback: o.outcome === 'win' ? Math.max(comeback, Math.max(0, o.maxDeficit)) : comeback,
   };
 }
+
+/**
+ * What the app asks before starting a game over a saved one. Starting replaces
+ * it: `useGame` autosaves as soon as the new game mounts, there is one slot and
+ * no undo, so a game someone left half-played is gone before their first move.
+ * That is data the app cannot restore from inside itself, which is the one
+ * thing the shared contract says to confirm — and only then, so the first game
+ * from an empty menu is still one tap. Resume is not a new game and never asks.
+ */
+export const NEW_GAME_PROMPT = {
+  title: 'Start a new game?',
+  message: 'Your saved game will be replaced by the new one. There is only one save, so it cannot be brought back.',
+  cancelLabel: 'Cancel',
+  confirmLabel: 'Start',
+} as const;

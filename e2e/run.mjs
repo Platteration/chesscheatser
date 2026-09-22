@@ -2,7 +2,7 @@
 // web bundle first) or point it at an existing export with E2E_ROOT.
 import fs from 'node:fs';
 import path from 'node:path';
-import { assert, cellCounts, clickSquares, exact, gameOver, launch, makeAnyMove, openApp, serve, text, unlockPro, waitHuman } from './lib.mjs';
+import { assert, cellCounts, clickSquares, exact, gameOver, launch, makeAnyMove, openApp, readBoard, serve, sq, text, unlockPro, waitHuman, walkPawnToLastRank } from './lib.mjs';
 
 const root = process.env.E2E_ROOT || path.resolve('dist-web');
 const port = Number(process.env.E2E_PORT || 4190);
@@ -26,6 +26,12 @@ const scenarios = {
     assert(saved && saved.includes('"boardTheme":"marble"') && saved.includes('"colorScheme":"light"') && saved.includes('"sounds":false'), 'settings saved: ' + saved);
     assert((await page.getByRole('switch', { name: 'Sound' }).isChecked()) === false, 'sound switch reads back off');
     assert((await page.getByRole('link', { name: 'Privacy' }).count()) === 1, 'about card links the privacy statement');
+    // A real anchor, not a div that only answers a click: the browser can offer
+    // open-in-new-tab, copy link address and a status-bar preview.
+    const href = await page.getByRole('link', { name: 'Privacy' }).getAttribute('href');
+    assert(href === 'https://github.com/Platteration/chesscheatser/blob/HEAD/PRIVACY.md', 'the privacy link carries its address: ' + href);
+    const target = await page.getByRole('link', { name: 'Privacy' }).getAttribute('target');
+    assert(target === '_blank', 'the link opens in a new tab: ' + target);
     // Reset asks through the browser's own dialog on the web build (react-native-web's
     // Alert.alert is a no-op): dismissed, nothing changes; accepted, the defaults come
     // back but the intro flag stays as it was.
@@ -186,6 +192,64 @@ const scenarios = {
     await context.close();
   },
 
+  async 'promotion picker: the backdrop cancels, the sheet does not, a choice promotes'(browser) {
+    // Nothing drove the picker before, so neither its dismissal nor the way it
+    // stacks on the web had ever been exercised: a sheet covered by its own
+    // backdrop would cancel every promotion and the suite would not notice.
+    // Reduce motion planted rather than clicked: the glide redraws squares, and
+    // this scenario reads legal moves from how many children a square has.
+    const { page, context, errors } = await openApp(browser, url, undefined, {
+      storage: { 'twokings.appsettings.v1': JSON.stringify({ seenIntro: true, reduceMotion: 'on' }) },
+    });
+    await exact(page, 'Pass & play').click(); // both sides are the tester, so a pawn can be walked up the board
+    await exact(page, 'Off').first().click(); // comeback powers off: no power moves among the pawn's targets
+    await exact(page, 'Small').click(); // fewer pieces, so a file is more likely to be clear
+    let promoting = null;
+    for (let armies = 0; armies < 6 && !promoting; armies++) {
+      if (armies === 0) await exact(page, 'New game with these settings').click();
+      else await exact(page, 'New armies').click();
+      await page.waitForTimeout(600);
+      promoting = await walkPawnToLastRank(page);
+    }
+    assert(promoting, 'a pawn reached the last rank within six armies');
+
+    // The modal fades in and out, so the picker is waited for rather than
+    // sampled after a fixed pause: a cancel that has been accepted but is still
+    // fading looks exactly like one that was ignored.
+    const picker = exact(page, 'Promote to');
+    const openPicker = async () => {
+      await sq(page, promoting.from).click();
+      await page.waitForTimeout(100);
+      await sq(page, promoting.to).click();
+      await picker.waitFor({ state: 'visible', timeout: 5000 });
+    };
+
+    await openPicker();
+    // The sheet's own surface is not a cancel button: only the backdrop outside
+    // it dismisses. The padding above the title, not the title itself — a click
+    // on text starts a selection, and react-native-web's press responder then
+    // cancels the press after it.
+    await picker.locator('..').click({ position: { x: 4, y: 4 } });
+    await page.waitForTimeout(600); // longer than the fade a cancel would start
+    assert((await picker.count()) === 1, 'a tap on the sheet itself keeps the picker open');
+    // The backdrop fills the screen behind the sheet, so a corner of it is outside the sheet.
+    await page.getByRole('button', { name: 'Cancel', exact: true }).click({ position: { x: 5, y: 5 } });
+    await picker.waitFor({ state: 'hidden', timeout: 5000 });
+    const cancelled = await readBoard(page);
+    assert(cancelled[promoting.from]?.type === 'pawn', 'a cancelled pick plays no move: ' + JSON.stringify(cancelled[promoting.from]));
+
+    // Reopened, the piece chosen is the piece that arrives — a rook, not the default queen.
+    await openPicker();
+    await page.getByRole('button', { name: 'Rook', exact: true }).click();
+    await picker.waitFor({ state: 'hidden', timeout: 5000 });
+    await page.waitForTimeout(300);
+    const promoted = await readBoard(page);
+    assert(promoted[promoting.to]?.color === 'white' && promoted[promoting.to]?.type === 'rook', 'the chosen piece promoted: ' + JSON.stringify(promoted[promoting.to]));
+    assert(promoted[promoting.from] === null, 'the pawn left its square');
+    assert(errors.length === 0, errors.join('\n'));
+    await context.close();
+  },
+
   async 'first-run tip shows once'(browser) {
     const { page, context, errors } = await openApp(browser, url, undefined, { intro: true });
     await exact(page, 'New game with these settings').click();
@@ -195,6 +259,16 @@ const scenarios = {
     await page.waitForTimeout(300);
     await page.getByText('‹ Home').click();
     await page.waitForTimeout(300);
+    // That first game is now the saved game, so starting another asks before
+    // replacing it: dismissed, the menu stays put; accepted, the new game opens.
+    page.once('dialog', (d) => d.dismiss());
+    await exact(page, 'New game with these settings').click();
+    await page.waitForTimeout(400);
+    assert((await exact(page, 'Resume game').count()) === 1, 'a dismissed prompt leaves the saved game and the menu alone');
+    page.once('dialog', (d) => {
+      assert(d.message().includes('Start a new game?'), 'the prompt names the action: ' + d.message());
+      d.accept();
+    });
     await exact(page, 'New game with these settings').click();
     await page.waitForTimeout(500);
     assert((await page.locator('text=/Two kings, one rule/').count()) === 0, 'tip not shown again');

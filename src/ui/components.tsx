@@ -1,5 +1,5 @@
 import React from 'react';
-import { Linking, Pressable, StyleSheet, Switch, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Linking, Platform, Pressable, StyleSheet, Switch, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import { themedStyles, useTheme } from './theme';
 
 interface ButtonProps {
@@ -102,13 +102,26 @@ export function SwitchRow({ label, hint, value, onValueChange }: SwitchRowProps)
   );
 }
 
-/** An external link: opens in the browser (or a new tab on the web build). Needs no network permission of the app's own. */
+/**
+ * The address belongs on the element on the web: react-native-web renders any
+ * View carrying `href` as a real `<a>`, so the browser gives back what a
+ * handler-only link takes away — open in a new tab, copy link address, the
+ * status-bar preview, middle click — to an element already announced as a link.
+ * The anchor navigates by itself there, so the press handler is left off: an
+ * `openURL` beside it would open the address a second time. Everywhere else
+ * there is no anchor, and `openURL` hands the address to the system browser,
+ * which rejects when nothing answers the intent, hence the catch.
+ * Either way the app opens nothing itself and needs no network permission.
+ */
 export function Link({ label, url }: { label: string; url: string }) {
   const styles = useStyles();
+  const anchor: { href?: string; hrefAttrs?: { target: string; rel: string } } =
+    Platform.OS === 'web' ? { href: url, hrefAttrs: { target: '_blank', rel: 'noreferrer' } } : {};
   return (
     <Pressable
       accessibilityRole="link"
-      onPress={() => Linking.openURL(url).catch(() => {})}
+      {...anchor}
+      onPress={Platform.OS === 'web' ? undefined : () => Linking.openURL(url).catch(() => {})}
       hitSlop={8}
       style={({ pressed }) => [styles.link, pressed && styles.pressed]}
     >

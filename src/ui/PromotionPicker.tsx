@@ -24,7 +24,16 @@ export function PromotionPicker({ visible, color, title = 'Promote to', choices 
   return (
     <Modal transparent visible={visible} animationType="fade" onRequestClose={onCancel}>
       <View style={styles.backdrop}>
-        {/* A sibling behind the sheet rather than its parent: a button that wraps other buttons is announced as one control. */}
+        {/*
+          A sibling behind the sheet rather than its parent, which changes two
+          things. A button that wraps other buttons is announced as one control,
+          and a tap on the sheet's own surface — the title, the padding, the gap
+          between two choices — no longer cancels the pick: only the backdrop
+          outside the sheet dismisses it, which is what a sheet should do. The
+          sheet stays on top as the later sibling on both platforms
+          (react-native-web gives every View `position: relative`, so the
+          absolutely positioned fill paints behind it).
+        */}
         <Pressable accessibilityRole="button" accessibilityLabel="Cancel" onPress={onCancel} style={StyleSheet.absoluteFill} />
         <View style={styles.sheet}>
           <Text style={styles.title}>{title}</Text>
