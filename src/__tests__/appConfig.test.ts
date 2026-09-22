@@ -322,8 +322,16 @@ describe('what leaves the device', () => {
     // card's links (an address to the browser). Neither needs a permission of
     // the app's own; an in-app browser or a socket would.
     expect(appSource()).not.toMatch(
-      /fetch\(|XMLHttpRequest|WebSocket|axios|openBrowserAsync|expo-web-browser|expo-updates/,
+      /fetch\(|XMLHttpRequest|WebSocket|axios|openBrowserAsync|expo-web-browser|expo-updates|expo-network|react-native-webview/,
     );
+    // A word list only refuses what someone thought to name, and the ways in
+    // are not all calls: a remote `<Image source={{ uri }}>`, a web font or a
+    // WebView's address fetches over the same socket the shipped build has no
+    // permission for, and would simply never load with nothing here to say
+    // why. So the addresses are pinned too — the app holds exactly one, the
+    // source link the About card hands to the browser.
+    expect(appSource()).not.toMatch(/uri:\s*['"`]https?:\/\//);
+    expect(appSource().match(/https?:\/\/[^\s'"`]+/g)).toEqual(['https://github.com/Platteration/chesscheatser']);
   });
 
   it('does not ship network access', () => {

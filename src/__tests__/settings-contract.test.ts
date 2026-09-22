@@ -142,6 +142,17 @@ describe('about', () => {
     expect(read('../../CHANGELOG.md').length).toBeGreaterThan(0);
   });
 
+  it('is the same version in the package and in the app config', () => {
+    // The card reads app.json's version through expo-constants; nothing makes
+    // package.json follow it, so a store build bumped in one file and not the
+    // other would show a version the package does not claim. Both siblings pin
+    // the pair, and it costs one line.
+    const app = JSON.parse(read('../../app.json')).expo;
+    const pkg = JSON.parse(read('../../package.json'));
+    expect(app.version).toMatch(/^\d+\.\d+\.\d+$/);
+    expect(pkg.version).toBe(app.version);
+  });
+
   it('reads 0.0.0 rather than "undefined" when the config carries no version', async () => {
     vi.resetModules();
     vi.doMock('expo-constants', () => ({ default: { expoConfig: null } }));
