@@ -1,31 +1,15 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { DEFAULT_SETTINGS, type AppSettings } from './appSettings';
 import { setHapticsEnabled } from './haptics';
 import { setSoundsEnabled } from './sounds';
 import { loadJSON, saveJSON, STORAGE_KEYS } from './storage';
 import { cleanSettings } from './validate';
 
-export type ColorSchemeSetting = 'system' | 'dark' | 'light';
-export type BoardTheme = 'wood' | 'marble' | 'slate' | 'neon' | 'tournament';
-export type PieceStyle = 'solid' | 'classic';
-
-export interface AppSettings {
-  colorScheme: ColorSchemeSetting;
-  boardTheme: BoardTheme;
-  pieceStyle: PieceStyle;
-  sounds: boolean;
-  haptics: boolean;
-  /** The first-game explanation has been dismissed. */
-  seenIntro: boolean;
-}
-
-export const DEFAULT_SETTINGS: AppSettings = {
-  colorScheme: 'system',
-  boardTheme: 'wood',
-  pieceStyle: 'solid',
-  sounds: true,
-  haptics: true,
-  seenIntro: false,
-};
+// The record's shape is declared in `appSettings.ts`, which stays free of React
+// Native so the tests can import it; everything that reads settings still
+// imports from here.
+export { DEFAULT_SETTINGS } from './appSettings';
+export type { AppSettings, BoardTheme, ColorSchemeSetting, PieceStyle, ReduceMotionSetting } from './appSettings';
 
 const KEY = STORAGE_KEYS.appsettings;
 

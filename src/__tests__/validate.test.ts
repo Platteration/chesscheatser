@@ -10,7 +10,7 @@ import { stripMove } from '../game/events';
 import { MAX_POWER } from '../engine/powers';
 import { PASS_MOVE, type Color } from '../engine/types';
 import type { Setup } from '../engine/setup';
-import type { AppSettings } from '../settings';
+import { DEFAULT_SETTINGS, type AppSettings } from '../appSettings';
 import { STORAGE_KEYS } from '../storage';
 import {
   checkSavedGame,
@@ -24,6 +24,7 @@ import {
   cleanStats,
   MAX_EVENTS,
   savedGameNote,
+  SETTING_TABLES,
 } from '../validate';
 
 /** Ids of the puzzles the app actually bundles, so the cap cannot be set below the real set. */
@@ -35,13 +36,28 @@ const puzzleIds: string[] = JSON.parse(readFileSync(new URL('../../assets/puzzle
 const themeSource = readFileSync(new URL('../ui/theme.ts', import.meta.url), 'utf8');
 const boardThemeIds = [...themeSource.slice(themeSource.indexOf('BOARD_THEMES')).matchAll(/^ {2}(\w+): \{ label:/gm)].map((m) => m[1]);
 
+/** Every field set away from its default, so a round-trip that quietly fell back would show. */
 const SETTINGS: AppSettings = {
   colorScheme: 'light',
   boardTheme: 'slate',
   pieceStyle: 'classic',
   sounds: false,
   haptics: false,
+  reduceMotion: 'off',
   seenIntro: true,
+};
+
+/**
+ * Every value of every setting, spelled out. The round-trip is checked against
+ * these rather than against the tables in validate.ts, so a member dropped from
+ * a table fails here as well as in `tsc` — a check derived from the value under
+ * test would excuse the drop.
+ */
+const EVERY_VALUE: { [K in keyof typeof SETTING_TABLES]: AppSettings[K][] } = {
+  colorScheme: ['system', 'dark', 'light'],
+  boardTheme: ['wood', 'marble', 'slate', 'neon', 'tournament'],
+  pieceStyle: ['solid', 'classic'],
+  reduceMotion: ['system', 'on', 'off'],
 };
 
 describe('cleanConfig', () => {
@@ -435,8 +451,31 @@ describe('cleanEntitlements', () => {
 
 describe('cleanSettings', () => {
   it('keeps values the app knows', () => {
-    const s = { colorScheme: 'dark', boardTheme: 'neon', pieceStyle: 'solid', sounds: true, haptics: false, seenIntro: true };
+    const s = { colorScheme: 'dark', boardTheme: 'neon', pieceStyle: 'solid', sounds: true, haptics: false, reduceMotion: 'on', seenIntro: true };
     expect(cleanSettings(s, SETTINGS)).toEqual(s);
+  });
+
+  it('round-trips the defaults, a record with every field changed, and every value of every table', () => {
+    expect(cleanSettings(DEFAULT_SETTINGS, DEFAULT_SETTINGS)).toEqual(DEFAULT_SETTINGS);
+    expect(cleanSettings(JSON.parse(JSON.stringify(SETTINGS)), DEFAULT_SETTINGS)).toEqual(SETTINGS);
+    for (const field of Object.keys(EVERY_VALUE) as (keyof typeof EVERY_VALUE)[]) {
+      for (const value of EVERY_VALUE[field]) {
+        expect(cleanSettings({ [field]: value }, DEFAULT_SETTINGS)[field]).toBe(value);
+      }
+    }
+  });
+
+  it('never takes a name inherited from Object.prototype as a value, however the record spells it', () => {
+    // Built with JSON.parse rather than as a literal: `{__proto__: 'x'}` as a
+    // literal sets the object's prototype, while parsing it makes an own
+    // `__proto__` key — which is what a stored record actually carries. Every
+    // table in SETTING_TABLES is walked, so a field added there is covered.
+    const fields = Object.keys(SETTING_TABLES);
+    for (const name of Object.getOwnPropertyNames(Object.prototype)) {
+      const stored = JSON.parse(`{${fields.map((f) => `${JSON.stringify(f)}:${JSON.stringify(name)}`).join(',')}}`);
+      expect(cleanSettings(stored, DEFAULT_SETTINGS)).toEqual(DEFAULT_SETTINGS);
+    }
+    expect(fields.length).toBe(Object.keys(EVERY_VALUE).length);
   });
 
   it('replaces an unknown board theme, which would otherwise throw on every render', () => {

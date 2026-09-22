@@ -19,7 +19,7 @@ import {
 import { EMPTY_DAILY, type DailyRecord, type DailyState } from './game/daily';
 import { EMPTY_LADDER, type LadderState } from './game/ladder';
 import type { PuzzleProgress } from './game/puzzles';
-import type { AppSettings, BoardTheme, ColorSchemeSetting, PieceStyle } from './settings';
+import type { AppSettings, BoardTheme, ColorSchemeSetting, PieceStyle, ReduceMotionSetting } from './appSettings';
 
 /**
  * Records loaded from storage are untrusted: they may come from an older build
@@ -31,8 +31,9 @@ import type { AppSettings, BoardTheme, ColorSchemeSetting, PieceStyle } from './
  * app on every launch until storage is cleared.
  *
  * Everything here clamps to a known value instead. Only the defaults live
- * elsewhere: settings' defaults are passed in, because `settings.tsx` pulls in
- * React Native and this module must stay importable on its own.
+ * elsewhere: settings' defaults are passed in by the provider, and their shape
+ * is declared in `appSettings.ts`, which like this module stays free of React
+ * Native so it can be imported on its own.
  *
  * Every record the app reads back goes through one of these: the two that were
  * validated first are not special, they are just the two whose crash was found
@@ -49,10 +50,19 @@ const CLOCKS: Record<ClockMinutes, true> = { 0: true, 1: true, 3: true, 5: true,
 const COLOR_SCHEMES: Record<ColorSchemeSetting, true> = { system: true, dark: true, light: true };
 const BOARD_THEME_IDS: Record<BoardTheme, true> = { wood: true, marble: true, slate: true, neon: true, tournament: true };
 const PIECE_STYLES: Record<PieceStyle, true> = { solid: true, classic: true };
+const REDUCE_MOTION: Record<ReduceMotionSetting, true> = { system: true, on: true, off: true };
 const PIECE_TYPES: Record<PieceType, true> = { p: true, n: true, b: true, r: true, q: true, k: true };
 const CHEAT_KINDS: Record<CheatKind, true> = { jump: true, geometry: true, pawn: true, upgrade: true, resurrect: true };
 const OUTCOMES: Record<DailyRecord['outcome'], true> = { win: true, loss: true, draw: true };
 const PRODUCT_IDS: Record<ProductId, true> = { pro: true };
+
+/** The settings record's enum tables by field, for the tests that walk them: adding a table here adds it to the walk. */
+export const SETTING_TABLES = {
+  colorScheme: COLOR_SCHEMES,
+  boardTheme: BOARD_THEME_IDS,
+  pieceStyle: PIECE_STYLES,
+  reduceMotion: REDUCE_MOTION,
+} as const;
 
 /** Date keys, as `todayKey` writes them. The saved game's is the one value that reaches the share sheet. */
 const DATE_KEY = /^\d{4}-\d{2}-\d{2}$/;
@@ -353,6 +363,7 @@ export function cleanSettings(raw: unknown, fallback: AppSettings): AppSettings 
     pieceStyle: pick(s.pieceStyle, PIECE_STYLES, fallback.pieceStyle),
     sounds: bool(s.sounds, fallback.sounds),
     haptics: bool(s.haptics, fallback.haptics),
+    reduceMotion: pick(s.reduceMotion, REDUCE_MOTION, fallback.reduceMotion),
     seenIntro: bool(s.seenIntro, fallback.seenIntro),
   };
 }

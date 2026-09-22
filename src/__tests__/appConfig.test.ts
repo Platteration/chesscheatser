@@ -21,6 +21,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { DEFAULT_SETTINGS } from '../appSettings';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const nodeRequire = createRequire(import.meta.url);
@@ -28,7 +29,6 @@ const nodeRequire = createRequire(import.meta.url);
 const appConfig = JSON.parse(readFileSync(join(root, 'app.json'), 'utf8')).expo;
 const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
 const eas = JSON.parse(readFileSync(join(root, 'eas.json'), 'utf8'));
-const settingsSource = readFileSync(join(root, 'src/settings.tsx'), 'utf8');
 const themeSource = readFileSync(join(root, 'src/ui/theme.ts'), 'utf8');
 
 type Attrs = Record<string, string | undefined>;
@@ -214,7 +214,7 @@ describe('app.json states the posture it shares with the sibling apps', () => {
 
 describe('appearance configuration', () => {
   it('still ships "system" as the default appearance', () => {
-    expect(settingsSource).toMatch(/colorScheme:\s*'system'/);
+    expect(DEFAULT_SETTINGS.colorScheme).toBe('system');
   });
 
   it('resolves the "system" appearance from the device colour scheme', () => {
