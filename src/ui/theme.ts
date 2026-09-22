@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { StyleSheet, useColorScheme } from 'react-native';
+import { resolveScheme } from '../appSettings';
 import { useSettings, type BoardTheme } from '../settings';
 
 export interface BoardColors {
@@ -102,7 +103,7 @@ export const theme: Theme = makeTheme('dark', 'wood');
 export function useTheme(): Theme {
   const { settings } = useSettings();
   const system = useColorScheme();
-  const scheme = settings.colorScheme === 'system' ? (system === 'light' ? 'light' : 'dark') : settings.colorScheme;
+  const scheme = resolveScheme(settings.colorScheme, system);
   return useMemo(() => makeTheme(scheme, settings.boardTheme), [scheme, settings.boardTheme]);
 }
 

@@ -19,10 +19,26 @@ const scenarios = {
     const { page, context, errors } = await openApp(browser, url);
     await exact(page, 'Light').click();
     await exact(page, 'Marble').click();
+    await page.getByRole('switch', { name: 'Sound' }).click();
     await page.reload();
     await page.waitForTimeout(800);
     const saved = await page.evaluate(() => localStorage.getItem('twokings.appsettings.v1'));
-    assert(saved && saved.includes('"boardTheme":"marble"') && saved.includes('"colorScheme":"light"'), 'settings saved: ' + saved);
+    assert(saved && saved.includes('"boardTheme":"marble"') && saved.includes('"colorScheme":"light"') && saved.includes('"sounds":false'), 'settings saved: ' + saved);
+    assert((await page.getByRole('switch', { name: 'Sound' }).isChecked()) === false, 'sound switch reads back off');
+    assert((await page.getByRole('link', { name: 'Privacy' }).count()) === 1, 'about card links the privacy statement');
+    // Reset asks through the browser's own dialog on the web build (react-native-web's
+    // Alert.alert is a no-op): dismissed, nothing changes; accepted, the defaults come
+    // back but the intro flag stays as it was.
+    page.once('dialog', (d) => d.dismiss());
+    await exact(page, 'Reset to defaults').click();
+    await page.waitForTimeout(300);
+    const kept = await page.evaluate(() => localStorage.getItem('twokings.appsettings.v1'));
+    assert(kept && kept.includes('"colorScheme":"light"') && kept.includes('"sounds":false'), 'a dismissed dialog changes nothing: ' + kept);
+    page.once('dialog', (d) => d.accept());
+    await exact(page, 'Reset to defaults').click();
+    await page.waitForTimeout(300);
+    const reset = await page.evaluate(() => localStorage.getItem('twokings.appsettings.v1'));
+    assert(reset && reset.includes('"colorScheme":"system"') && reset.includes('"sounds":true') && reset.includes('"seenIntro":true'), 'reset restored the defaults and kept the intro flag: ' + reset);
     assert(errors.length === 0, errors.join('\n'));
     await context.close();
   },

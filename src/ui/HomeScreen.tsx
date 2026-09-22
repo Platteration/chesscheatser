@@ -8,8 +8,10 @@ import { ARMY_SIZES, type ArmySize, type ClockMinutes, type GameConfig, type Gam
 import { liveStreak, todayKey, type DailyState } from '../game/daily';
 import { ladderParams, type LadderState } from '../game/ladder';
 import { useEntitlements } from '../entitlements';
-import { useSettings, type BoardTheme, type ColorSchemeSetting, type PieceStyle } from '../settings';
-import { Button, Card, Label, Segmented } from './components';
+import { APP_NAME, APP_VERSION, CHANGELOG_URL, PRIVACY_SENTENCE, PRIVACY_URL, SOURCE_URL } from '../about';
+import { confirmAction } from '../confirm';
+import { useSettings, type BoardTheme, type ColorSchemeSetting, type PieceStyle, type ReduceMotionSetting } from '../settings';
+import { Button, Card, Label, Link, Segmented, SwitchRow } from './components';
 import { BOARD_THEMES } from './theme';
 import { CHESS_FONT } from './PieceGlyph';
 import { themedStyles, useTheme } from './theme';
@@ -53,7 +55,16 @@ export function HomeScreen({ config, onChange, onStart, onDaily, daily, onRanked
   const styles = useStyles();
   const theme = useTheme();
   const insets = useSafeAreaInsets();
-  const { settings, update } = useSettings();
+  const { settings, update, reset } = useSettings();
+  // Confirmed because there is no undo: the record is overwritten in place.
+  const onReset = () =>
+    confirmAction({
+      title: 'Reset settings?',
+      message: 'Appearance, board, pieces, sound, vibration and motion go back to their defaults. Your games, record, ladder rank, daily results, puzzle progress and Pro unlock are not touched.',
+      cancelLabel: 'Cancel',
+      confirmLabel: 'Reset',
+      onConfirm: reset,
+    });
   const { isPro } = useEntitlements();
   const set = <K extends keyof GameConfig>(key: K, value: GameConfig[K]) => onChange({ ...config, [key]: value });
   const size = ARMY_SIZES[config.armySize];
@@ -226,17 +237,34 @@ export function HomeScreen({ config, onChange, onStart, onDaily, daily, onRanked
             { value: 'classic', label: isPro ? 'Classic print' : 'Classic print 🔒' },
           ]}
         />
-        <Label>Feedback</Label>
-        <Segmented<'both' | 'haptics' | 'sounds' | 'none'>
-          value={settings.sounds && settings.haptics ? 'both' : settings.haptics ? 'haptics' : settings.sounds ? 'sounds' : 'none'}
-          onChange={(v) => update({ sounds: v === 'both' || v === 'sounds', haptics: v === 'both' || v === 'haptics' })}
+        <SwitchRow label="Sound" hint="Moves, captures, checks and the cheat calls." value={settings.sounds} onValueChange={(v) => update({ sounds: v })} />
+        <SwitchRow label="Vibration" hint="A tap for a move, a buzz for a capture or a check." value={settings.haptics} onValueChange={(v) => update({ haptics: v })} />
+        <Label hint="The moved piece jumps to its square instead of gliding. System follows your device's setting.">Reduce motion</Label>
+        <Segmented<ReduceMotionSetting>
+          value={settings.reduceMotion}
+          onChange={(v) => update({ reduceMotion: v })}
           options={[
-            { value: 'both', label: 'Both' },
-            { value: 'haptics', label: 'Haptics' },
-            { value: 'sounds', label: 'Sound' },
-            { value: 'none', label: 'Off' },
+            { value: 'system', label: 'System' },
+            { value: 'on', label: 'On' },
+            { value: 'off', label: 'Off' },
           ]}
         />
+        <Button title="Reset to defaults" variant="ghost" small onPress={onReset} style={styles.reset} />
+      </Card>
+
+      <Card>
+        <Text style={styles.cardTitle}>About</Text>
+        <Text style={styles.aboutName}>
+          {APP_NAME} {APP_VERSION}
+        </Text>
+        <Text style={styles.aboutText}>
+          Two kings a side, random armies, and comeback powers for whichever side is losing. Nothing leaves your device: {PRIVACY_SENTENCE.toLowerCase()}
+        </Text>
+        <View style={styles.links}>
+          <Link label="MIT licence · source" url={SOURCE_URL} />
+          <Link label="Privacy" url={PRIVACY_URL} />
+          <Link label="What's new" url={CHANGELOG_URL} />
+        </View>
       </Card>
 
       <Button title="New game with these settings" variant="secondary" onPress={onStart} style={styles.start} />
@@ -334,6 +362,10 @@ const useStyles = themedStyles((theme) => ({
   summary: { color: theme.textMuted, fontSize: 12, textAlign: 'center', marginTop: -4 },
   resumeNote: { color: theme.textMuted, fontSize: 12, textAlign: 'center', marginTop: -4 },
   cardTitle: { color: theme.text, fontSize: 16, fontWeight: '800' },
+  reset: { marginTop: 14, alignSelf: 'flex-start' },
+  aboutName: { color: theme.text, fontWeight: '700', fontSize: 14, marginTop: 10 },
+  aboutText: { color: theme.textMuted, fontSize: 13, lineHeight: 18, marginTop: 4 },
+  links: { flexDirection: 'row', flexWrap: 'wrap', gap: 16, marginTop: 6 },
   start: { marginTop: 8 },
   stats: { color: theme.textMuted, textAlign: 'center', marginTop: 12, fontSize: 13 },
 }));

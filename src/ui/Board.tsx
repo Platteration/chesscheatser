@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { fileOf, rankOf, sq } from '../engine/board';
 import type { Board as BoardType, Move, Piece, Square } from '../engine/types';
+import { useReduceMotion } from '../motion';
+import { useSettings } from '../settings';
 import { PieceGlyph } from './PieceGlyph';
 import { themedStyles, useTheme } from './theme';
 
@@ -41,7 +43,11 @@ export function Board({ board, size, flipped, selected, targets, cheatMode, last
   const theme = useTheme();
   const square = size / 8;
 
-  // Glide the moved piece between squares. Passes and spawns (from < 0) are not animated.
+  // Glide the moved piece between squares. Passes and spawns (from < 0) are not
+  // animated, and neither is anything when motion is reduced: that takes the
+  // same early exit, so the piece is simply drawn on its new square.
+  const { settings } = useSettings();
+  const reduceMotion = useReduceMotion(settings.reduceMotion);
   const progress = useRef(new Animated.Value(1)).current;
   const [anim, setAnim] = useState<{ move: Move; piece: Piece } | null>(null);
   const lastKey = useRef<number | undefined>(undefined);
@@ -51,7 +57,7 @@ export function Board({ board, size, flipped, selected, targets, cheatMode, last
     lastKey.current = animationKey;
     // Only glide when a move was added (not on undo or a fresh board).
     if (prev === undefined || animationKey === undefined || animationKey < prev) return;
-    if (!animate || animate.from < 0 || animate.pass) return;
+    if (reduceMotion || !animate || animate.from < 0 || animate.pass) return;
     const piece = board[animate.to];
     if (!piece) return;
     setAnim({ move: animate, piece });
@@ -59,7 +65,7 @@ export function Board({ board, size, flipped, selected, targets, cheatMode, last
     Animated.timing(progress, { toValue: 1, duration: ANIM_MS, useNativeDriver: true }).start(({ finished }) => {
       if (finished) setAnim(null);
     });
-  }, [animationKey, animate, board, progress]);
+  }, [animationKey, animate, board, progress, reduceMotion]);
 
   const px = (s: Square) => {
     const col = flipped ? 7 - fileOf(s) : fileOf(s);

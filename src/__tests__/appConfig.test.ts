@@ -189,10 +189,14 @@ describe('app.json states the posture it shares with the sibling apps', () => {
 
   it('has no URL scheme, because nothing handles a URL', () => {
     // A scheme registers the app for links; the app has no router and never
-    // reads one. The check is against the source, so adding Linking is the
-    // moment to decide about a scheme rather than a surprise later.
+    // reads one. The check is against the source: the About card *opens* links
+    // (`Linking.openURL`, which hands the address to the operating system's
+    // browser), and that was the moment to decide — no scheme. Anything that
+    // would read an incoming URL is what a scheme exists for, so that is what
+    // fails here.
     expect(appConfig.scheme).toBeUndefined();
-    expect(appSource()).not.toMatch(/\bLinking\b/);
+    expect(appSource().match(/Linking\.\w+/g)).toEqual(['Linking.openURL']);
+    expect(appSource()).not.toMatch(/getInitialURL|useLinking|useURL|'url'/);
   });
 
   it('ships the adaptive icon as its three assets', () => {
@@ -312,11 +316,13 @@ describe('what Android grants', () => {
 describe('what leaves the device', () => {
   it('has no network code', () => {
     // The reason INTERNET can be blocked, checked against the source rather
-    // than assumed. The one thing that leaves the app is `Share.share` in
-    // GameScreen, which hands text to the operating system's share sheet and
-    // needs no permission of its own.
+    // than assumed. Two things leave the app, and both are handed to the
+    // operating system rather than sent by the app: `Share.share` in
+    // GameScreen (text to the share sheet) and `Linking.openURL` in the About
+    // card's links (an address to the browser). Neither needs a permission of
+    // the app's own; an in-app browser or a socket would.
     expect(appSource()).not.toMatch(
-      /fetch\(|XMLHttpRequest|WebSocket|axios|openURL|openBrowserAsync|expo-updates/,
+      /fetch\(|XMLHttpRequest|WebSocket|axios|openBrowserAsync|expo-web-browser|expo-updates/,
     );
   });
 

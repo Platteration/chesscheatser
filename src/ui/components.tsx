@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Linking, Pressable, StyleSheet, Switch, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import { themedStyles, useTheme } from './theme';
 
 interface ButtonProps {
@@ -18,6 +18,8 @@ export function Button({ title, onPress, variant = 'primary', disabled, style, s
     <Pressable
       onPress={onPress}
       disabled={disabled}
+      accessibilityRole="button"
+      accessibilityState={{ disabled: !!disabled }}
       style={({ pressed }) => [
         styles.button,
         small && styles.buttonSmall,
@@ -70,6 +72,48 @@ export function Segmented<T extends string>({ options, value, onChange }: Segmen
         );
       })}
     </View>
+  );
+}
+
+interface SwitchRowProps {
+  label: string;
+  hint?: string;
+  value: boolean;
+  onValueChange: (v: boolean) => void;
+}
+
+/** A labelled on/off row. The switch carries the row's label, so a screen reader names it. */
+export function SwitchRow({ label, hint, value, onValueChange }: SwitchRowProps) {
+  const styles = useStyles();
+  const theme = useTheme();
+  return (
+    <View style={styles.switchRow}>
+      <View style={styles.switchText}>
+        <Text style={styles.label}>{label}</Text>
+        {hint ? <Text style={styles.hint}>{hint}</Text> : null}
+      </View>
+      <Switch
+        value={value}
+        onValueChange={onValueChange}
+        accessibilityLabel={label}
+        trackColor={{ true: theme.accent, false: theme.border }}
+      />
+    </View>
+  );
+}
+
+/** An external link: opens in the browser (or a new tab on the web build). Needs no network permission of the app's own. */
+export function Link({ label, url }: { label: string; url: string }) {
+  const styles = useStyles();
+  return (
+    <Pressable
+      accessibilityRole="link"
+      onPress={() => Linking.openURL(url).catch(() => {})}
+      hitSlop={8}
+      style={({ pressed }) => [styles.link, pressed && styles.pressed]}
+    >
+      <Text style={styles.linkText}>{label}</Text>
+    </Pressable>
   );
 }
 
@@ -128,6 +172,10 @@ const useStyles = themedStyles((theme) => ({
   labelRow: { marginBottom: 6, marginTop: 14 },
   label: { color: theme.text, fontWeight: '700', fontSize: 14, letterSpacing: 0.3 },
   hint: { color: theme.textMuted, fontSize: 12, marginTop: 2 },
+  switchRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 14 },
+  switchText: { flex: 1 },
+  link: { paddingVertical: 6 },
+  linkText: { color: theme.accent, fontWeight: '700', fontSize: 14 },
   card: {
     backgroundColor: theme.surface,
     borderRadius: theme.radius,

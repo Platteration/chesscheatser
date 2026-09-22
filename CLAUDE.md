@@ -91,6 +91,32 @@ an optional cheating computer opponent.
 
 `app.json` states the app's native posture explicitly, and `src/__tests__/appConfig.test.ts` pins it by running `expo config --type introspect` (the merged prebuild result, not the file) and by scanning every AndroidManifest.xml under node_modules: the splash is configured through the `expo-splash-screen` plugin (SDK 57 ignores a top-level `splash` block, and the plugin no-ops without props), `expo-system-ui` is installed because `userInterfaceStyle: "automatic"` does nothing on Android without it, `allowBackup` is true on purpose (the store is the player's own record with no server copy; `validate.ts` bounds what a restore can plant), and INTERNET, the storage/media permissions and the template's SYSTEM_ALERT_WINDOW overlay are blocked because the app has no network code (`Share.share` hands text to the OS) and a game has no reason to draw over other apps; only VIBRATE survives in the merged main manifest. A dev client still needs INTERNET to fetch its bundle, so `plugins/withDebugInternet.js` (a verbatim copy of drawdraw's) adds it back to `android/app/src/debug/AndroidManifest.xml` alone at prebuild. Adding a native module means checking that test: a module manifest that brings a new permission fails it until the permission is either blocked or listed as used. The former `src/ui/__tests__/appearance.test.ts` lives inside this file now.
 
+## Settings
+
+The player's preferences are one record, `twokings.appsettings.v1`: `colorScheme`
+(`system | dark | light`), `boardTheme`, `pieceStyle`, `sounds`, `haptics`, `reduceMotion`
+(`system | on | off`) and `seenIntro`, the onboarding flag. The other seven keys in
+`STORAGE_KEYS` (`src/storage.ts`) are the game config, the saved game, stats, the daily
+record, the ladder, puzzle progress and the Pro entitlement. The record's types and
+`DEFAULT_SETTINGS` live in `src/appSettings.ts`, which is free of React Native so the
+tests can import it; `src/settings.tsx` is the provider and re-exports them. Every read
+goes through `cleanSettings(raw, DEFAULT_SETTINGS)` in `src/validate.ts`, whose enum
+tables are `SETTING_TABLES` (`Record<Union, true>`, own-property lookups only). `system`
+scheme resolves through `resolveScheme`: a device that states no preference (React
+Native answers `null`) is dark, the app's own pre-provider default. `system` motion is
+`src/motion.ts`'s `useReduceMotion`, which reads `AccessibilityInfo` and treats a
+rejected native query or a web page without `matchMedia` as unknown (false); the one
+glide it governs is `Board.tsx`'s. Sound and Vibration are two switches, each gating a
+module-level flag (`src/sounds.ts`, `src/haptics.ts`). Reset to defaults goes through
+`src/confirm.ts` (`window.confirm` on the web, where react-native-web's `Alert.alert` is
+an empty method; `Alert.alert` elsewhere), rewrites this one record and keeps
+`seenIntro`. The About card's version is `expo-constants`' `expoConfig.version`, i.e.
+app.json's, through `src/about.ts`, which also quotes PRIVACY.md's sentence and links
+`PRIVACY.md` and `CHANGELOG.md` at `blob/HEAD/` on the source host.
+`src/__tests__/settings-contract.test.ts` pins the keys, the rows, the tables, the
+null rule, what Reset touches, the About text, and the accessibility floor (every
+`Pressable` has a role; the shared `Button` and `Segmented` are where most get it).
+
 ## Conventions
 
 This repository follows `CONVENTIONS.md`, which is identical in every platteration

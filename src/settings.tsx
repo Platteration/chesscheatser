@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { DEFAULT_SETTINGS, type AppSettings } from './appSettings';
+import { DEFAULT_SETTINGS, resetSettings, type AppSettings } from './appSettings';
 import { setHapticsEnabled } from './haptics';
 import { setSoundsEnabled } from './sounds';
 import { loadJSON, saveJSON, STORAGE_KEYS } from './storage';
@@ -16,12 +16,15 @@ const KEY = STORAGE_KEYS.appsettings;
 interface SettingsContextValue {
   settings: AppSettings;
   update: (patch: Partial<AppSettings>) => void;
+  /** Back to DEFAULT_SETTINGS, keeping `seenIntro`; the caller confirms first. */
+  reset: () => void;
   loaded: boolean;
 }
 
 const SettingsContext = createContext<SettingsContextValue>({
   settings: DEFAULT_SETTINGS,
   update: () => {},
+  reset: () => {},
   loaded: false,
 });
 
@@ -46,10 +49,18 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  const reset = useCallback(() => {
+    setSettings((prev) => {
+      const next = resetSettings(prev);
+      void saveJSON(KEY, next);
+      return next;
+    });
+  }, []);
+
   useEffect(() => setHapticsEnabled(settings.haptics), [settings.haptics]);
   useEffect(() => setSoundsEnabled(settings.sounds), [settings.sounds]);
 
-  const value = useMemo(() => ({ settings, update, loaded }), [settings, update, loaded]);
+  const value = useMemo(() => ({ settings, update, reset, loaded }), [settings, update, reset, loaded]);
   return <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>;
 }
 

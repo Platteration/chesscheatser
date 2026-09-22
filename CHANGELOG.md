@@ -34,6 +34,10 @@
   pieces (bundled glyph font), crown marks for each king, a reacting computer
   avatar, sound effects and haptics, landscape layout, accessibility labels,
   first-run explanation.
+- Settings: sound and vibration as two switches, a reduce-motion option
+  (system / on / off) that stops the piece glide, reset to defaults behind a
+  confirmation, and an About card with the version, licence, source, privacy
+  statement and this changelog. Every button carries an accessibility role.
 
 ### Monetization scaffold
 - Pro unlock behind a store-provider interface with a local mock: unlimited

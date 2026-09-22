@@ -34,3 +34,27 @@ export const DEFAULT_SETTINGS: AppSettings = {
   reduceMotion: 'system',
   seenIntro: false,
 };
+
+/**
+ * The scheme the theme is built from. React Native types the device's answer
+ * `'light' | 'dark' | 'unspecified' | null | undefined` (its `ColorSchemeName`,
+ * spelled out here so this module stays free of React Native): anything but
+ * `light` means the operating system stated no preference, and then the app's
+ * own pre-provider default applies, which is dark (`theme.ts`'s static theme).
+ * Only a device with no stated preference ever takes that branch;
+ * react-native-web never answers null.
+ */
+export function resolveScheme(setting: ColorSchemeSetting, system: 'light' | 'dark' | 'unspecified' | null | undefined): 'light' | 'dark' {
+  return setting === 'system' ? (system === 'light' ? 'light' : 'dark') : setting;
+}
+
+/**
+ * Reset to defaults keeps what the player has already *seen*: `seenIntro`
+ * records that the first-game explanation was dismissed, not a preference,
+ * and nobody resetting their colours is asking for the tutorial back. It
+ * touches this record alone — games, stats, the ladder, the daily record,
+ * puzzle progress and the Pro unlock each live under their own key.
+ */
+export function resetSettings(prev: AppSettings): AppSettings {
+  return { ...DEFAULT_SETTINGS, seenIntro: prev.seenIntro };
+}
