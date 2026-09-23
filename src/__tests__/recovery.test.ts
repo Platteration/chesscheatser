@@ -102,7 +102,7 @@ describe('error recovery', () => {
     for (const state of [...seen.values(), FRESH]) {
       const screen = recoveryScreen(state);
       expect(screen.actions.length).toBeGreaterThan(0);
-      expect(screen.actions[0].destructive).toBe(false);
+      expect(screen.actions[0]!.destructive).toBe(false);
       expect(screen.actions.some((a) => !a.destructive)).toBe(true);
       expect(screen.actions.filter((a) => a.destructive).length).toBeLessThan(2);
       expect(screen.title.length).toBeGreaterThan(0);

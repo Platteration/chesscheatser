@@ -22,13 +22,17 @@ export function offset(from: Square, df: number, dr: number): Square {
   return sq(f, r);
 }
 
+/** fileOf masks to 0..7, so the file letter is always one of FILES. */
 export function squareName(s: Square): string {
-  return FILES[fileOf(s)] + (rankOf(s) + 1);
+  return FILES.charAt(fileOf(s)) + (rankOf(s) + 1);
 }
 
 export function parseSquare(name: string): Square {
-  const f = FILES.indexOf(name[0]);
-  const r = parseInt(name[1], 10) - 1;
+  const fileChar = name[0];
+  const rankChar = name[1];
+  if (fileChar === undefined || rankChar === undefined) throw new Error(`Bad square: ${name}`);
+  const f = FILES.indexOf(fileChar);
+  const r = parseInt(rankChar, 10) - 1;
   if (f < 0 || r < 0 || r > 7 || Number.isNaN(r)) throw new Error(`Bad square: ${name}`);
   return sq(f, r);
 }
@@ -87,10 +91,10 @@ export function boardFromString(placement: string): Board {
   const board = emptyBoard();
   const rows = placement.split('/');
   if (rows.length !== 8) throw new Error('Bad placement string');
-  for (let i = 0; i < 8; i++) {
+  for (const [i, row] of rows.entries()) {
     const r = 7 - i;
     let f = 0;
-    for (const ch of rows[i]) {
+    for (const ch of row) {
       if (ch >= '1' && ch <= '8') {
         f += parseInt(ch, 10);
         continue;

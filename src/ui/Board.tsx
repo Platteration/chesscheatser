@@ -90,7 +90,7 @@ export function Board({ board, size, flipped, selected, targets, cheatMode, last
     for (let col = 0; col < 8; col++) {
       const file = flipped ? 7 - col : col;
       const s = sq(file, rank);
-      const piece = board[s];
+      const piece = board[s]!;
       const isLight = (file + rank) % 2 === 1;
       const isSelected = selected === s;
       const isLast = !!lastMove && (lastMove.from === s || lastMove.to === s);

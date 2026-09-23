@@ -54,9 +54,9 @@ describe('confirmAction', () => {
       ['Cancel', 'cancel'],
       ['Reset', 'destructive'],
     ]);
-    expect(buttons[0].onPress).toBeUndefined();
+    expect(buttons[0]!.onPress).toBeUndefined();
     expect(onConfirm).not.toHaveBeenCalled();
-    buttons[1].onPress!();
+    buttons[1]!.onPress!();
     expect(onConfirm).toHaveBeenCalledTimes(1);
   });
 });

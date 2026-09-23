@@ -146,8 +146,9 @@ export function useGame(initial: StartOptions, onSave?: (saved: SavedGame | null
     }
     let lastMove: Move | null = null;
     for (let i = folded.moveList.length - 1; i >= 0; i--) {
-      if (!folded.moveList[i].pass) {
-        lastMove = folded.moveList[i];
+      const m = folded.moveList[i]!;
+      if (!m.pass) {
+        lastMove = m;
         break;
       }
     }

@@ -246,7 +246,7 @@ describe('what Android grants', () => {
     // restore can plant is bounded by src/validate.ts, which every stored
     // record goes through before it is used.
     expect(appConfig.android.allowBackup).toBe(true);
-    expect(manifest.application[0].$['android:allowBackup']).toBe('true');
+    expect(manifest.application[0]?.$['android:allowBackup']).toBe('true');
   });
 
   it('grants nothing in the generated manifest the app does not use', () => {
@@ -291,7 +291,8 @@ describe('what Android grants', () => {
     for (const file of files) {
       const xml = readFileSync(file, 'utf8');
       for (const m of xml.matchAll(/<uses-permission[^>]*android:name="([^"]+)"/g)) {
-        declaredBy.set(m[1], [...(declaredBy.get(m[1]) || []), relative(root, file)]);
+        const name = m[1]!; // the group is not optional, so every match carries it
+        declaredBy.set(name, [...(declaredBy.get(name) || []), relative(root, file)]);
       }
     }
 

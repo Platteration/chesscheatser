@@ -46,33 +46,25 @@ export function cheatCandidates(pos: Position, resurrectable: PieceType[] = []):
       case 'r':
       case 'q': {
         const [d0, d1] = p.type === 'b' ? [0, 4] : p.type === 'r' ? [4, 8] : [0, 8];
-        for (let d = d0; d < d1; d++) {
-          const ray = RAYS[from][d];
-          let blocker = -1;
-          for (let i = 0; i < ray.length; i++) {
-            if (board[ray[i]]) {
-              blocker = i;
-              break;
-            }
-          }
+        for (const ray of RAYS[from]!.slice(d0, d1)) {
+          const blocker = ray.findIndex((s) => board[s]);
           if (blocker < 0) continue;
-          for (let i = blocker + 1; i < ray.length; i++) {
-            const to = ray[i];
+          for (const to of ray.slice(blocker + 1)) {
             add(from, to, p.type, 'jump');
             if (board[to]) break;
           }
         }
         if (p.type === 'b') {
-          for (const to of KING_TARGETS[from]) if (fileOf(to) === fileOf(from) || rankOf(to) === rankOf(from)) add(from, to, 'b', 'geometry');
+          for (const to of KING_TARGETS[from]!) if (fileOf(to) === fileOf(from) || rankOf(to) === rankOf(from)) add(from, to, 'b', 'geometry');
         } else if (p.type === 'r') {
-          for (const to of KING_TARGETS[from]) if (fileOf(to) !== fileOf(from) && rankOf(to) !== rankOf(from)) add(from, to, 'r', 'geometry');
+          for (const to of KING_TARGETS[from]!) if (fileOf(to) !== fileOf(from) && rankOf(to) !== rankOf(from)) add(from, to, 'r', 'geometry');
         } else {
-          for (const to of KNIGHT_TARGETS[from]) add(from, to, 'q', 'geometry');
+          for (const to of KNIGHT_TARGETS[from]!) add(from, to, 'q', 'geometry');
         }
         break;
       }
       case 'n':
-        for (const to of KING_TARGETS[from]) add(from, to, 'n', 'geometry');
+        for (const to of KING_TARGETS[from]!) add(from, to, 'n', 'geometry');
         break;
       case 'k':
         for (const [df, dr] of DIRS) {

@@ -18,11 +18,15 @@ export function createRng(seed: number): Rng {
   const rng: Rng = {
     next,
     int: (min, max) => min + Math.floor(next() * (max - min + 1)),
-    pick: (items) => items[Math.floor(next() * items.length)],
+    pick: (items) => {
+      // An empty list has nothing to pick, and undefined is not an item of it.
+      if (items.length === 0) throw new RangeError('Cannot pick from an empty list');
+      return items[Math.floor(next() * items.length)]!;
+    },
     shuffle: (items) => {
       for (let i = items.length - 1; i > 0; i--) {
-        const j = Math.floor(next() * (i + 1));
-        [items[i], items[j]] = [items[j], items[i]];
+        const j = Math.floor(next() * (i + 1)); // 0..i
+        [items[i], items[j]] = [items[j]!, items[i]!];
       }
       return items;
     },

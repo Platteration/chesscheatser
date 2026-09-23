@@ -13,11 +13,11 @@ describe('daily challenge', () => {
     s = recordDaily(s, { date: '2026-09-06', outcome: 'loss', moves: 20, cheatsCaught: 0, cheatsMissed: 1, falseAccusations: 2 });
     expect(s.streak).toBe(2);
     s = recordDaily(s, { date: '2026-09-06', outcome: 'win', moves: 5, cheatsCaught: 0, cheatsMissed: 0, falseAccusations: 0 });
-    expect(s.results['2026-09-06'].outcome).toBe('loss');
+    expect(s.results['2026-09-06']?.outcome).toBe('loss');
     s = recordDaily(s, { date: '2026-09-09', outcome: 'draw', moves: 60, cheatsCaught: 0, cheatsMissed: 0, falseAccusations: 0 });
     expect(s.streak).toBe(1);
-    expect(shareText(s.results['2026-09-06'], 2)).toContain('missed: 1');
-    expect(shareText(s.results['2026-09-06'], 2)).toContain('2-day streak');
+    expect(shareText(s.results['2026-09-06']!, 2)).toContain('missed: 1'); // kept, as asserted above
+    expect(shareText(s.results['2026-09-06']!, 2)).toContain('2-day streak');
   });
 
   it('only shows a streak that is still alive', () => {

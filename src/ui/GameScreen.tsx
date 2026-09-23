@@ -136,7 +136,8 @@ export function GameScreen({ start, onExit, onSave, onFinished, dailyStreak = 0,
   const [viewPly, setViewPly] = useState<number | null>(null);
   useEffect(() => setViewPly(null), [state.moves.length]);
   const reviewing = viewPly !== null && viewPly < state.boards.length - 1;
-  const shownBoard = reviewing ? state.boards[viewPly] : state.board;
+  // The scrubber only ever sets viewPly within 0..boards.length - 1.
+  const shownBoard = reviewing ? state.boards[viewPly]! : state.board;
   const hintsLeft = isPro ? Infinity : Math.max(0, FREE_HINTS_PER_GAME - hintsUsed);
   // Power-up feedback when the human's level rises for the new turn.
   const lastLevel = useRef(0);
@@ -183,13 +184,14 @@ export function GameScreen({ start, onExit, onSave, onFinished, dailyStreak = 0,
           }
         } else {
           const candidates = state.legal.filter((m) => m.from === selected && m.to === s);
-          if (candidates.length > 0) {
+          const [first] = candidates;
+          if (first) {
             setSelected(null);
             const plain = candidates.find((m) => !m.promotion);
             const upgrade = candidates.find((m) => m.promotion && m.piece !== 'p');
-            if (candidates[0].piece === 'p' && candidates[0].promotion) setPendingPromotion({ from: selected, to: s, kind: 'promote' });
+            if (first.piece === 'p' && first.promotion) setPendingPromotion({ from: selected, to: s, kind: 'promote' });
             else if (plain && upgrade) setPendingPromotion({ from: selected, to: s, kind: 'upgrade' });
-            else play(candidates[0]);
+            else play(first);
             return;
           }
         }
@@ -635,8 +637,9 @@ function MoveList({ state }: { state: GameState }) {
   const items: string[] = [];
   for (let i = 0; i < state.moves.length; i += 2) {
     const n = i / 2 + 1;
-    const w = moveToSAN(state.moves[i]);
-    const b = state.moves[i + 1] ? moveToSAN(state.moves[i + 1]) : '';
+    const w = moveToSAN(state.moves[i]!);
+    const black = state.moves[i + 1];
+    const b = black ? moveToSAN(black) : '';
     items.push(`${n}. ${w} ${b}`.trim());
   }
   return (

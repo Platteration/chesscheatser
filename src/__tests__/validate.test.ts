@@ -4,6 +4,7 @@ import { ARMY_SIZES, DEFAULT_CONFIG, EMPTY_STATS } from '../game/config';
 import { EMPTY_LADDER } from '../game/ladder';
 import { fold, replayablePrefix, type GameEvent } from '../game/events';
 import { recordDaily, todayKey } from '../game/daily';
+import { boardFromString } from '../engine/board';
 import { generateSetup } from '../engine/setup';
 import { Position } from '../engine/position';
 import { stripMove } from '../game/events';
@@ -160,10 +161,27 @@ describe('cleanSavedGame', () => {
     // the validator: whatever is accepted has to replay without resizing it.
     const size = ARMY_SIZES[DEFAULT_CONFIG.armySize];
     const setup = generateSetup({ mode: DEFAULT_CONFIG.material, seed: 7, minPieces: size.min, maxPieces: size.max });
-    const move = stripMove(new Position(setup.board).legalMoves()[0]);
+    const [first] = new Position(setup.board).legalMoves();
+    if (!first) throw new Error('the setup has no legal move to store');
+    const move = stripMove(first);
     const g = cleanSavedGame({ seed: 7, humanColor: 'w', config: DEFAULT_CONFIG, events: [{ type: 'move', move }] })!;
     expect(g.events).toEqual([{ type: 'move', move }]);
     expect(fold(setup, g.events, 'b').pos.board.length).toBe(setup.board.length);
+  });
+
+  it('keeps an en-passant flag onto the last rank, and resumes the game at the move before it', () => {
+    // The validator accepts the flag on any move (refusing the event would drop
+    // the whole record). The pawn such a move captures would stand a rank past
+    // the edge, and replaying it used to clear board[71], growing the board to
+    // 72 entries with nothing thrown. The engine refuses the move now, so the
+    // game resumes where it was before it.
+    const setup: Setup = { board: boardFromString('1k1k4/7p/8/8/8/8/8/1K1K4'), seed: 0, mode: 'chaos', whiteValue: 0, blackValue: 0 };
+    const stray = { from: 55, to: 63, piece: 'p', enPassant: true };
+    const g = cleanSavedGame({ ...good, events: [{ type: 'pass' }, { type: 'move', move: stray }] })!;
+    expect(g.events).toEqual([{ type: 'pass' }, { type: 'move', move: stray }]);
+    const resumed = replayablePrefix(setup, g.events, null);
+    expect(resumed).toEqual([{ type: 'pass' }]);
+    expect(fold(setup, resumed, null).pos.board).toHaveLength(64);
   });
 
   it('bounds an event list no game could produce, and says how much it dropped', () => {
@@ -192,7 +210,7 @@ describe('cleanSavedGame', () => {
     for (const level of [-1, MAX_POWER + 1, 1e9, 1.5, '2', null]) expect(power(level)).toBeNull();
     const kept = power(MAX_POWER)!.events[0];
     expect(kept).toEqual({ type: 'power', color: 'w', level: MAX_POWER, material: 0, engine: 0 });
-    expect(() => '★'.repeat(kept.type === 'power' ? kept.level : 0)).not.toThrow();
+    expect(() => '★'.repeat(kept?.type === 'power' ? kept.level : 0)).not.toThrow();
     expect(cleanSavedGame({ ...good, events: [{ type: 'power', color: 'green', level: 1, material: 0, engine: 0 }] })).toBeNull();
     expect(cleanSavedGame({ ...good, events: [{ type: 'power', color: 'w', level: 1, material: 'lots', engine: 0 }] })).toBeNull();
   });
@@ -252,8 +270,8 @@ function longGame(n: number, seed = 5): { setup: Setup; events: GameEvent[] } {
       pos.makeMove(PASS_MOVE);
       continue;
     }
-    let move = stripMove(legal[next() % legal.length]);
-    for (let tries = 0; tries < 4 && move.captured; tries++) move = stripMove(legal[next() % legal.length]);
+    let move = stripMove(legal[next() % legal.length]!);
+    for (let tries = 0; tries < 4 && move.captured; tries++) move = stripMove(legal[next() % legal.length]!);
     events.push({ type: 'move', move });
     pos.makeMove(move);
   }
@@ -271,7 +289,7 @@ function playedOut(seed: number): { setup: Setup; events: GameEvent[] } {
     const legal = pos.legalMoves();
     if (pos.result(legal).kind !== 'ongoing' || !legal.length) break;
     events.push({ type: 'power', color: pos.turn, level: 0, material: 0, engine: 0 });
-    const move = stripMove(legal[next() % legal.length]);
+    const move = stripMove(legal[next() % legal.length]!);
     events.push({ type: 'move', move });
     pos.makeMove(move);
   }
@@ -383,7 +401,7 @@ describe('cleanDaily', () => {
     });
     expect(Object.keys(d.results)).toEqual(['2026-01-02']);
     // The record's own date comes from its key, so the share text cannot disagree with it.
-    expect(d.results['2026-01-02'].date).toBe('2026-01-02');
+    expect(d.results['2026-01-02']?.date).toBe('2026-01-02');
     expect(d.results['2026-01-02']).toEqual({ date: '2026-01-02', outcome: 'win', moves: 12, cheatsCaught: 0, cheatsMissed: 0, falseAccusations: 0 });
     expect(d).toMatchObject({ streak: 2, lastPlayed: '2026-01-02' });
     expect(cleanDaily({ streak: -1, lastPlayed: 'never' })).toMatchObject({ streak: 0, lastPlayed: null });

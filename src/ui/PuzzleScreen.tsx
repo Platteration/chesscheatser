@@ -52,7 +52,9 @@ function PuzzlePlayer({ puzzles, progress, onSolved, onBack }: Props) {
 
   const firstUnsolved = Math.max(0, puzzles.findIndex((p) => !solved.has(p.id)));
   const [index, setIndex] = useState(firstUnsolved);
-  const puzzle = puzzles[index];
+  // PuzzleScreen draws this only for a non-empty list, and every index set
+  // here (the first unsolved, Prev, Next) is clamped to 0..puzzles.length - 1.
+  const puzzle = puzzles[index]!;
   const posRef = useRef<Position | null>(null);
   if (posRef.current === null) posRef.current = puzzlePosition(puzzle);
   const [tick, setTick] = useState(0);
@@ -64,7 +66,7 @@ function PuzzlePlayer({ puzzles, progress, onSolved, onBack }: Props) {
 
   const reset = useCallback(
     (i: number) => {
-      posRef.current = puzzlePosition(puzzles[i]);
+      posRef.current = puzzlePosition(puzzles[i]!); // only ever called with index
       setPhase('solve');
       setSelected(null);
       setLastMove(null);
@@ -158,10 +160,10 @@ function PuzzlePlayer({ puzzles, progress, onSolved, onBack }: Props) {
     (s: Square) => {
       if (phase !== 'solve' && phase !== 'finish') return;
       if (selected !== null) {
-        const candidates = legal.filter((m) => m.from === selected && m.to === s);
-        if (candidates.length) {
-          if (candidates[0].promotion) setPendingPromotion({ from: selected, to: s });
-          else apply(candidates[0]);
+        const [first] = legal.filter((m) => m.from === selected && m.to === s);
+        if (first) {
+          if (first.promotion) setPendingPromotion({ from: selected, to: s });
+          else apply(first);
           return;
         }
       }

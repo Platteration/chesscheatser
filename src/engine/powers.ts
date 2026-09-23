@@ -42,7 +42,7 @@ export function rampLevel(target: number, previous: number): number {
 
 export function powerLevelFor(deficit: number): number {
   let level = 0;
-  for (let l = 1; l <= MAX_POWER; l++) if (deficit >= POWER_THRESHOLDS[l]) level = l;
+  for (const [l, threshold] of POWER_THRESHOLDS.entries()) if (deficit >= threshold) level = l;
   return level;
 }
 
@@ -73,11 +73,10 @@ export function powerMoves(pos: Position, level: number, resurrectable: PieceTyp
 
   /** Slide along rays; with `jump` the ray continues past the first blocker once. */
   const slide = (from: Square, piece: PieceType, d0: number, d1: number, kind: CheatKind, jump: boolean) => {
+    const rays = RAYS[from]!;
     for (let d = d0; d < d1; d++) {
-      const ray = RAYS[from][d];
       let blocked = false;
-      for (let i = 0; i < ray.length; i++) {
-        const to = ray[i];
+      for (const to of rays[d]!) {
         const t = board[to];
         if (!blocked) {
           if (!t) {
@@ -130,22 +129,22 @@ export function powerMoves(pos: Position, level: number, resurrectable: PieceTyp
         }
         break;
       case 'n':
-        for (const to of KING_TARGETS[from]) add(from, to, 'n', 'geometry');
+        for (const to of KING_TARGETS[from]!) add(from, to, 'n', 'geometry');
         break;
       case 'b':
-        if (level >= 2 && level < 4) for (const to of KING_TARGETS[from]) if (fileOf(to) === fileOf(from) || rankOf(to) === rankOf(from)) add(from, to, 'b', 'geometry');
+        if (level >= 2 && level < 4) for (const to of KING_TARGETS[from]!) if (fileOf(to) === fileOf(from) || rankOf(to) === rankOf(from)) add(from, to, 'b', 'geometry');
         if (level >= 3) slide(from, 'b', 0, 4, 'jump', true);
         if (level >= 4) slide(from, 'b', 4, 8, 'geometry', false);
         break;
       case 'r':
-        if (level >= 2 && level < 4) for (const to of KING_TARGETS[from]) if (fileOf(to) !== fileOf(from) && rankOf(to) !== rankOf(from)) add(from, to, 'r', 'geometry');
+        if (level >= 2 && level < 4) for (const to of KING_TARGETS[from]!) if (fileOf(to) !== fileOf(from) && rankOf(to) !== rankOf(from)) add(from, to, 'r', 'geometry');
         if (level >= 3) slide(from, 'r', 4, 8, 'jump', true);
         if (level >= 4) slide(from, 'r', 0, 4, 'geometry', false);
         break;
       case 'q':
         if (level >= 3) {
           slide(from, 'q', 0, 8, 'jump', true);
-          for (const to of KNIGHT_TARGETS[from]) add(from, to, 'q', 'geometry');
+          for (const to of KNIGHT_TARGETS[from]!) add(from, to, 'q', 'geometry');
         }
         break;
     }

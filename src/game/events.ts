@@ -127,11 +127,12 @@ export function fold(setup: Setup, events: GameEvent[], aiColor: Color | null, o
   }
   syncResurrectable();
 
-  const lastEvent = events.length ? events[events.length - 1] : null;
+  const lastEvent = events[events.length - 1] ?? null;
   let lastAction: GameEvent | null = null;
   for (let i = events.length - 1; i >= 0; i--) {
-    if (events[i].type !== 'power') {
-      lastAction = events[i];
+    const e = events[i]!;
+    if (e.type !== 'power') {
+      lastAction = e;
       break;
     }
   }
@@ -209,7 +210,7 @@ export function undoEvents(setup: Setup, events: GameEvent[], aiColor: Color | n
   if (events.length === 0) return events;
   const withoutTrailingPowers = (evs: GameEvent[]) => {
     let n = evs.length;
-    while (n > 0 && evs[n - 1].type === 'power') n--;
+    while (n > 0 && evs[n - 1]!.type === 'power') n--;
     return evs.slice(0, n);
   };
   if (aiColor === null) {
@@ -221,7 +222,7 @@ export function undoEvents(setup: Setup, events: GameEvent[], aiColor: Color | n
   let poppedHumanMove = false;
   while (evs.length) {
     const before = fold(setup, evs, aiColor, options);
-    const last = evs[evs.length - 1];
+    const last = evs[evs.length - 1]!;
     evs = evs.slice(0, -1);
     if (last.type === 'move' && before.lastBy === human) poppedHumanMove = true;
     // Popping an accusation exposes the move it judged; keep going until a

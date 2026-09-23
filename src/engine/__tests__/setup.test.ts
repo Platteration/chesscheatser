@@ -58,7 +58,7 @@ describe('random setup', () => {
     // too, so nobody's change was ever the cause. The bound is taken from
     // timing the same work rather than from the number in the config.
     const config = readFileSync(new URL('../../../vitest.config.ts', import.meta.url), 'utf8');
-    const timeout = Number(/testTimeout:\s*([\d_]+)/.exec(config)?.[1].replace(/_/g, ''));
+    const timeout = Number(/testTimeout:\s*([\d_]+)/.exec(config)?.[1]!.replace(/_/g, ''));
     expect(timeout).toBeGreaterThanOrEqual(4 * VITEST_DEFAULT_TIMEOUT);
     const sample = 15;
     const started = Date.now();

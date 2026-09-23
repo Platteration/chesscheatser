@@ -86,17 +86,21 @@ function matchValue(rng: Rng, fallback: PieceType[], target: number, min: number
   const army = best.slice();
   for (let step = 0; step < 400 && Math.abs(armyValue(army) - target) > tolerance; step++) {
     const tooWeak = armyValue(army) < target;
+    // An army arrives here with a piece or more (three a side at least, two of
+    // them kings) and removals stop at lo >= 1, so i is always one of its indices.
     const i = rng.int(0, Math.max(0, army.length - 1));
-    const idx = BY_VALUE.indexOf(army[i]);
+    const idx = BY_VALUE.indexOf(army[i]!);
+    const stronger = BY_VALUE[idx + 1];
+    const weaker = idx > 0 ? BY_VALUE[idx - 1] : undefined;
     if (tooWeak) {
-      if (idx < BY_VALUE.length - 1 && rng.next() < 0.7) army[i] = BY_VALUE[idx + 1];
+      if (stronger && rng.next() < 0.7) army[i] = stronger;
       else if (army.length < hi) army.push(rng.pick(['n', 'b', 'r', 'q'] as PieceType[]));
-      else if (idx < BY_VALUE.length - 1) army[i] = BY_VALUE[idx + 1];
+      else if (stronger) army[i] = stronger;
       else break; // all queens at max size: cannot get stronger
     } else {
-      if (idx > 0 && rng.next() < 0.7) army[i] = BY_VALUE[idx - 1];
+      if (weaker && rng.next() < 0.7) army[i] = weaker;
       else if (army.length > lo) army.splice(i, 1);
-      else if (idx > 0) army[i] = BY_VALUE[idx - 1];
+      else if (weaker) army[i] = weaker;
       else break;
     }
   }

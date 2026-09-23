@@ -55,11 +55,11 @@ describe('subscribeReduceMotion', () => {
     await flush();
     expect(onChange).toHaveBeenCalledWith(true);
     expect(rn.listeners).toHaveLength(1);
-    rn.listeners[0](false);
+    rn.listeners[0]!(false);
     expect(onChange).toHaveBeenLastCalledWith(false);
     off();
     expect(rn.removed).toBe(1);
-    rn.listeners[0](true);
+    rn.listeners[0]!(true);
     expect(onChange).toHaveBeenCalledTimes(2);
   });
 
