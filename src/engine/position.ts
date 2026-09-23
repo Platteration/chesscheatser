@@ -327,7 +327,7 @@ export class Position {
       // grow the array the same way an off-board target does.
       if (capturedSquare < 0 || capturedSquare > 63) throw new Error(`Off-board capture ${capturedSquare}`);
     }
-    const captured = board[capturedSquare]!;
+    const captured = board[capturedSquare] ?? null;
 
     this.undoStack.push({
       move: m,
