@@ -55,16 +55,35 @@ const scenarios = {
     await exact(page, 'Never').click();
     await exact(page, 'New game with these settings').click();
     await page.waitForTimeout(500);
-    assert(await makeAnyMove(page), 'human move played');
-    await waitHuman(page);
-    assert((await text(page, '/^1\\. /')) !== null, 'move list shows move 1');
-    await page.locator('text=/^Hint/').click();
-    await page.waitForTimeout(2500);
-    await exact(page, 'Undo').click();
-    await page.waitForTimeout(300);
-    assert((await page.locator('text=/^1\\. /').count()) === 0, 'undo cleared the move list');
-    assert(await makeAnyMove(page), 'human move after undo');
-    await waitHuman(page);
+    // The armies and the moves are both random, and in this variant one move can
+    // end the game: a king in check with no rescuing move loses. On seed
+    // 1186155712 the first move this picked, Ra2xa7 with the queen on f2
+    // guarding a7, mated the king on a8, and the computer can mate a careless
+    // move as quickly. The result sheet then covers everything this scenario
+    // presses next, Undo is off in a finished game and there is no game left to
+    // resume, so a click waited out its 30 s on CI. A finished game is not what
+    // this scenario is about: it deals new armies from the sheet, as a player
+    // would, and plays the whole of it again on them.
+    const exchange = async (what) => {
+      assert(await makeAnyMove(page), what);
+      await waitHuman(page);
+      if (!(await gameOver(page))) return true;
+      await page.getByRole('dialog').getByText('New armies', { exact: true }).click();
+      await page.waitForTimeout(500);
+      return false;
+    };
+    let played = false;
+    for (let armies = 0; armies < 6 && !played; armies++) {
+      if (!(await exchange('human move played'))) continue;
+      assert((await text(page, '/^1\\. /')) !== null, 'move list shows move 1');
+      await page.locator('text=/^Hint/').click();
+      await page.waitForTimeout(2500);
+      await exact(page, 'Undo').click();
+      await page.waitForTimeout(300);
+      assert((await page.locator('text=/^1\\. /').count()) === 0, 'undo cleared the move list');
+      played = await exchange('human move after undo');
+    }
+    assert(played, 'a game still running after both exchanges within six armies');
     await page.getByText('‹ Home').click();
     await page.waitForTimeout(300);
     assert((await exact(page, 'Resume game').count()) === 1, 'resume offered');
