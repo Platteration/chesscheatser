@@ -504,6 +504,15 @@ record of what was found, and this block is a record of what was done about it.
    one with its first code).
 4. Open, by decision: no `npm audit` step. Unactioned advisories only turn CI red;
    Dependabot's security updates are the channel. Reconsider if those go unmerged.
+   Reversed (2026-09-23): Dependabot's security updates open against the default branch
+   (`claude/two-king-chess-app-k423c0`), and this work was done on
+   `claude/repo-review-security-baiyud`, so until it is merged they are no channel for it
+   at all. `ci.yml` has an `audit` job of its own running
+   `npm audit --omit=dev --audit-level=high` over the lockfile. It runs when CI does (a
+   push, a pull request or a manual run), so an advisory is reported on the first run
+   after it is published, not when it is published; a `schedule:` trigger would not
+   change that before the merge, since GitHub runs scheduled workflows on the default
+   branch only.
 5. Done: `npm ci || npm install` appears nowhere.
 6. Half: abientnoiser and simplacad have lockfiles and `npm ci`; selfreportle and
    phonogeometry deliberately keep none and install Playwright at a pinned version with

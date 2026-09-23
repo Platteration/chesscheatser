@@ -144,7 +144,8 @@ gating.
 
 CI (`.github/workflows/ci.yml`) runs the lint, the type check, the unit tests,
 the conventions test, a Metro bundle for Android and web, and the end-to-end
-suite on every push.
+suite on every push; a separate job runs
+`npm audit --omit=dev --audit-level=high` against the lockfile.
 
 ### Balance harness
 

@@ -41,3 +41,19 @@ jobs:
       - run: npx playwright install --with-deps chromium
 
       - run: npm run test:e2e
+
+  # Its own job, so that once an advisory is published against an unchanged tree the next
+  # run turns audit red and leaves check meaning what it always meant. Nothing runs it on a
+  # schedule: an advisory is reported by the next push, pull request or manual run, not
+  # when it is published. npm audit reads the lockfile: no install.
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .nvmrc
+
+      - run: npm audit --omit=dev --audit-level=high
