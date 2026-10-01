@@ -9,8 +9,10 @@ import { liveStreak, todayKey, type DailyState } from '../game/daily';
 import { ladderParams, type LadderState } from '../game/ladder';
 import { cosmeticsOfKind, describeEarn, earnProgress, unlockedCosmetics, type Cosmetic, type Progress } from '../cosmetics';
 import { useEntitlements } from '../entitlements';
-import { useSettings, type BoardTheme, type ColorSchemeSetting, type PieceStyle } from '../settings';
-import { Button, Card, Label, Segmented } from './components';
+import { APP_NAME, APP_VERSION, CHANGELOG_URL, PRIVACY_SENTENCE, PRIVACY_URL, SOURCE_URL } from '../about';
+import { confirmAction } from '../confirm';
+import { useSettings, type BoardTheme, type ColorSchemeSetting, type PieceStyle, type ReduceMotionSetting } from '../settings';
+import { Button, Card, Label, Link, Segmented, SwitchRow } from './components';
 import { BOARD_THEMES } from './theme';
 import { CHESS_FONT } from './PieceGlyph';
 import { themedStyles, useTheme } from './theme';
@@ -24,6 +26,8 @@ interface Props {
   onRanked: () => void;
   ladder: LadderState;
   onResume?: () => void;
+  /** Why the saved game is missing or shorter than it was, when there is something to say. */
+  resumeNote?: string | null;
   onRules: () => void;
   onPuzzles: () => void;
   onPro: () => void;
@@ -51,11 +55,20 @@ const MATERIAL_HINT: Record<MaterialMode, string> = {
   handicap: 'Used by the ranked ladder.',
 };
 
-export function HomeScreen({ config, onChange, onStart, onDaily, daily, onRanked, ladder, onResume, onRules, onPuzzles, onPro, onStats, puzzlesSolved, puzzleCount, stats }: Props) {
+export function HomeScreen({ config, onChange, onStart, onDaily, daily, onRanked, ladder, onResume, resumeNote, onRules, onPuzzles, onPro, onStats, puzzlesSolved, puzzleCount, stats }: Props) {
   const styles = useStyles();
   const theme = useTheme();
   const insets = useSafeAreaInsets();
-  const { settings, update } = useSettings();
+  const { settings, update, reset } = useSettings();
+  // Confirmed because there is no undo: the record is overwritten in place.
+  const onReset = () =>
+    confirmAction({
+      title: 'Reset settings?',
+      message: 'Appearance, aura, board, pieces, sound, vibration and motion go back to their defaults. Your games, record, ladder rank, daily results, puzzle progress and purchases are not touched.',
+      cancelLabel: 'Cancel',
+      confirmLabel: 'Reset',
+      onConfirm: reset,
+    });
   const { owned } = useEntitlements();
   const progress: Progress = useMemo(
     () => ({ stats, daily, ladder, puzzlesSolved }),
@@ -91,6 +104,8 @@ export function HomeScreen({ config, onChange, onStart, onDaily, daily, onRanked
       </View>
 
       {onResume && <Button title="Resume game" onPress={onResume} style={styles.resume} />}
+      {/* A saved game that was dropped or clipped says so here, rather than just not being on the menu. */}
+      {!!resumeNote && <Text style={styles.resumeNote}>{resumeNote}</Text>}
 
       <DailyCard daily={daily} onDaily={onDaily} />
       <LadderCard ladder={ladder} onRanked={onRanked} />
@@ -259,17 +274,34 @@ export function HomeScreen({ config, onChange, onStart, onDaily, daily, onRanked
           onChange={(v) => (unlocked.has(v) ? update({ pieceStyle: v }) : onPro())}
           options={cosmeticsOfKind('pieces').map((c) => ({ value: c.id as PieceStyle, label: label(c) }))}
         />
-        <Label>Feedback</Label>
-        <Segmented<'both' | 'haptics' | 'sounds' | 'none'>
-          value={settings.sounds && settings.haptics ? 'both' : settings.haptics ? 'haptics' : settings.sounds ? 'sounds' : 'none'}
-          onChange={(v) => update({ sounds: v === 'both' || v === 'sounds', haptics: v === 'both' || v === 'haptics' })}
+        <SwitchRow label="Sound" hint="Moves, captures, checks and the cheat calls." value={settings.sounds} onValueChange={(v) => update({ sounds: v })} />
+        <SwitchRow label="Vibration" hint="A tap for a move, a buzz for a capture or a check." value={settings.haptics} onValueChange={(v) => update({ haptics: v })} />
+        <Label hint="The moved piece jumps to its square instead of gliding. System follows your device's setting.">Reduce motion</Label>
+        <Segmented<ReduceMotionSetting>
+          value={settings.reduceMotion}
+          onChange={(v) => update({ reduceMotion: v })}
           options={[
-            { value: 'both', label: 'Both' },
-            { value: 'haptics', label: 'Haptics' },
-            { value: 'sounds', label: 'Sound' },
-            { value: 'none', label: 'Off' },
+            { value: 'system', label: 'System' },
+            { value: 'on', label: 'On' },
+            { value: 'off', label: 'Off' },
           ]}
         />
+        <Button title="Reset to defaults" variant="ghost" small onPress={onReset} style={styles.reset} />
+      </Card>
+
+      <Card>
+        <Text style={styles.cardTitle}>About</Text>
+        <Text style={styles.aboutName}>
+          {APP_NAME} {APP_VERSION}
+        </Text>
+        <Text style={styles.aboutText}>
+          Two kings a side, random armies, and comeback powers for whichever side is losing. Nothing leaves your device: {PRIVACY_SENTENCE.toLowerCase()}
+        </Text>
+        <View style={styles.links}>
+          <Link label="MIT licence · source" url={SOURCE_URL} />
+          <Link label="Privacy" url={PRIVACY_URL} />
+          <Link label="What's new" url={CHANGELOG_URL} />
+        </View>
       </Card>
 
       <Button title="New game with these settings" variant="secondary" onPress={onStart} style={styles.start} />
@@ -366,7 +398,12 @@ const useStyles = themedStyles((theme) => ({
   tagline: { color: theme.textMuted, textAlign: 'center', marginTop: 8, fontSize: 14, lineHeight: 20, maxWidth: 340 },
   resume: { marginBottom: 4 },
   summary: { color: theme.textMuted, fontSize: 12, textAlign: 'center', marginTop: -4 },
+  resumeNote: { color: theme.textMuted, fontSize: 12, textAlign: 'center', marginTop: -4 },
   cardTitle: { color: theme.text, fontSize: 16, fontWeight: '800' },
+  reset: { marginTop: 14, alignSelf: 'flex-start' },
+  aboutName: { color: theme.text, fontWeight: '700', fontSize: 14, marginTop: 10 },
+  aboutText: { color: theme.textMuted, fontSize: 13, lineHeight: 18, marginTop: 4 },
+  links: { flexDirection: 'row', flexWrap: 'wrap', gap: 16, marginTop: 6 },
   start: { marginTop: 8 },
   stats: { color: theme.textMuted, textAlign: 'center', marginTop: 12, fontSize: 13 },
 }));

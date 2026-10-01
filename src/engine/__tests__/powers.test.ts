@@ -16,9 +16,9 @@ describe('power levels', () => {
     expect(powerLevelFor(POWER_THRESHOLDS[1] - 1)).toBe(0);
     // Every threshold is the exact point its level begins, and they only rise.
     for (let l = 1; l <= MAX_POWER; l++) {
-      expect(powerLevelFor(POWER_THRESHOLDS[l])).toBe(l);
-      expect(powerLevelFor(POWER_THRESHOLDS[l] - 1)).toBe(l - 1);
-      expect(POWER_THRESHOLDS[l]).toBeGreaterThan(POWER_THRESHOLDS[l - 1]);
+      expect(powerLevelFor(POWER_THRESHOLDS[l]!)).toBe(l);
+      expect(powerLevelFor(POWER_THRESHOLDS[l]! - 1)).toBe(l - 1);
+      expect(POWER_THRESHOLDS[l]).toBeGreaterThan(POWER_THRESHOLDS[l - 1]!);
     }
     expect(powerLevelFor(500_000)).toBe(MAX_POWER);
     // There is a threshold for every level a side can reach.
@@ -161,13 +161,13 @@ describe('power tags and drafting', () => {
     const { TAGS_FOR_LEVEL, POWER_SPECS } = await import('../powers');
     for (let level = 0; level <= 4; level++) {
       const expected = POWER_SPECS.filter((s) => s.tier <= level).map((s) => s.tag);
-      expect([...TAGS_FOR_LEVEL[level]]).toEqual(expected);
+      expect([...TAGS_FOR_LEVEL[level]!]).toEqual(expected);
     }
     // A numeric level and its tag set generate the same moves.
     const p = new Position(boardFromString('k6k/8/8/3p4/3P4/7Q/P7/R1B1K1N1'), 'w');
     for (let level = 1; level <= 4; level++) {
       const byLevel = powerMoves(p, level).map((m) => `${m.from}:${m.to}:${m.promotion ?? ''}`).sort();
-      const byTags = powerMoves(p, TAGS_FOR_LEVEL[level]).map((m) => `${m.from}:${m.to}:${m.promotion ?? ''}`).sort();
+      const byTags = powerMoves(p, TAGS_FOR_LEVEL[level]!).map((m) => `${m.from}:${m.to}:${m.promotion ?? ''}`).sort();
       expect(byTags).toEqual(byLevel);
     }
   });
@@ -194,7 +194,7 @@ describe('power tags and drafting', () => {
     expect(first.every((t) => POWER_SPECS.find((s) => s.tag === t)!.tier === 1)).toBe(true);
     expect(offerPowers([], 1, 42)).toEqual(first); // same seed, same offer
     // Owning one tier-1 power leaves it out of the next offer.
-    const second = offerPowers([first[0]], 2, 7);
+    const second = offerPowers([first[0]!], 2, 7);
     expect(second).not.toContain(first[0]);
     expect(second).toHaveLength(3);
     // Every tag eventually becomes offerable, and nothing above the level does.

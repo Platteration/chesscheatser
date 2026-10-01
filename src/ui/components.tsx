@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Linking, Platform, Pressable, StyleSheet, Switch, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import { themedStyles, useTheme } from './theme';
 
 interface ButtonProps {
@@ -18,6 +18,8 @@ export function Button({ title, onPress, variant = 'primary', disabled, style, s
     <Pressable
       onPress={onPress}
       disabled={disabled}
+      accessibilityRole="button"
+      accessibilityState={{ disabled: !!disabled }}
       style={({ pressed }) => [
         styles.button,
         small && styles.buttonSmall,
@@ -70,6 +72,61 @@ export function Segmented<T extends string>({ options, value, onChange }: Segmen
         );
       })}
     </View>
+  );
+}
+
+interface SwitchRowProps {
+  label: string;
+  hint?: string;
+  value: boolean;
+  onValueChange: (v: boolean) => void;
+}
+
+/** A labelled on/off row. The switch carries the row's label, so a screen reader names it. */
+export function SwitchRow({ label, hint, value, onValueChange }: SwitchRowProps) {
+  const styles = useStyles();
+  const theme = useTheme();
+  return (
+    <View style={styles.switchRow}>
+      <View style={styles.switchText}>
+        <Text style={styles.label}>{label}</Text>
+        {hint ? <Text style={styles.hint}>{hint}</Text> : null}
+      </View>
+      <Switch
+        value={value}
+        onValueChange={onValueChange}
+        accessibilityLabel={label}
+        trackColor={{ true: theme.accent, false: theme.border }}
+      />
+    </View>
+  );
+}
+
+/**
+ * The address belongs on the element on the web: react-native-web renders any
+ * View carrying `href` as a real `<a>`, so the browser gives back what a
+ * handler-only link takes away — open in a new tab, copy link address, the
+ * status-bar preview, middle click — to an element already announced as a link.
+ * The anchor navigates by itself there, so the press handler is left off: an
+ * `openURL` beside it would open the address a second time. Everywhere else
+ * there is no anchor, and `openURL` hands the address to the system browser,
+ * which rejects when nothing answers the intent, hence the catch.
+ * Either way the app opens nothing itself and needs no network permission.
+ */
+export function Link({ label, url }: { label: string; url: string }) {
+  const styles = useStyles();
+  const anchor: { href?: string; hrefAttrs?: { target: string; rel: string } } =
+    Platform.OS === 'web' ? { href: url, hrefAttrs: { target: '_blank', rel: 'noreferrer' } } : {};
+  return (
+    <Pressable
+      accessibilityRole="link"
+      {...anchor}
+      onPress={Platform.OS === 'web' ? undefined : () => Linking.openURL(url).catch(() => {})}
+      hitSlop={8}
+      style={({ pressed }) => [styles.link, pressed && styles.pressed]}
+    >
+      <Text style={styles.linkText}>{label}</Text>
+    </Pressable>
   );
 }
 
@@ -128,6 +185,10 @@ const useStyles = themedStyles((theme) => ({
   labelRow: { marginBottom: 6, marginTop: 14 },
   label: { color: theme.text, fontWeight: '700', fontSize: 14, letterSpacing: 0.3 },
   hint: { color: theme.textMuted, fontSize: 12, marginTop: 2 },
+  switchRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 14 },
+  switchText: { flex: 1 },
+  link: { paddingVertical: 6 },
+  linkText: { color: theme.accent, fontWeight: '700', fontSize: 14 },
   card: {
     backgroundColor: theme.surface,
     borderRadius: theme.radius,

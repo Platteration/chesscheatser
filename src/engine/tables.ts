@@ -1,7 +1,11 @@
 import { offset } from './board';
 import type { Color } from './types';
 
-/** Precomputed geometry so move generation and attack checks avoid per-call arithmetic. */
+/**
+ * Precomputed geometry so move generation and attack checks avoid per-call arithmetic.
+ * Every table has one entry per square (64), and RAYS one ray per direction (8),
+ * so a lookup by a board square or a direction index cannot miss.
+ */
 
 const KNIGHT_OFFSETS: [number, number][] = [
   [1, 2], [2, 1], [2, -1], [1, -2], [-1, -2], [-2, -1], [-2, 1], [-1, 2],

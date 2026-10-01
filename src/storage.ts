@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+/** Every key the app writes. The error boundary's last resort clears all but `KEPT_ON_CLEAR`, so none may be missing. */
 export const STORAGE_KEYS = {
   settings: 'twokings.settings.v1',
   game: 'twokings.game.v1',
@@ -7,6 +8,8 @@ export const STORAGE_KEYS = {
   daily: 'twokings.daily.v1',
   ladder: 'twokings.ladder.v1',
   puzzles: 'twokings.puzzles.v1',
+  appsettings: 'twokings.appsettings.v1',
+  entitlements: 'twokings.entitlements.v1',
 } as const;
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -23,7 +26,11 @@ export async function loadJSON<T>(key: string, fallback: T): Promise<T> {
     const raw = await AsyncStorage.getItem(key);
     if (!raw) return fallback;
     const parsed = safeParse<unknown>(raw);
-    return isRecord(parsed) && isRecord(fallback) ? { ...fallback, ...parsed } : fallback;
+    if (!isRecord(parsed)) return fallback;
+    // Defaults are spread under a record only when there are defaults: the saved
+    // game's fallback is null, and returning the fallback there made every stored
+    // game read back as "none", so Resume never appeared after a restart.
+    return (isRecord(fallback) ? { ...fallback, ...parsed } : parsed) as T;
   } catch {
     return fallback;
   }
@@ -43,4 +50,23 @@ export async function remove(key: string): Promise<void> {
   } catch {
     // ignore
   }
+}
+
+/**
+ * The one record the error boundary's last resort does not touch. It is not the
+ * app's own state: it records a purchase, and a render crash in a stats or
+ * daily record is no reason to revoke one. It cannot be the thing that fails
+ * either — `cleanEntitlements` reduces whatever is stored to a list of known
+ * product ids — so keeping it costs the recovery nothing. The bundled store's
+ * `restore()` returns nothing, so on today's build erasing it would simply lose
+ * the unlock.
+ */
+export const KEPT_ON_CLEAR: readonly string[] = [STORAGE_KEYS.entitlements];
+
+/** Everything `clearAll` drops. Every key is either here or in `KEPT_ON_CLEAR`; a test checks that. */
+export const CLEARED_KEYS: readonly string[] = Object.values(STORAGE_KEYS).filter((key) => !KEPT_ON_CLEAR.includes(key));
+
+/** Drops the records the app keeps: the error boundary's last way out when one of them cannot be shown. */
+export async function clearAll(): Promise<void> {
+  await Promise.all(CLEARED_KEYS.map(remove));
 }

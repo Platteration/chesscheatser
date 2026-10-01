@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { boardFromString, parseSquare, squareName } from '../board';
+import { evaluate } from '../ai';
 import { cheatCandidates, chooseAction, chooseCheat } from '../cheat';
 import { hashPosition, Position } from '../position';
 import { createRng } from '../random';
@@ -94,6 +95,46 @@ describe('chooseCheat / chooseAction', () => {
       expect(pos.allKingsInCheck(me)).toBe(false);
       expect(pos.result().kind).toBe('ongoing');
       pos.unmakeMove();
+    }
+  });
+
+  it('picks a cheat whose static value is the best available, not merely a legal-looking one', () => {
+    // The scan scores candidates on the cheap signals and only asks for the full
+    // game result until one survives, so the choice must still be the best
+    // playable cheat. The bound is derived from the raw evaluation rather than
+    // the scores the function itself computed: the jitter it adds spans 30.
+    for (let seed = 1; seed <= 25; seed++) {
+      const pos = new Position(generateSetup({ mode: 'chaos', seed }).board);
+      const rng = createRng(seed);
+      for (let i = 0; i < 4; i++) {
+        const legal = pos.legalMoves();
+        if (!legal.length || pos.result().kind !== 'ongoing') break;
+        pos.makeMove(rng.pick(legal));
+      }
+      if (pos.result().kind !== 'ongoing') continue;
+      const me = pos.turn;
+      const choice = chooseCheat(pos, createRng(seed));
+
+      // Best raw evaluation among the candidates that were allowed to be chosen.
+      let bestRaw = -Infinity;
+      let playable = 0;
+      for (const m of cheatCandidates(pos)) {
+        pos.makeMove(m);
+        if (!pos.allKingsInCheck(me) && pos.result().kind === 'ongoing') {
+          playable++;
+          bestRaw = Math.max(bestRaw, -evaluate(pos));
+        }
+        pos.unmakeMove();
+      }
+      if (!playable) {
+        expect(choice).toBeNull();
+        continue;
+      }
+      expect(choice).not.toBeNull();
+      pos.makeMove(choice!.move);
+      const raw = -evaluate(pos);
+      pos.unmakeMove();
+      expect(bestRaw - raw).toBeLessThanOrEqual(30);
     }
   });
 

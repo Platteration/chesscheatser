@@ -127,19 +127,12 @@ row on the home screen.
 `src/entitlements.tsx` keeps the store behind a `StoreProvider` interface. The
 bundled provider is a **local mock** (purchases recorded on the device only);
 swap in `react-native-iap` / `expo-iap` with real App Store and Google Play
-products before release.
+products before release. `EntitlementsProvider` takes its store as a required
+prop, so the mock is always named at the mount site rather than shipped by
+default, and the mock's prices read "free in this build" rather than a
+currency amount, because the public web build serves it and takes no payment.
 
-## Tech
-
-- [Expo](https://expo.dev) SDK 57 / React Native, TypeScript. No native code to maintain.
-- `src/engine`: a self-contained chess engine written for this variant
-  (move generation, two-king rules, seeded army generator, and an alpha-beta
-  search with quiescence, a transposition table, killer moves and a history
-  heuristic, driven by iterative deepening under a time budget).
-- `src/game`: event-sourced game controller (moves, passes, accusations), undo and persistence.
-- `src/ui`: screens and board rendering.
-
-## Running
+## Running it
 
 ```sh
 npm install
@@ -149,6 +142,8 @@ npm run ios        # open on the iOS simulator (macOS)
 npm run web        # run in the browser
 ```
 
+### Native builds
+
 Store builds use EAS (requires an Expo account); profiles live in `eas.json`:
 
 ```sh
@@ -156,11 +151,21 @@ npx eas build --profile preview --platform android   # installable APK
 npx eas build --profile production --platform ios
 ```
 
-CI (`.github/workflows/ci.yml`) runs the type check, the unit tests, a Metro
-bundle for Android and web, and the end-to-end suite on every push.
+### Deploy
+
+`.github/workflows/pages.yml` publishes the web build to GitHub Pages once
+Pages is enabled for the repository (Settings → Pages → GitHub Actions).
+
+## Development
 
 ```sh
-npm run e2e        # export the web build and drive it in headless Chromium
+npm run lint              # eslint . (Expo's preset; warnings are advice, errors fail)
+npm run typecheck
+npm test                  # engine unit tests (perft, two-king rules, setup generator, AI)
+npm run test:conventions  # the repository's shape against CONVENTIONS.md
+npm run check             # the four above: the gate before a push
+npm run test:e2e          # export the web build and drive it in headless Chromium
+npm run test:all          # npm test, then the e2e suite
 ```
 
 The e2e suite (`e2e/run.mjs`) plays real games through the UI: settings,
@@ -173,7 +178,12 @@ locator it waited on and why), the helper it was in and the app's state
 `.github/workflows/pages.yml` publishes the web build to GitHub Pages
 once Pages is enabled for the repository (Settings → Pages → GitHub Actions).
 
-## Balance harness
+CI (`.github/workflows/ci.yml`) runs the lint, the type check, the unit tests,
+the conventions test, a Metro bundle for Android and web, and the end-to-end
+suite on every push; a separate job runs
+`npm audit --omit=dev --audit-level=high` against the lockfile.
+
+### Balance harness
 
 ```sh
 npx tsx scripts/simulate.ts 12 medium fair            # games, difficulty, army mode
@@ -189,9 +199,16 @@ drafting): games run about 56 plies and the weaker starting side wins 8/15 with
 powers, against 5/14 with them off. If a tuning change pushes that first number
 much below half, the draft has stopped doing its job.
 
-## Tests
+## Project layout
 
-```sh
-npm test           # engine unit tests (perft, two-king rules, setup generator, AI)
-npm run typecheck
-```
+- [Expo](https://expo.dev) SDK 57 / React Native, TypeScript. No native code to maintain.
+- `src/engine`: a self-contained chess engine written for this variant
+  (move generation, two-king rules, seeded army generator, and an alpha-beta
+  search with quiescence, a transposition table, killer moves and a history
+  heuristic, driven by iterative deepening under a time budget).
+- `src/game`: event-sourced game controller (moves, passes, accusations), undo and persistence.
+- `src/ui`: screens and board rendering.
+
+## License
+
+MIT — see [LICENSE](LICENSE).

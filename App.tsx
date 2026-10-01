@@ -1,7 +1,7 @@
 import { useFonts } from 'expo-font';
 import { StatusBar } from 'expo-status-bar';
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, BackHandler, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { DEFAULT_CONFIG, EMPTY_STATS, type GameConfig, type SavedGame, type Stats } from './src/game/config';
 import { DAILY_CONFIG, dailySeed, EMPTY_DAILY, recordDaily, todayKey, type DailyState } from './src/game/daily';
@@ -9,15 +9,19 @@ import { applyLadderResult, EMPTY_LADDER, ladderConfig, ladderParams, type Ladde
 import { EMPTY_PUZZLE_PROGRESS, loadPuzzles, type PuzzleProgress } from './src/game/puzzles';
 import { PuzzleScreen } from './src/ui/PuzzleScreen';
 import type { StartOptions } from './src/game/useGame';
-import { loadJSON, remove, saveJSON, STORAGE_KEYS } from './src/storage';
-import { COMEBACK_THRESHOLD, GameScreen, type GameOutcome } from './src/ui/GameScreen';
+import { clearAll, loadJSON, remove, saveJSON, STORAGE_KEYS } from './src/storage';
+import { applyOutcome, NEW_GAME_PROMPT, type GameOutcome } from './src/game/flow';
+import { confirmAction } from './src/confirm';
+import { checkSavedGame, cleanConfig, cleanDaily, cleanLadder, cleanPuzzleProgress, cleanStats, savedGameNote } from './src/validate';
+import { FRESH, onRenderFailed, recoveryScreen, recoveryStep, SETTLE_MS, type RecoveryActionId, type RecoverySignal, type RecoveryState } from './src/recovery';
+import { GameScreen } from './src/ui/GameScreen';
 import { HomeScreen } from './src/ui/HomeScreen';
 import { RulesScreen } from './src/ui/RulesScreen';
-import { EntitlementsProvider } from './src/entitlements';
+import { EntitlementsProvider, mockStore } from './src/entitlements';
 import { SettingsProvider, useSettings } from './src/settings';
 import { ProScreen } from './src/ui/ProScreen';
 import { StatsScreen } from './src/ui/StatsScreen';
-import { useTheme } from './src/ui/theme';
+import { theme as staticTheme, useTheme } from './src/ui/theme';
 
 type Screen =
   | { name: 'home' }
@@ -31,14 +35,106 @@ const PUZZLES = loadPuzzles();
 
 export default function App() {
   return (
-    <SettingsProvider>
-      <EntitlementsProvider>
-        <SafeAreaProvider>
-          <Root />
-        </SafeAreaProvider>
-      </EntitlementsProvider>
-    </SettingsProvider>
+    <ErrorBoundary>
+      <SettingsProvider>
+        <EntitlementsProvider store={mockStore}>
+          <SafeAreaProvider>
+            <Root />
+          </SafeAreaProvider>
+        </EntitlementsProvider>
+      </SettingsProvider>
+    </ErrorBoundary>
   );
+}
+
+/**
+ * Without this, one throw during render takes the whole app down: a blank page
+ * on the web build, a crash on device, and no way back because the record that
+ * caused it is still stored. Several throw sites run during render (the setup
+ * builder and the event fold both run inside hooks), so the recovery offered
+ * here is the one that fixes those: drop the saved game and start over.
+ * Deliberately dependency-free, and it uses the static theme because the
+ * providers it wraps may be exactly what failed.
+ *
+ * What it offers is decided in `src/recovery.ts` and only rendered here, so the
+ * two cannot drift: the gentle recovery is always on the screen and always
+ * first, and erasing the records is offered only when the app has not managed a
+ * render since the last recovery — and then only after a confirmation.
+ */
+class ErrorBoundary extends React.Component<{ children: React.ReactNode }, RecoveryState> {
+  state: RecoveryState = FRESH;
+
+  static getDerivedStateFromError() {
+    return onRenderFailed();
+  }
+
+  private signal = (signal: RecoverySignal) => {
+    const { state, effect } = recoveryStep(this.state, signal);
+    if (effect === 'drop-game') void remove(STORAGE_KEYS.game);
+    else if (effect === 'clear-records') void clearAll();
+    this.setState(state);
+  };
+
+  private settled = () => this.signal({ type: 'settled' });
+  private choose = (action: RecoveryActionId) => this.signal({ type: 'chose', action });
+
+  render() {
+    if (!this.state.failed) {
+      return (
+        <React.Fragment key={this.state.generation}>
+          {this.props.children}
+          <SettleBeacon onSettled={this.settled} />
+        </React.Fragment>
+      );
+    }
+    const screen = recoveryScreen(this.state);
+    return (
+      <View style={[styles.failed, { backgroundColor: staticTheme.bg }]}>
+        <Text style={[styles.failedTitle, { color: staticTheme.text }]}>{screen.title}</Text>
+        <Text style={[styles.failedText, { color: staticTheme.textMuted }]}>{screen.body}</Text>
+        {screen.actions.map((action) => (
+          <Pressable
+            key={action.id}
+            accessibilityRole="button"
+            onPress={() => this.choose(action.id)}
+            style={({ pressed }) => [
+              styles.failedButton,
+              action.destructive
+                ? { borderColor: staticTheme.danger, borderWidth: 1 }
+                : { backgroundColor: staticTheme.accent },
+              { opacity: pressed ? 0.7 : 1 },
+            ]}
+          >
+            <Text style={[styles.failedButtonText, { color: action.destructive ? staticTheme.danger : staticTheme.accentText }]}>
+              {action.label}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+    );
+  }
+}
+
+/**
+ * Signals that the app rendered and stayed up. It mounts only once the whole
+ * subtree has committed — a throw anywhere in it aborts the commit, so this
+ * never fires for a render that failed — and the wait is what separates "the
+ * recovery worked" from "it came straight back up and fell over again".
+ */
+class SettleBeacon extends React.Component<{ onSettled: () => void }> {
+  private timer: ReturnType<typeof setTimeout> | null = null;
+
+  componentDidMount() {
+    this.timer = setTimeout(this.props.onSettled, SETTLE_MS);
+  }
+
+  componentWillUnmount() {
+    if (this.timer !== null) clearTimeout(this.timer);
+  }
+
+  render() {
+    return null;
+  }
 }
 
 function Root() {
@@ -53,23 +149,36 @@ function Root() {
   const [ladder, setLadder] = useState<LadderState>(EMPTY_LADDER);
   const [puzzleProgress, setPuzzleProgress] = useState<PuzzleProgress>(EMPTY_PUZZLE_PROGRESS);
   const [screen, setScreen] = useState<Screen>({ name: 'home' });
+  /** Why the saved game is missing or shorter than it was, shown where Resume is. */
+  const [resumeNote, setResumeNote] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
       const [cfg, game, st, dy, ld, pz] = await Promise.all([
-        loadJSON<GameConfig>(STORAGE_KEYS.settings, DEFAULT_CONFIG),
-        loadJSON<SavedGame | null>(STORAGE_KEYS.game, null),
-        loadJSON<Stats>(STORAGE_KEYS.stats, EMPTY_STATS),
-        loadJSON<DailyState>(STORAGE_KEYS.daily, EMPTY_DAILY),
-        loadJSON<LadderState>(STORAGE_KEYS.ladder, EMPTY_LADDER),
-        loadJSON<PuzzleProgress>(STORAGE_KEYS.puzzles, EMPTY_PUZZLE_PROGRESS),
+        loadJSON<unknown>(STORAGE_KEYS.settings, DEFAULT_CONFIG),
+        loadJSON<unknown>(STORAGE_KEYS.game, null),
+        loadJSON<unknown>(STORAGE_KEYS.stats, EMPTY_STATS),
+        loadJSON<unknown>(STORAGE_KEYS.daily, EMPTY_DAILY),
+        loadJSON<unknown>(STORAGE_KEYS.ladder, EMPTY_LADDER),
+        loadJSON<unknown>(STORAGE_KEYS.puzzles, EMPTY_PUZZLE_PROGRESS),
       ]);
-      setDaily(dy);
-      setLadder(ld);
-      setPuzzleProgress(pz);
-      setConfig(cfg);
-      setSaved(game && Array.isArray(game.events) && typeof game.seed === 'number' ? game : null);
-      setStats(st);
+      // Every one of these is clamped: loadJSON only spreads the defaults under
+      // whatever was stored, so a `results` or `solved` that is not what it
+      // claims to be reaches the first render and throws there.
+      setDaily(cleanDaily(dy));
+      setLadder(cleanLadder(ld));
+      setPuzzleProgress(cleanPuzzleProgress(pz));
+      setConfig(cleanConfig(cfg));
+      // A record that cannot be replayed is dropped rather than left to crash
+      // Resume on this launch and every launch after it — but never without
+      // saying so: a game that is simply gone from the menu is indistinguishable
+      // from a bug, and an over-long one keeps everything up to the cap.
+      const check = checkSavedGame(game);
+      const resumable = check.game;
+      if (!resumable && game) void remove(STORAGE_KEYS.game);
+      setSaved(resumable);
+      setResumeNote(savedGameNote(game, check));
+      setStats(cleanStats(st));
       setReady(true);
     })();
   }, []);
@@ -87,21 +196,7 @@ function Root() {
 
   const onFinished = useCallback((o: GameOutcome) => {
     setStats((s) => {
-      const next: Stats = {
-        ...s,
-        wins: s.wins + (o.outcome === 'win' ? 1 : 0),
-        losses: s.losses + (o.outcome === 'loss' ? 1 : 0),
-        draws: s.draws + (o.outcome === 'draw' ? 1 : 0),
-        cheatsCaught: s.cheatsCaught + o.cheatsCaught,
-        cheatsMissed: s.cheatsMissed + o.cheatsMissed,
-        falseAccusations: s.falseAccusations + o.falseAccusations,
-        ownCheats: s.ownCheats + o.ownCheats,
-        ownCheatsCaught: s.ownCheatsCaught + o.ownCheatsCaught,
-        gamesPlayed: s.gamesPlayed + 1,
-        biggestComeback: o.outcome === 'win' ? Math.max(s.biggestComeback, o.comebackFrom) : s.biggestComeback,
-        comebackWins:
-          s.comebackWins + (o.outcome === 'win' && o.comebackFrom >= COMEBACK_THRESHOLD ? 1 : 0),
-      };
+      const next = applyOutcome(s, o);
       void saveJSON(STORAGE_KEYS.stats, next);
       return next;
     });
@@ -121,47 +216,70 @@ function Root() {
     }
   }, []);
 
+  // Every game opens through here, so the note about the record that was
+  // dropped or clipped cannot outlive the screen it belongs to.
+  const openGame = useCallback((start: StartOptions) => {
+    setResumeNote(null);
+    setScreen({ name: 'game', start, key: Date.now() });
+  }, []);
+
+  // A *new* game replaces the saved one: GameScreen autosaves as soon as it
+  // mounts, so the game someone left half-played is overwritten before their
+  // first move, and there is one slot and no undo. Asked only when there is
+  // something to lose — with nothing saved, Play is still one tap. Resume goes
+  // straight to `openGame`: it is the saved game, not a replacement for it.
+  const startGame = useCallback(
+    (start: StartOptions) => {
+      if (!saved) {
+        openGame(start);
+        return;
+      }
+      confirmAction({ ...NEW_GAME_PROMPT, onConfirm: () => openGame(start) });
+    },
+    [saved, openGame],
+  );
+
   const startRanked = useCallback(() => {
     const rank = ladder.rank;
-    setScreen({
-      name: 'game',
-      start: { config: ladderConfig(rank), humanColor: 'w', ranked: rank, handicap: ladderParams(rank).handicap },
-      key: Date.now(),
-    });
-  }, [ladder.rank]);
+    startGame({ config: ladderConfig(rank), humanColor: 'w', ranked: rank, handicap: ladderParams(rank).handicap });
+  }, [ladder.rank, startGame]);
 
   const startDaily = useCallback(() => {
     const date = todayKey();
-    setScreen({
-      name: 'game',
-      start: { config: DAILY_CONFIG, seed: dailySeed(date), humanColor: 'w', daily: date },
-      key: Date.now(),
-    });
-  }, []);
+    startGame({ config: DAILY_CONFIG, seed: dailySeed(date), humanColor: 'w', daily: date });
+  }, [startGame]);
 
   const startNew = useCallback(() => {
-    setScreen({ name: 'game', start: { config }, key: Date.now() });
-  }, [config]);
+    startGame({ config });
+  }, [config, startGame]);
 
   const resume = useCallback(() => {
     if (!saved) return;
-    setScreen({
-      name: 'game',
-      start: {
-        config: saved.config,
-        seed: saved.seed,
-        humanColor: saved.humanColor,
-        events: saved.events,
-        daily: saved.daily,
-        ranked: saved.ranked,
-        handicap: saved.handicap ?? (saved.ranked ? ladderParams(saved.ranked).handicap : undefined),
-        clocks: saved.clocks,
-      },
-      key: Date.now(),
+    openGame({
+      config: saved.config,
+      seed: saved.seed,
+      humanColor: saved.humanColor,
+      events: saved.events,
+      daily: saved.daily,
+      ranked: saved.ranked,
+      handicap: saved.handicap ?? (saved.ranked ? ladderParams(saved.ranked).handicap : undefined),
+      clocks: saved.clocks,
     });
-  }, [saved]);
+  }, [saved, openGame]);
 
   const goHome = useCallback(() => setScreen({ name: 'home' }), []);
+
+  // Android's back gesture has no router to fall back on: without this it
+  // finishes the activity, so back on any screen closes the app.
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (screen.name === 'home') return false; // let the system close the app
+      setScreen({ name: 'home' });
+      return true;
+    });
+    return () => sub.remove();
+  }, [screen.name]);
 
   const onPuzzleSolved = useCallback((id: string) => {
     setPuzzleProgress((p) => {
@@ -217,6 +335,7 @@ function Root() {
         onRanked={startRanked}
         ladder={ladder}
         onResume={saved ? resume : undefined}
+        resumeNote={resumeNote}
         onRules={() => setScreen({ name: 'rules' })}
         onPuzzles={() => setScreen({ name: 'puzzles' })}
         onPro={() => setScreen({ name: 'pro' })}
@@ -239,4 +358,9 @@ function Root() {
 const styles = StyleSheet.create({
   root: { flex: 1 },
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  failed: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 12 },
+  failedTitle: { fontSize: 20, fontWeight: '800' },
+  failedText: { fontSize: 14, lineHeight: 20, textAlign: 'center' },
+  failedButton: { paddingVertical: 12, paddingHorizontal: 20, borderRadius: 12 },
+  failedButtonText: { fontWeight: '700' },
 });

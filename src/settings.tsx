@@ -1,46 +1,30 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { DEFAULT_AURA } from './cosmetics';
+import { DEFAULT_SETTINGS, resetSettings, type AppSettings } from './appSettings';
 import { setHapticsEnabled } from './haptics';
 import { setSoundsEnabled } from './sounds';
-import { loadJSON, saveJSON } from './storage';
+import { loadJSON, saveJSON, STORAGE_KEYS } from './storage';
+import { cleanSettings } from './validate';
 
-export type ColorSchemeSetting = 'system' | 'dark' | 'light';
-export type BoardTheme = 'wood' | 'marble' | 'slate' | 'neon' | 'tournament';
-export type PieceStyle = 'solid' | 'classic';
+// The record's shape is declared in `appSettings.ts`, which stays free of React
+// Native so the tests can import it; everything that reads settings still
+// imports from here.
+export { DEFAULT_SETTINGS } from './appSettings';
+export type { AppSettings, BoardTheme, ColorSchemeSetting, PieceStyle, ReduceMotionSetting } from './appSettings';
 
-export interface AppSettings {
-  colorScheme: ColorSchemeSetting;
-  boardTheme: BoardTheme;
-  pieceStyle: PieceStyle;
-  sounds: boolean;
-  haptics: boolean;
-  /** Which comeback aura recolours the powered board frame and meter. */
-  aura: string;
-  /** The first-game explanation has been dismissed. */
-  seenIntro: boolean;
-}
-
-export const DEFAULT_SETTINGS: AppSettings = {
-  colorScheme: 'system',
-  boardTheme: 'wood',
-  pieceStyle: 'solid',
-  sounds: true,
-  haptics: true,
-  aura: DEFAULT_AURA,
-  seenIntro: false,
-};
-
-const KEY = 'twokings.appsettings.v1';
+const KEY = STORAGE_KEYS.appsettings;
 
 interface SettingsContextValue {
   settings: AppSettings;
   update: (patch: Partial<AppSettings>) => void;
+  /** Back to DEFAULT_SETTINGS, keeping `seenIntro`; the caller confirms first. */
+  reset: () => void;
   loaded: boolean;
 }
 
 const SettingsContext = createContext<SettingsContextValue>({
   settings: DEFAULT_SETTINGS,
   update: () => {},
+  reset: () => {},
   loaded: false,
 });
 
@@ -49,8 +33,10 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    loadJSON<AppSettings>(KEY, DEFAULT_SETTINGS).then((s) => {
-      setSettings(s);
+    // Clamped on the way in: an unknown boardTheme or colorScheme would make
+    // the theme tables return undefined and throw on every render.
+    loadJSON<unknown>(KEY, DEFAULT_SETTINGS).then((s) => {
+      setSettings(cleanSettings(s, DEFAULT_SETTINGS));
       setLoaded(true);
     });
   }, []);
@@ -63,10 +49,18 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  const reset = useCallback(() => {
+    setSettings((prev) => {
+      const next = resetSettings(prev);
+      void saveJSON(KEY, next);
+      return next;
+    });
+  }, []);
+
   useEffect(() => setHapticsEnabled(settings.haptics), [settings.haptics]);
   useEffect(() => setSoundsEnabled(settings.sounds), [settings.sounds]);
 
-  const value = useMemo(() => ({ settings, update, loaded }), [settings, update, loaded]);
+  const value = useMemo(() => ({ settings, update, reset, loaded }), [settings, update, reset, loaded]);
   return <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>;
 }
 

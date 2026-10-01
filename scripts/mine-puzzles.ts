@@ -84,8 +84,8 @@ for (let seed = baseSeed; !done() && seed < baseSeed + 20000; seed++) {
     // Immediate wins: require exactly one winning move so the puzzle has a unique answer.
     const doubles = winningMoves(pos, legal, 'both-in-check');
     const mates = winningMoves(pos, legal, 'checkmate');
-    if (doubles.length === 1 && mates.length === 0 && ply >= 4) record('double-1', pos, moveToString(doubles[0]));
-    else if (mates.length === 1 && doubles.length === 0 && ply >= 4) record('mate-1', pos, moveToString(mates[0]));
+    if (doubles.length === 1 && mates.length === 0 && ply >= 4) record('double-1', pos, moveToString(doubles[0]!));
+    else if (mates.length === 1 && doubles.length === 0 && ply >= 4) record('mate-1', pos, moveToString(mates[0]!));
     else if (doubles.length === 0 && mates.length === 0 && ply >= 6 && found['win-2'].length < win2Count && rng.next() < 0.3) {
       const winner = uniqueWinInTwo(pos, legal);
       if (winner) record('win-2', pos, winner);

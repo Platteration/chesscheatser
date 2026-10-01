@@ -8,6 +8,7 @@ import type { Color, Move, PieceType, Square } from '../engine/types';
 import type { GameConfig, SavedGame } from '../game/config';
 import { blend } from '../game/comeback';
 import { shareText, type DailyRecord } from '../game/daily';
+import { canUndo, COMEBACK_THRESHOLD, reportKey, type GameOutcome } from '../game/flow';
 import { useGame, type GameState, type StartOptions } from '../game/useGame';
 import { Board } from './Board';
 import { Button } from './components';
@@ -17,6 +18,7 @@ import { useSettings } from '../settings';
 import { haptics } from '../haptics';
 import { playSound } from '../sounds';
 import { PowerDraftPicker } from './PowerDraftPicker';
+import { pickerChoices, type PendingPick } from './picker';
 import { PromotionPicker } from './PromotionPicker';
 import { themedStyles, useTheme } from './theme';
 
@@ -30,22 +32,9 @@ interface Props {
   onPro?: () => void;
 }
 
-export interface GameOutcome {
-  outcome: 'win' | 'loss' | 'draw';
-  moves: number;
-  cheatsCaught: number;
-  cheatsMissed: number;
-  falseAccusations: number;
-  ownCheats: number;
-  ownCheatsCaught: number;
-  /** Largest deficit the human sat at during this game, in centipawns. */
-  comebackFrom: number;
-  daily: string | null;
-  ranked: number | null;
-}
+export type { GameOutcome };
 
-/** A win from at least this far behind counts as a comeback worth celebrating. */
-export const COMEBACK_THRESHOLD = 350;
+export { COMEBACK_THRESHOLD };
 
 const COLOR_NAME: Record<Color, string> = { w: 'White', b: 'Black' };
 const DIFFICULTY_LABEL = { easy: 'Easy', medium: 'Medium', hard: 'Hard' } as const;
@@ -61,7 +50,7 @@ export function GameScreen({ start, onExit, onSave, onFinished, dailyStreak = 0,
   const [hint, setHint] = useState<Move | null>(null);
   const [selected, setSelected] = useState<Square | null>(null);
   /** A pending choice: pawn promotion, an optional "arrive as queen" upgrade, or which captured piece to bring back. */
-  const [pendingPromotion, setPendingPromotion] = useState<{ from: Square; to: Square; kind: 'promote' | 'upgrade' | 'resurrect' } | null>(null);
+  const [pendingPromotion, setPendingPromotion] = useState<PendingPick | null>(null);
   const [flipped, setFlipped] = useState<boolean | null>(null);
   const [showResult, setShowResult] = useState(true);
   const { width, height } = useWindowDimensions();
@@ -78,7 +67,7 @@ export function GameScreen({ start, onExit, onSave, onFinished, dailyStreak = 0,
   // Report the outcome exactly once per finished game (vs computer only).
   useEffect(() => {
     if (!state.gameOver || state.config.mode !== 'ai') return;
-    const key = `${state.gameId}:${state.setup.seed}:${state.moves.length}:${state.resigned ?? ''}:${state.flagged ?? ''}`;
+    const key = reportKey(state);
     if (reported.current === key) return;
     reported.current = key;
     onFinished(outcomeOf(state));
@@ -148,7 +137,8 @@ export function GameScreen({ start, onExit, onSave, onFinished, dailyStreak = 0,
   const [viewPly, setViewPly] = useState<number | null>(null);
   useEffect(() => setViewPly(null), [state.moves.length]);
   const reviewing = viewPly !== null && viewPly < state.boards.length - 1;
-  const shownBoard = reviewing ? state.boards[viewPly] : state.board;
+  // The scrubber only ever sets viewPly within 0..boards.length - 1.
+  const shownBoard = reviewing ? state.boards[viewPly]! : state.board;
   // Power-up feedback when the human's level rises for the new turn.
   const lastLevel = useRef(0);
   useEffect(() => {
@@ -165,6 +155,7 @@ export function GameScreen({ start, onExit, onSave, onFinished, dailyStreak = 0,
     setHinting(true);
     getHint()
       .then((m) => setHint(m))
+      .catch(() => setHint(null))
       .finally(() => setHinting(false));
   }, [getHint]);
 
@@ -188,13 +179,14 @@ export function GameScreen({ start, onExit, onSave, onFinished, dailyStreak = 0,
           }
         } else {
           const candidates = state.legal.filter((m) => m.from === selected && m.to === s);
-          if (candidates.length > 0) {
+          const [first] = candidates;
+          if (first) {
             setSelected(null);
             const plain = candidates.find((m) => !m.promotion);
             const upgrade = candidates.find((m) => m.promotion && m.piece !== 'p');
-            if (candidates[0].piece === 'p' && candidates[0].promotion) setPendingPromotion({ from: selected, to: s, kind: 'promote' });
+            if (first.piece === 'p' && first.promotion) setPendingPromotion({ from: selected, to: s, kind: 'promote' });
             else if (plain && upgrade) setPendingPromotion({ from: selected, to: s, kind: 'upgrade' });
-            else play(candidates[0]);
+            else play(first);
             return;
           }
         }
@@ -223,14 +215,7 @@ export function GameScreen({ start, onExit, onSave, onFinished, dailyStreak = 0,
     },
     [pendingPromotion, state, play],
   );
-  const pickerChoices = useMemo<PieceType[]>(() => {
-    if (!pendingPromotion) return [];
-    if (pendingPromotion.kind === 'resurrect') {
-      return [...new Set(state.legal.filter((x) => x.from < 0 && x.to === pendingPromotion.to).map((x) => x.piece))];
-    }
-    if (pendingPromotion.kind === 'upgrade') return ['q'];
-    return ['q', 'r', 'b', 'n'];
-  }, [pendingPromotion, state.legal]);
+  const choices = useMemo(() => pickerChoices(state.legal, pendingPromotion), [pendingPromotion, state.legal]);
 
   const topColor: Color = isFlipped ? 'w' : 'b';
   const bottomColor: Color = opposite(topColor);
@@ -345,7 +330,7 @@ export function GameScreen({ start, onExit, onSave, onFinished, dailyStreak = 0,
           onPress={onHint}
           disabled={state.gameOver || state.thinking || hinting || !humanTurn}
         />
-        <Button title="Undo" variant="secondary" small onPress={undo} disabled={state.moves.length === 0 || state.thinking || state.flagged !== null} />
+        <Button title="Undo" variant="secondary" small onPress={undo} disabled={!canUndo(state)} />
         <Button title="New armies" variant="secondary" small onPress={() => newGame()} />
         {state.gameOver ? (
           <Button title="Result" variant="secondary" small onPress={() => setShowResult(true)} />
@@ -369,7 +354,7 @@ export function GameScreen({ start, onExit, onSave, onFinished, dailyStreak = 0,
         visible={pendingPromotion !== null}
         color={state.turn}
         title={pendingPromotion?.kind === 'resurrect' ? 'Bring back' : pendingPromotion?.kind === 'upgrade' ? 'Arrive as a queen?' : 'Promote to'}
-        choices={pickerChoices}
+        choices={choices}
         keepLabel={pendingPromotion?.kind === 'upgrade' ? 'Just move' : undefined}
         onPick={onPromote}
         onCancel={() => setPendingPromotion(null)}
@@ -453,9 +438,9 @@ function outcomeOf(state: GameState): GameOutcome {
     falseAccusations: state.cheats.falseAccusations,
     ownCheats: state.cheats.humanMade,
     ownCheatsCaught: state.cheats.humanCaught,
-    comebackFrom: state.maxDeficit[state.humanColor],
     daily: state.daily,
     ranked: state.ranked,
+    maxDeficit: state.maxDeficit[state.humanColor],
   };
 }
 
@@ -543,7 +528,7 @@ function describeStatus(state: GameState, cheatMode = false): { text: string; de
       const notice = cheatMode ? { text: 'Cheat mode', detail: 'Pick a piece and slide it somewhere it cannot go. The computer might notice…' } : cheatNotice(state);
       const power = state.config.comeback ? state.powers[mover] : null;
       if (power && power.tags.length > 0 && !notice && !state.thinking) {
-        const newest = power.tags[power.tags.length - 1];
+        const newest = power.tags[power.tags.length - 1]!; // length > 0 just above
         details.unshift(
           power.tags.length === 1
             ? `${powerSpec(newest).name}: ${powerSpec(newest).description}`
@@ -675,8 +660,9 @@ function MoveList({ state }: { state: GameState }) {
   const items: string[] = [];
   for (let i = 0; i < state.moves.length; i += 2) {
     const n = i / 2 + 1;
-    const w = moveToSAN(state.moves[i]);
-    const b = state.moves[i + 1] ? moveToSAN(state.moves[i + 1]) : '';
+    const w = moveToSAN(state.moves[i]!);
+    const black = state.moves[i + 1];
+    const b = black ? moveToSAN(black) : '';
     items.push(`${n}. ${w} ${b}`.trim());
   }
   return (

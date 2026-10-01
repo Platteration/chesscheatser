@@ -98,7 +98,8 @@ export const TAGS_FOR_LEVEL: readonly (readonly PowerTag[])[] = [0, 1, 2, 3, 4].
 
 /** The cumulative set for a legacy numeric level, clamped to the tiers that exist. */
 export function tagsForLevel(level: number): readonly PowerTag[] {
-  return TAGS_FOR_LEVEL[Math.max(0, Math.min(MAX_TIER, level | 0))];
+  // Clamped to 0..MAX_TIER, and the table has a set for each of those levels.
+  return TAGS_FOR_LEVEL[Math.max(0, Math.min(MAX_TIER, level | 0))]!;
 }
 
 /** Deficit thresholds (centipawns) for each level; index = level. */
@@ -111,7 +112,7 @@ export function rampLevel(target: number, previous: number): number {
 
 export function powerLevelFor(deficit: number): number {
   let level = 0;
-  for (let l = 1; l <= MAX_POWER; l++) if (deficit >= POWER_THRESHOLDS[l]) level = l;
+  for (const [l, threshold] of POWER_THRESHOLDS.entries()) if (deficit >= threshold) level = l;
   return level;
 }
 
@@ -180,11 +181,10 @@ export function powerMoves(
 
   /** Slide along rays; with `jump` the ray continues past the first blocker once. */
   const slide = (from: Square, piece: PieceType, d0: number, d1: number, kind: CheatKind, jump: boolean) => {
+    const rays = RAYS[from]!;
     for (let d = d0; d < d1; d++) {
-      const ray = RAYS[from][d];
       let blocked = false;
-      for (let i = 0; i < ray.length; i++) {
-        const to = ray[i];
+      for (const to of rays[d]!) {
         const t = board[to];
         if (!blocked) {
           if (!t) {
@@ -240,26 +240,26 @@ export function powerMoves(
         }
         break;
       case 'n':
-        if (has('knight.step')) for (const to of KING_TARGETS[from]) add(from, to, 'n', 'geometry');
+        if (has('knight.step')) for (const to of KING_TARGETS[from]!) add(from, to, 'n', 'geometry');
         if (has('knight.queen')) slide(from, 'n', 0, 8, 'geometry', false);
         break;
       case 'b':
         if (has('bishop.step')) {
-          for (const to of KING_TARGETS[from]) if (fileOf(to) === fileOf(from) || rankOf(to) === rankOf(from)) add(from, to, 'b', 'geometry');
+          for (const to of KING_TARGETS[from]!) if (fileOf(to) === fileOf(from) || rankOf(to) === rankOf(from)) add(from, to, 'b', 'geometry');
         }
         if (has('slider.jump')) slide(from, 'b', 0, 4, 'jump', true);
         if (has('bishop.queen')) slide(from, 'b', 4, 8, 'geometry', false);
         break;
       case 'r':
         if (has('rook.step')) {
-          for (const to of KING_TARGETS[from]) if (fileOf(to) !== fileOf(from) && rankOf(to) !== rankOf(from)) add(from, to, 'r', 'geometry');
+          for (const to of KING_TARGETS[from]!) if (fileOf(to) !== fileOf(from) && rankOf(to) !== rankOf(from)) add(from, to, 'r', 'geometry');
         }
         if (has('slider.jump')) slide(from, 'r', 4, 8, 'jump', true);
         if (has('rook.queen')) slide(from, 'r', 0, 4, 'geometry', false);
         break;
       case 'q':
         if (has('slider.jump')) slide(from, 'q', 0, 8, 'jump', true);
-        if (has('queen.knight')) for (const to of KNIGHT_TARGETS[from]) add(from, to, 'q', 'geometry');
+        if (has('queen.knight')) for (const to of KNIGHT_TARGETS[from]!) add(from, to, 'q', 'geometry');
         break;
     }
   }

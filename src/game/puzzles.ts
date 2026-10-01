@@ -23,7 +23,6 @@ const KIND_ORDER: PuzzleKind[] = ['double-1', 'mate-1', 'win-2'];
 
 /** Bundled puzzles, easiest first: by kind, then fewer pieces on the board. */
 export function loadPuzzles(): Puzzle[] {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const raw = require('../../assets/puzzles.json') as Puzzle[];
   return [...raw].sort((a, b) => KIND_ORDER.indexOf(a.kind) - KIND_ORDER.indexOf(b.kind) || a.pieces - b.pieces);
 }

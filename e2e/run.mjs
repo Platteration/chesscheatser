@@ -1,12 +1,13 @@
-// End-to-end suite: builds nothing itself; run `npm run e2e` (which exports the
+// End-to-end suite: builds nothing itself; run `npm run test:e2e` (which exports the
 // web bundle first) or point it at an existing export with E2E_ROOT.
 import fs from 'node:fs';
 import path from 'node:path';
-import { assert, cellCounts, clickSquares, currentHelper, currentPage, describeApp, draftCount, exact, gameOver, launch, makeAnyMove, openApp, resetDraftCount, serve, text, unlockPro, waitHuman } from './lib.mjs';
+import { assert, cellCounts, clickSquares, currentHelper, currentPage, describeApp, draftCount, exact, gameOver, launch, makeAnyMove, openApp, readBoard, resetDraftCount, serve, sq, text, unlockPro, waitHuman, walkPawnToLastRank } from './lib.mjs';
 
 const root = process.env.E2E_ROOT || path.resolve('dist-web');
 const port = Number(process.env.E2E_PORT || 4190);
-const url = `http://localhost:${port}/`;
+// 127.0.0.1 rather than localhost: the server binds loopback v4 only.
+const url = `http://127.0.0.1:${port}/`;
 const shots = process.env.E2E_SHOTS || '';
 const KIND_ORDER = ['double-1', 'mate-1', 'win-2'];
 const puzzles = JSON.parse(fs.readFileSync(path.resolve('assets/puzzles.json'), 'utf8')).sort(
@@ -18,10 +19,32 @@ const scenarios = {
     const { page, context, errors } = await openApp(browser, url);
     await exact(page, 'Light').click();
     await exact(page, 'Marble').click();
+    await page.getByRole('switch', { name: 'Sound' }).click();
     await page.reload();
     await page.waitForTimeout(800);
     const saved = await page.evaluate(() => localStorage.getItem('twokings.appsettings.v1'));
-    assert(saved && saved.includes('"boardTheme":"marble"') && saved.includes('"colorScheme":"light"'), 'settings saved: ' + saved);
+    assert(saved && saved.includes('"boardTheme":"marble"') && saved.includes('"colorScheme":"light"') && saved.includes('"sounds":false'), 'settings saved: ' + saved);
+    assert((await page.getByRole('switch', { name: 'Sound' }).isChecked()) === false, 'sound switch reads back off');
+    assert((await page.getByRole('link', { name: 'Privacy' }).count()) === 1, 'about card links the privacy statement');
+    // A real anchor, not a div that only answers a click: the browser can offer
+    // open-in-new-tab, copy link address and a status-bar preview.
+    const href = await page.getByRole('link', { name: 'Privacy' }).getAttribute('href');
+    assert(href === 'https://github.com/Platteration/chesscheatser/blob/HEAD/PRIVACY.md', 'the privacy link carries its address: ' + href);
+    const target = await page.getByRole('link', { name: 'Privacy' }).getAttribute('target');
+    assert(target === '_blank', 'the link opens in a new tab: ' + target);
+    // Reset asks through the browser's own dialog on the web build (react-native-web's
+    // Alert.alert is a no-op): dismissed, nothing changes; accepted, the defaults come
+    // back but the intro flag stays as it was.
+    page.once('dialog', (d) => d.dismiss());
+    await exact(page, 'Reset to defaults').click();
+    await page.waitForTimeout(300);
+    const kept = await page.evaluate(() => localStorage.getItem('twokings.appsettings.v1'));
+    assert(kept && kept.includes('"colorScheme":"light"') && kept.includes('"sounds":false'), 'a dismissed dialog changes nothing: ' + kept);
+    page.once('dialog', (d) => d.accept());
+    await exact(page, 'Reset to defaults').click();
+    await page.waitForTimeout(300);
+    const reset = await page.evaluate(() => localStorage.getItem('twokings.appsettings.v1'));
+    assert(reset && reset.includes('"colorScheme":"system"') && reset.includes('"sounds":true') && reset.includes('"seenIntro":true'), 'reset restored the defaults and kept the intro flag: ' + reset);
     assert(errors.length === 0, errors.join('\n'));
     await context.close();
   },
@@ -31,17 +54,36 @@ const scenarios = {
     await exact(page, 'White').first().click();
     await exact(page, 'Never').click();
     await exact(page, 'New game with these settings').click();
-    assert(await makeAnyMove(page), 'human move played'); // waits for the turn to be ready first
-    await waitHuman(page);
-    assert((await text(page, '/^1\\. /')) !== null, 'move list shows move 1');
-    await page.locator('text=/^Hint/').click();
-    // The button reads "…" while the hint search runs and "Hint" again once it is on the board.
-    await exact(page, 'Hint').waitFor({ timeout: 30000 });
-    await exact(page, 'Undo').click();
-    await waitHuman(page); // the rolled-back turn is measured again before a move is accepted
-    assert((await page.locator('text=/^1\\. /').count()) === 0, 'undo cleared the move list');
-    assert(await makeAnyMove(page), 'human move after undo');
-    await waitHuman(page);
+    // The armies and the moves are both random, and in this variant one move can
+    // end the game: a king in check with no rescuing move loses. On seed
+    // 1186155712 the first move this picked, Ra2xa7 with the queen on f2
+    // guarding a7, mated the king on a8, and the computer can mate a careless
+    // move as quickly. The result sheet then covers everything this scenario
+    // presses next, Undo is off in a finished game and there is no game left to
+    // resume, so a click waited out its 30 s on CI. A finished game is not what
+    // this scenario is about: it deals new armies from the sheet, as a player
+    // would, and plays the whole of it again on them.
+    const exchange = async (what) => {
+      assert(await makeAnyMove(page), what);
+      await waitHuman(page);
+      if (!(await gameOver(page))) return true;
+      await page.getByRole('dialog').getByText('New armies', { exact: true }).click();
+      await page.waitForTimeout(500);
+      return false;
+    };
+    let played = false;
+    for (let armies = 0; armies < 6 && !played; armies++) {
+      if (!(await exchange('human move played'))) continue;
+      assert((await text(page, '/^1\\. /')) !== null, 'move list shows move 1');
+      await page.locator('text=/^Hint/').click();
+      // The button reads "…" while the hint search runs and "Hint" again once it is on the board.
+      await exact(page, 'Hint').waitFor({ timeout: 30000 });
+      await exact(page, 'Undo').click();
+      await waitHuman(page); // the rolled-back turn is measured again before a move is accepted
+      assert((await page.locator('text=/^1\\. /').count()) === 0, 'undo cleared the move list');
+      played = await exchange('human move after undo');
+    }
+    assert(played, 'a game still running after both exchanges within six armies');
     await page.getByText('‹ Home').click();
     await exact(page, 'Resume game').waitFor({ timeout: 10000 });
     assert((await exact(page, 'Resume game').count()) === 1, 'resume offered');
@@ -179,6 +221,64 @@ const scenarios = {
     await context.close();
   },
 
+  async 'promotion picker: the backdrop cancels, the sheet does not, a choice promotes'(browser) {
+    // Nothing drove the picker before, so neither its dismissal nor the way it
+    // stacks on the web had ever been exercised: a sheet covered by its own
+    // backdrop would cancel every promotion and the suite would not notice.
+    // Reduce motion planted rather than clicked: the glide redraws squares, and
+    // this scenario reads legal moves from how many children a square has.
+    const { page, context, errors } = await openApp(browser, url, undefined, {
+      storage: { 'twokings.appsettings.v1': JSON.stringify({ seenIntro: true, reduceMotion: 'on' }) },
+    });
+    await exact(page, 'Pass & play').click(); // both sides are the tester, so a pawn can be walked up the board
+    await exact(page, 'Off').first().click(); // comeback powers off: no power moves among the pawn's targets
+    await exact(page, 'Small').click(); // fewer pieces, so a file is more likely to be clear
+    let promoting = null;
+    for (let armies = 0; armies < 6 && !promoting; armies++) {
+      if (armies === 0) await exact(page, 'New game with these settings').click();
+      else await exact(page, 'New armies').click();
+      await page.waitForTimeout(600);
+      promoting = await walkPawnToLastRank(page);
+    }
+    assert(promoting, 'a pawn reached the last rank within six armies');
+
+    // The modal fades in and out, so the picker is waited for rather than
+    // sampled after a fixed pause: a cancel that has been accepted but is still
+    // fading looks exactly like one that was ignored.
+    const picker = exact(page, 'Promote to');
+    const openPicker = async () => {
+      await sq(page, promoting.from).click();
+      await page.waitForTimeout(100);
+      await sq(page, promoting.to).click();
+      await picker.waitFor({ state: 'visible', timeout: 5000 });
+    };
+
+    await openPicker();
+    // The sheet's own surface is not a cancel button: only the backdrop outside
+    // it dismisses. The padding above the title, not the title itself — a click
+    // on text starts a selection, and react-native-web's press responder then
+    // cancels the press after it.
+    await picker.locator('..').click({ position: { x: 4, y: 4 } });
+    await page.waitForTimeout(600); // longer than the fade a cancel would start
+    assert((await picker.count()) === 1, 'a tap on the sheet itself keeps the picker open');
+    // The backdrop fills the screen behind the sheet, so a corner of it is outside the sheet.
+    await page.getByRole('button', { name: 'Cancel', exact: true }).click({ position: { x: 5, y: 5 } });
+    await picker.waitFor({ state: 'hidden', timeout: 5000 });
+    const cancelled = await readBoard(page);
+    assert(cancelled[promoting.from]?.type === 'pawn', 'a cancelled pick plays no move: ' + JSON.stringify(cancelled[promoting.from]));
+
+    // Reopened, the piece chosen is the piece that arrives — a rook, not the default queen.
+    await openPicker();
+    await page.getByRole('button', { name: 'Rook', exact: true }).click();
+    await picker.waitFor({ state: 'hidden', timeout: 5000 });
+    await page.waitForTimeout(300);
+    const promoted = await readBoard(page);
+    assert(promoted[promoting.to]?.color === 'white' && promoted[promoting.to]?.type === 'rook', 'the chosen piece promoted: ' + JSON.stringify(promoted[promoting.to]));
+    assert(promoted[promoting.from] === null, 'the pawn left its square');
+    assert(errors.length === 0, errors.join('\n'));
+    await context.close();
+  },
+
   async 'first-run tip shows once'(browser) {
     const { page, context, errors } = await openApp(browser, url, undefined, { intro: true });
     await exact(page, 'New game with these settings').click();
@@ -190,6 +290,16 @@ const scenarios = {
     await exact(page, 'Got it').click();
     await page.getByText('‹ Home').click();
     await exact(page, 'New game with these settings').waitFor({ timeout: 10000 });
+    // That first game is now the saved game, so starting another asks before
+    // replacing it: dismissed, the menu stays put; accepted, the new game opens.
+    page.once('dialog', (d) => d.dismiss());
+    await exact(page, 'New game with these settings').click();
+    await page.waitForTimeout(400);
+    assert((await exact(page, 'Resume game').count()) === 1, 'a dismissed prompt leaves the saved game and the menu alone');
+    page.once('dialog', (d) => {
+      assert(d.message().includes('Start a new game?'), 'the prompt names the action: ' + d.message());
+      d.accept();
+    });
     await exact(page, 'New game with these settings').click();
     await page.locator('text=/to move|thinking/').first().waitFor({ timeout: 10000 }); // the game screen is up
     await waitHuman(page);
@@ -210,6 +320,27 @@ const scenarios = {
     assert(await makeAnyMove(page), 'move in landscape');
     assert(errors.length === 0, errors.join('\n'));
     await context.close();
+  },
+
+  async 'a saved game that cannot be restored as it was says so'(browser) {
+    // Both halves used to be silent: the record was removed and Resume simply
+    // was not on the menu, which is indistinguishable from a bug.
+    const tooLong = JSON.stringify({ seed: 1, humanColor: 'w', config: {}, events: Array.from({ length: 8001 }, () => ({ type: 'pass' })) });
+    const clipped = await openApp(browser, url, undefined, { storage: { 'twokings.game.v1': tooLong } });
+    assert((await exact(clipped.page, 'Resume game').count()) === 1, 'an over-long game is still offered');
+    assert((await clipped.page.locator('text=/too long to restore in full/').count()) === 1, 'home screen says it was clipped');
+    assert(clipped.errors.length === 0, clipped.errors.join('\n'));
+    await clipped.context.close();
+
+    // 113 bytes that would grow the board array to ten million entries.
+    const hostile = '{"seed":1234,"humanColor":"w","config":{},"events":[{"type":"move","move":{"from":0,"to":10000000,"piece":"r"}}]}';
+    const dropped = await openApp(browser, url, undefined, { storage: { 'twokings.game.v1': hostile } });
+    assert((await exact(dropped.page, 'Resume game').count()) === 0, 'an unreadable game is not offered');
+    assert((await dropped.page.locator('text=/could not be read/').count()) === 1, 'home screen says it was removed');
+    const left = await dropped.page.evaluate(() => localStorage.getItem('twokings.game.v1'));
+    assert(left === null, 'the unreadable record is gone from storage: ' + left);
+    assert(dropped.errors.length === 0, dropped.errors.join('\n'));
+    await dropped.context.close();
   },
 
   async 'stats screen'(browser) {

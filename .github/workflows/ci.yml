@@ -2,30 +2,65 @@ name: CI
 
 on:
   push:
-    branches: ['**']
+    branches: ["**"]
   pull_request:
+  workflow_dispatch:
+  # Weekly, for a tree nobody pushes to: GitHub runs a schedule from the default branch
+  # only, where an advisory or a build that has rotted then shows within a week. Not at
+  # the top of the hour, a high-load time when scheduled runs can be delayed or dropped
+  # (CONVENTIONS.md, "CI").
+  schedule:
+    - cron: "17 6 * * 1"
+
+# A newer run for the same ref supersedes an in-flight one. On the default branch the
+# weekly run shares the group with pushes; whichever is cancelled, the other tests the
+# branch's newest commit.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
-  test:
+  check:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: npm
+
       - run: npm ci
+
+      - run: npm run lint
+
       - run: npm run typecheck
+
       - run: npm test
-      - name: Bundle (android + web)
-        run: |
-          npx expo export --platform android --output-dir /tmp/android-out
-          npx expo export --platform web --output-dir dist-web
-        env:
-          CI: 1
-      - name: Install Chromium for Playwright
-        run: npx playwright install --with-deps chromium
-      - name: End-to-end (web build in headless Chromium)
-        run: node e2e/run.mjs
-        env:
-          CI: 1
+
+      - run: npm run test:conventions
+
+      - run: npx expo export --platform android --platform web --output-dir /tmp/export
+
+      - run: npx playwright install --with-deps chromium
+
+      - run: npm run test:e2e
+
+  # Its own job, so that an advisory published against an unchanged tree turns audit red
+  # on the next run (on the default branch, the weekly one at the latest) and leaves check
+  # meaning what it always meant. npm audit reads the lockfile: no install.
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .nvmrc
+
+      - run: npm audit --omit=dev --audit-level=high

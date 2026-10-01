@@ -46,33 +46,25 @@ export function cheatCandidates(pos: Position, resurrectable: PieceType[] = []):
       case 'r':
       case 'q': {
         const [d0, d1] = p.type === 'b' ? [0, 4] : p.type === 'r' ? [4, 8] : [0, 8];
-        for (let d = d0; d < d1; d++) {
-          const ray = RAYS[from][d];
-          let blocker = -1;
-          for (let i = 0; i < ray.length; i++) {
-            if (board[ray[i]]) {
-              blocker = i;
-              break;
-            }
-          }
+        for (const ray of RAYS[from]!.slice(d0, d1)) {
+          const blocker = ray.findIndex((s) => board[s]);
           if (blocker < 0) continue;
-          for (let i = blocker + 1; i < ray.length; i++) {
-            const to = ray[i];
+          for (const to of ray.slice(blocker + 1)) {
             add(from, to, p.type, 'jump');
             if (board[to]) break;
           }
         }
         if (p.type === 'b') {
-          for (const to of KING_TARGETS[from]) if (fileOf(to) === fileOf(from) || rankOf(to) === rankOf(from)) add(from, to, 'b', 'geometry');
+          for (const to of KING_TARGETS[from]!) if (fileOf(to) === fileOf(from) || rankOf(to) === rankOf(from)) add(from, to, 'b', 'geometry');
         } else if (p.type === 'r') {
-          for (const to of KING_TARGETS[from]) if (fileOf(to) !== fileOf(from) && rankOf(to) !== rankOf(from)) add(from, to, 'r', 'geometry');
+          for (const to of KING_TARGETS[from]!) if (fileOf(to) !== fileOf(from) && rankOf(to) !== rankOf(from)) add(from, to, 'r', 'geometry');
         } else {
-          for (const to of KNIGHT_TARGETS[from]) add(from, to, 'q', 'geometry');
+          for (const to of KNIGHT_TARGETS[from]!) add(from, to, 'q', 'geometry');
         }
         break;
       }
       case 'n':
-        for (const to of KING_TARGETS[from]) add(from, to, 'n', 'geometry');
+        for (const to of KING_TARGETS[from]!) add(from, to, 'n', 'geometry');
         break;
       case 'k':
         for (const [df, dr] of DIRS) {
@@ -139,20 +131,32 @@ export interface CheatChoice {
  * Picks the most profitable cheat that neither leaves the cheater's own kings
  * all in check nor ends the game on the spot (a cheat must leave the victim a
  * turn in which to call it out).
+ *
+ * Scored first, verified second. There are typically a few hundred candidates
+ * and this runs on the JS thread once the search has finished yielding, so
+ * asking `result()` — a whole legal-move generation plus a repetition scan —
+ * about every one of them stalls a frame. The cheap checks pick the order; the
+ * expensive one is only paid until a candidate survives it, which is the same
+ * choice the exhaustive scan made.
  */
 export function chooseCheat(pos: Position, rng: Rng, resurrectable: PieceType[] = []): CheatChoice | null {
   const me = pos.turn;
-  let best: CheatChoice | null = null;
+  const scored: CheatChoice[] = [];
   for (const m of cheatCandidates(pos, resurrectable)) {
     pos.makeMove(m);
-    let score = -Infinity;
-    if (!pos.allKingsInCheck(me) && pos.result().kind === 'ongoing') {
-      score = -evaluate(pos) + (rng.next() - 0.5) * 30;
-    }
+    const playable = !pos.allKingsInCheck(me);
+    const score = playable ? -evaluate(pos) + (rng.next() - 0.5) * 30 : 0;
     pos.unmakeMove();
-    if (score > -Infinity && (!best || score > best.score)) best = { move: m, score };
+    if (playable) scored.push({ move: m, score });
   }
-  return best;
+  scored.sort((a, b) => b.score - a.score);
+  for (const choice of scored) {
+    pos.makeMove(choice.move);
+    const ongoing = pos.result().kind === 'ongoing';
+    pos.unmakeMove();
+    if (ongoing) return choice;
+  }
+  return null;
 }
 
 export interface Action {

@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { StyleSheet, useColorScheme } from 'react-native';
+import { resolveScheme } from '../appSettings';
 import { AURAS, DEFAULT_AURA } from '../cosmetics';
 import { useSettings, type BoardTheme } from '../settings';
 
@@ -91,7 +92,8 @@ const LIGHT: Omit<Theme, 'board' | 'scheme'> = {
 export function makeTheme(scheme: 'dark' | 'light', boardTheme: BoardTheme, aura: string = DEFAULT_AURA): Theme {
   const b = BOARD_THEMES[boardTheme];
   const base = scheme === 'dark' ? DARK : LIGHT;
-  const a = AURAS[aura] ?? AURAS[DEFAULT_AURA];
+  // Own properties only: a name on Object.prototype is not an aura. The default is in the table.
+  const a = (Object.hasOwn(AURAS, aura) ? AURAS[aura] : undefined) ?? AURAS[DEFAULT_AURA]!;
   return {
     ...base,
     scheme,
@@ -106,7 +108,7 @@ export const theme: Theme = makeTheme('dark', 'wood');
 export function useTheme(): Theme {
   const { settings } = useSettings();
   const system = useColorScheme();
-  const scheme = settings.colorScheme === 'system' ? (system === 'light' ? 'light' : 'dark') : settings.colorScheme;
+  const scheme = resolveScheme(settings.colorScheme, system);
   return useMemo(() => makeTheme(scheme, settings.boardTheme, settings.aura), [scheme, settings.boardTheme, settings.aura]);
 }
 

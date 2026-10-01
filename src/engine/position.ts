@@ -1,4 +1,4 @@
-import { boardToString, cloneBoard, fileOf, kingSquares, opposite, rankOf } from './board';
+import { boardToString, cloneBoard, FILES, fileOf, kingSquares, opposite, rankOf, squareName } from './board';
 import { MAX_POWER, POWER_TAGS, powerMoves, tagsForLevel, type PowerTag } from './powers';
 import { KING_TARGETS, KNIGHT_TARGETS, PAWN_ATTACKERS, PAWN_CAPTURES, RAYS } from './tables';
 import type { Board, Color, GameResult, LegalMove, Move, Piece, PieceType, Square } from './types';
@@ -29,9 +29,13 @@ let ZOBRIST_TURN = 0;
   ZOBRIST_TURN = next();
 })();
 
+// The key tables below are indexed by values bounded where they are made: a
+// tag's index comes from POWER_TAGS itself and is checked below, a square is
+// 0..63 (every caller hashes a square a piece stands on or lands on, and
+// makeMove refuses an off-board one first), and fileOf masks to 0..7.
 function powerHash(color: Color, tag: PowerTag): number {
   const i = POWER_TAGS.indexOf(tag);
-  return i < 0 ? 0 : ZOBRIST_POWER[(color === 'w' ? 0 : POWER_TAGS.length) + i];
+  return i < 0 ? 0 : ZOBRIST_POWER[(color === 'w' ? 0 : POWER_TAGS.length) + i]!;
 }
 
 function powersHash(color: Color, tags: Iterable<PowerTag>): number {
@@ -41,7 +45,11 @@ function powersHash(color: Color, tags: Iterable<PowerTag>): number {
 }
 
 function pieceHash(p: Piece, s: Square): number {
-  return ZOBRIST_PIECE[(PIECE_INDEX[p.type] + (p.color === 'w' ? 0 : 6)) * 64 + s];
+  return ZOBRIST_PIECE[(PIECE_INDEX[p.type] + (p.color === 'w' ? 0 : 6)) * 64 + s]!;
+}
+
+function epHash(ep: Square): number {
+  return ep >= 0 ? ZOBRIST_EP[fileOf(ep)]! : 0;
 }
 
 /**
@@ -60,7 +68,7 @@ export function hashPosition(
     if (p) h ^= pieceHash(p, s);
   }
   if (turn === 'b') h ^= ZOBRIST_TURN;
-  if (ep >= 0) h ^= ZOBRIST_EP[fileOf(ep)];
+  h ^= epHash(ep);
   const tagsOf = (v: Iterable<PowerTag> | number) => (typeof v === 'number' ? tagsForLevel(v) : v);
   h ^= powersHash('w', tagsOf(powers.w)) ^ powersHash('b', tagsOf(powers.b));
   return h | 0;
@@ -82,24 +90,24 @@ interface Undo {
  * Kings count as attackers (a king standing next to an enemy king gives check).
  */
 export function isAttacked(board: Board, square: Square, by: Color): boolean {
-  for (const s of PAWN_ATTACKERS[by][square]) {
+  // The geometry tables hold one entry per square, and eight rays per square.
+  for (const s of PAWN_ATTACKERS[by][square]!) {
     const p = board[s];
     if (p && p.color === by && p.type === 'p') return true;
   }
-  for (const s of KNIGHT_TARGETS[square]) {
+  for (const s of KNIGHT_TARGETS[square]!) {
     const p = board[s];
     if (p && p.color === by && p.type === 'n') return true;
   }
-  for (const s of KING_TARGETS[square]) {
+  for (const s of KING_TARGETS[square]!) {
     const p = board[s];
     if (p && p.color === by && p.type === 'k') return true;
   }
-  const rays = RAYS[square];
+  const rays = RAYS[square]!;
   for (let d = 0; d < 8; d++) {
     const slider: PieceType = d < 4 ? 'b' : 'r';
-    const ray = rays[d];
-    for (let i = 0; i < ray.length; i++) {
-      const p = board[ray[i]];
+    for (const s of rays[d]!) {
+      const p = board[s];
       if (p) {
         if (p.color === by && (p.type === slider || p.type === 'q')) return true;
         break;
@@ -209,8 +217,9 @@ export class Position {
     return `${boardToString(this.board)} ${this.turn} ${this.ep}`;
   }
 
+  /** The piece on `s`, or null for an empty square or one off the board. */
   pieceAt(s: Square): Piece | null {
-    return this.board[s];
+    return this.board[s] ?? null;
   }
 
   // ---------------------------------------------------------------------------
@@ -230,10 +239,10 @@ export class Position {
           this.pawnMoves(from, color, moves);
           break;
         case 'n':
-          this.stepMoves(from, color, KNIGHT_TARGETS[from], 'n', moves);
+          this.stepMoves(from, color, KNIGHT_TARGETS[from]!, 'n', moves);
           break;
         case 'k':
-          this.stepMoves(from, color, KING_TARGETS[from], 'k', moves);
+          this.stepMoves(from, color, KING_TARGETS[from]!, 'k', moves);
           break;
         case 'b':
           this.slideMoves(from, color, 0, 4, 'b', moves);
@@ -263,7 +272,7 @@ export class Position {
         if (!board[two]) out.push({ from, to: two, piece: 'p', doublePush: true });
       }
     }
-    for (const to of PAWN_CAPTURES[color][from]) {
+    for (const to of PAWN_CAPTURES[color][from]!) {
       const target = board[to];
       if (target) {
         if (target.color !== color && target.type !== 'k') {
@@ -292,11 +301,9 @@ export class Position {
   }
 
   private slideMoves(from: Square, color: Color, dirStart: number, dirEnd: number, piece: PieceType, out: Move[]) {
-    const rays = RAYS[from];
+    const rays = RAYS[from]!;
     for (let d = dirStart; d < dirEnd; d++) {
-      const ray = rays[d];
-      for (let i = 0; i < ray.length; i++) {
-        const to = ray[i];
+      for (const to of rays[d]!) {
         const target = this.board[to];
         if (!target) {
           out.push({ from, to, piece });
@@ -324,8 +331,7 @@ export class Position {
       this.makeMove(m);
       const kings = this.kings[color];
       const checkedAfter: Square[] = [];
-      for (let i = 0; i < kings.length; i++) {
-        const k = kings[i];
+      for (const k of kings) {
         if (isAttacked(this.board, k, enemy)) {
           // Map the post-move king square back to its pre-move square.
           checkedAfter.push(m.piece === 'k' && k === m.to ? m.from : k);
@@ -356,6 +362,10 @@ export class Position {
       this.makePass(m);
       return;
     }
+    // Generated moves are always on the board, so this only ever catches one
+    // that came from somewhere else: writing board[m.to] past the last square
+    // silently grows the array, and every later scan then walks the holes.
+    if (m.to < 0 || m.to > 63) throw new Error(`Off-board target ${m.to}`);
     if (m.from < 0) {
       this.makeSpawn(m);
       return;
@@ -364,8 +374,14 @@ export class Position {
     const mover = board[m.from];
     if (!mover) throw new Error(`No piece on ${m.from}`);
     let capturedSquare = m.to;
-    if (m.enPassant) capturedSquare = m.to + (mover.color === 'w' ? -8 : 8);
-    const captured = board[capturedSquare];
+    if (m.enPassant) {
+      capturedSquare = m.to + (mover.color === 'w' ? -8 : 8);
+      // Only a stored move can flag en passant onto the first or last rank, and
+      // the square behind it is then off the board: clearing it below would
+      // grow the array the same way an off-board target does.
+      if (capturedSquare < 0 || capturedSquare > 63) throw new Error(`Off-board capture ${capturedSquare}`);
+    }
+    const captured = board[capturedSquare] ?? null;
 
     this.undoStack.push({
       move: m,
@@ -382,7 +398,7 @@ export class Position {
     h ^= pieceHash(mover, m.from);
     const placed = m.promotion ? { type: m.promotion, color: mover.color } : mover;
     h ^= pieceHash(placed, m.to);
-    if (this.ep >= 0) h ^= ZOBRIST_EP[fileOf(this.ep)];
+    h ^= epHash(this.ep);
 
     board[capturedSquare] = null;
     board[m.from] = null;
@@ -393,7 +409,7 @@ export class Position {
     }
 
     this.ep = m.doublePush ? (m.from + m.to) / 2 : -1;
-    if (this.ep >= 0) h ^= ZOBRIST_EP[fileOf(this.ep)];
+    h ^= epHash(this.ep);
     h ^= ZOBRIST_TURN;
     this.hash = h | 0;
     this.halfmove = mover.type === 'p' || captured ? 0 : this.halfmove + 1;
@@ -416,7 +432,7 @@ export class Position {
       prevHash: this.hash,
     });
     let h = this.hash ^ pieceHash(placed, m.to);
-    if (this.ep >= 0) h ^= ZOBRIST_EP[fileOf(this.ep)];
+    h ^= epHash(this.ep);
     h ^= ZOBRIST_TURN;
     this.hash = h | 0;
     this.board[m.to] = placed;
@@ -438,7 +454,7 @@ export class Position {
       prevHash: this.hash,
     });
     let h = this.hash;
-    if (this.ep >= 0) h ^= ZOBRIST_EP[fileOf(this.ep)];
+    h ^= epHash(this.ep);
     h ^= ZOBRIST_TURN;
     this.hash = h | 0;
     this.ep = -1;
@@ -475,7 +491,7 @@ export class Position {
 
   /** The last move made on this position, if any. */
   lastMove(): Move | null {
-    return this.undoStack.length ? this.undoStack[this.undoStack.length - 1].move : null;
+    return this.undoStack[this.undoStack.length - 1]?.move ?? null;
   }
 
   get moveCount(): number {
@@ -497,7 +513,7 @@ export class Position {
     const kings = this.kings[color];
     if (kings.length < 2) return false;
     const enemy = opposite(color);
-    for (let i = 0; i < kings.length; i++) if (!isAttacked(this.board, kings[i], enemy)) return false;
+    for (const k of kings) if (!isAttacked(this.board, k, enemy)) return false;
     return true;
   }
 
@@ -558,22 +574,20 @@ export class Position {
 
 export function moveToString(m: Move): string {
   if (m.pass) return '--';
-  if (m.from < 0) return m.piece.toUpperCase() + '@' + 'abcdefgh'[fileOf(m.to)] + (rankOf(m.to) + 1);
-  const f = (s: Square) => 'abcdefgh'[fileOf(s)] + (rankOf(s) + 1);
-  return f(m.from) + f(m.to) + (m.promotion ?? '');
+  if (m.from < 0) return m.piece.toUpperCase() + '@' + squareName(m.to);
+  return squareName(m.from) + squareName(m.to) + (m.promotion ?? '');
 }
 
 /** Short algebraic-ish notation for the move list. */
 export function moveToSAN(m: Move): string {
   if (m.pass) return '(skip)';
-  if (m.from < 0) return m.piece.toUpperCase() + '@' + 'abcdefgh'[fileOf(m.to)] + (rankOf(m.to) + 1);
-  const to = 'abcdefgh'[fileOf(m.to)] + (rankOf(m.to) + 1);
+  if (m.from < 0) return m.piece.toUpperCase() + '@' + squareName(m.to);
+  const to = squareName(m.to);
   const cap = m.captured ? 'x' : '';
   if (m.piece === 'p') {
-    const fromFile = 'abcdefgh'[fileOf(m.from)];
+    const fromFile = FILES.charAt(fileOf(m.from));
     const promo = m.promotion ? '=' + m.promotion.toUpperCase() : '';
     return (m.captured ? fromFile + cap : '') + to + promo;
   }
-  const fromName = 'abcdefgh'[fileOf(m.from)] + (rankOf(m.from) + 1);
-  return m.piece.toUpperCase() + fromName + cap + to;
+  return m.piece.toUpperCase() + squareName(m.from) + cap + to;
 }

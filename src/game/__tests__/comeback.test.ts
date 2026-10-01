@@ -60,7 +60,7 @@ describe('power events in the fold', () => {
     ];
     const after = undoEvents(setup, events, 'b');
     expect(after).toHaveLength(1);
-    expect(after[0].type).toBe('power');
+    expect(after[0]!.type).toBe('power');
     expect(fold(setup, after, 'b').pos.turn).toBe('w');
   });
 

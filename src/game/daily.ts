@@ -51,7 +51,9 @@ export interface DailyState {
 export const EMPTY_DAILY: DailyState = { results: {}, streak: 0, lastPlayed: null };
 
 export function previousDay(key: string): string {
-  const [y, m, d] = key.split('-').map(Number);
+  // A part the key lacks reads as NaN, as a part that is not a number already
+  // does: either way the date is invalid and the answer matches no date key.
+  const [y = NaN, m = NaN, d = NaN] = key.split('-').map(Number);
   return todayKey(new Date(y, m - 1, d - 1));
 }
 

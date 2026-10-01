@@ -99,7 +99,7 @@ function pst(type: PieceType, color: Color, s: number): number {
   const f = fileOf(s);
   const r = rankOf(s);
   const row = color === 'w' ? 7 - r : r;
-  return PST[type][row * 8 + f];
+  return PST[type][row * 8 + f]!;
 }
 
 /** Static evaluation from the point of view of the side to move. */
@@ -140,7 +140,8 @@ const ttDepth = new Int8Array(TT_SIZE);
 const ttFlag = new Int8Array(TT_SIZE);
 const ttMove = new Int32Array(TT_SIZE); // from | to << 6 | promoIndex << 12, or -1
 const ttUsed = new Uint8Array(TT_SIZE);
-const PROMO_INDEX: Record<string, number> = { q: 1, r: 2, b: 3, n: 4 };
+/** Only q, r, b and n are ever promoted to; the other two pack as no promotion. */
+const PROMO_INDEX: Record<PieceType, number> = { q: 1, r: 2, b: 3, n: 4, p: 0, k: 0 };
 const PROMO_TYPES: (PieceType | undefined)[] = [undefined, 'q', 'r', 'b', 'n'];
 
 /** Forgets every stored position (call when a new game starts). */
@@ -184,9 +185,9 @@ class Searcher {
   private ttProbe(depth: number, alpha: number, beta: number, ply: number): { score: number | null; move: number } {
     const i = this.pos.hash & TT_MASK;
     if (!ttUsed[i] || ttKey[i] !== this.pos.hash) return { score: null, move: -1 };
-    const move = ttMove[i];
-    if (ttDepth[i] < depth) return { score: null, move };
-    const score = fromTT(ttScore[i], ply);
+    const move = ttMove[i]!;
+    if (ttDepth[i]! < depth) return { score: null, move };
+    const score = fromTT(ttScore[i]!, ply);
     const flag = ttFlag[i];
     if (flag === TT_EXACT) return { score, move };
     if (flag === TT_LOWER && score >= beta) return { score, move };
@@ -197,7 +198,7 @@ class Searcher {
   private ttStore(depth: number, score: number, flag: number, best: Move | null, ply: number) {
     const i = this.pos.hash & TT_MASK;
     // Prefer keeping deeper entries for the same position; otherwise replace.
-    if (ttUsed[i] && ttKey[i] === this.pos.hash && ttDepth[i] > depth && ttFlag[i] === TT_EXACT) return;
+    if (ttUsed[i] && ttKey[i] === this.pos.hash && ttDepth[i]! > depth && ttFlag[i] === TT_EXACT) return;
     ttUsed[i] = 1;
     ttKey[i] = this.pos.hash;
     ttScore[i] = toTT(score, ply);
@@ -209,12 +210,14 @@ class Searcher {
   private noteCutoff(m: Move, depth: number, ply: number) {
     if (m.captured || m.promotion || m.from < 0) return;
     const packed = packMove(m);
+    // Callers note cutoffs only below MAX_PLY, so both killer slots exist; the
+    // move is on the board (spawns returned above), so from * 64 + to < 4096.
     const k = ply * 2;
     if (this.killers[k] !== packed) {
-      this.killers[k + 1] = this.killers[k];
+      this.killers[k + 1] = this.killers[k]!;
       this.killers[k] = packed;
     }
-    this.history[m.from * 64 + m.to] += depth * depth;
+    this.history[m.from * 64 + m.to]! += depth * depth;
   }
 
   private tick() {
@@ -235,7 +238,7 @@ class Searcher {
         const packed = packMove(m);
         if (packed === k1) s += 40_000;
         else if (packed === k2) s += 30_000;
-        else s += Math.min(29_999, this.history[m.from * 64 + m.to]);
+        else s += Math.min(29_999, this.history[m.from * 64 + m.to]!);
       }
       return s;
     };
@@ -340,11 +343,13 @@ type Scored = { move: LegalMove; score: number }[];
 function pickFromScores(best: Scored, profile: Profile, rng: ReturnType<typeof createRng>): { move: LegalMove; score: number } {
   // With alpha-beta at the root only the best move's score is exact; the rest
   // are upper bounds. That is good enough for "pick among near-equal moves".
-  const top = best[0].score;
+  // Both callers return null before searching when there is no legal move, so
+  // `best` has an entry per legal move, and the top one is always a candidate.
+  const top = best[0]!.score;
   const candidates = best.filter((x) => top - x.score <= profile.slack);
   const withNoise = candidates.map((c) => ({ ...c, score: c.score + (rng.next() - 0.5) * 2 * profile.noise }));
   withNoise.sort((a, b) => b.score - a.score);
-  return withNoise[0];
+  return withNoise[0]!;
 }
 
 export function chooseMove(position: Position, difficulty: Difficulty, seed = randomSeed()): SearchResult | null {
@@ -365,7 +370,8 @@ export function chooseMove(position: Position, difficulty: Difficulty, seed = ra
       scores.sort((a, b) => b.score - a.score);
       best = scores;
       completedDepth = depth;
-      if (Math.abs(scores[0].score) >= MATE - 100) break;
+      // One score per legal move, and there is at least one (checked above).
+      if (Math.abs(scores[0]!.score) >= MATE - 100) break;
     } catch (e) {
       if (e instanceof TimeUp) break;
       throw e;
@@ -446,7 +452,8 @@ export async function chooseMoveAsync(
     scores.sort((a, b) => b.score - a.score);
     best = scores;
     completedDepth = depth;
-    if (Math.abs(scores[0].score) >= MATE - 100) break;
+    // Every legal move was scored (a timeout leaves the loop above), and there is one.
+    if (Math.abs(scores[0]!.score) >= MATE - 100) break;
   }
 
   const pick = pickFromScores(best, profile, rng);

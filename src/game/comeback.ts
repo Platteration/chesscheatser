@@ -45,7 +45,8 @@ export function blend(material: number, engine: number): number {
  */
 export function chooseDraft(pos: Position, offered: readonly PowerTag[], seed: number): PowerTag {
   const rng = createRng(seed);
-  let best = offered[0];
+  // Both callers return early on an empty offer, so there is a first tag.
+  let best = offered[0]!;
   let bestScore = -Infinity;
   for (const tag of offered) {
     const moves = powerMoves(pos, [tag], pos.resurrectable[pos.turn]);

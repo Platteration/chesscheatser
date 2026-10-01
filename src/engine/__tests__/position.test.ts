@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { boardFromString, boardToString, parseSquare, squareName } from '../board';
 import { Position, isAttacked, moveToSAN } from '../position';
+import { PASS_MOVE } from '../types';
 
 const START = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR';
 
@@ -187,7 +188,7 @@ describe('hashing', () => {
       for (let ply = 0; ply < 30; ply++) {
         const moves = pos.legalMoves();
         if (moves.length === 0 || pos.result().kind !== 'ongoing') break;
-        const m = moves[(seed * 7 + ply * 13) % moves.length];
+        const m = moves[(seed * 7 + ply * 13) % moves.length]!;
         pos.makeMove(m);
         expect(pos.hash).toBe(hashPosition(pos.board, pos.turn, pos.ep));
       }
@@ -214,5 +215,46 @@ describe('double check rule option', () => {
     pos.doubleCheckLoses = false;
     expect(pos.legalMoves()).toHaveLength(0);
     expect(pos.result().kind).toBe('both-in-check');
+  });
+});
+
+describe('move bounds', () => {
+  it('refuses a target off the board instead of growing the board array to reach it', () => {
+    // Only a move from outside the generator can do this — one replayed from a
+    // stored game — and board[m.to] would otherwise stretch the array to fit,
+    // so every later snapshot and piece count walks the holes.
+    const pos = new Position(boardFromString(START));
+    const width = pos.board.length;
+    expect(() => pos.makeMove({ from: parseSquare('a2'), to: 10_000_000, piece: 'p' })).toThrow();
+    expect(() => pos.makeMove({ from: parseSquare('a2'), to: -5, piece: 'p' })).toThrow();
+    expect(() => pos.makeMove({ from: -1, to: 10_000_000, piece: 'q' })).toThrow();
+    expect(pos.board.length).toBe(width);
+    // A pass is still a pass: it carries -1 for both squares by design.
+    expect(() => pos.makeMove(PASS_MOVE)).not.toThrow();
+  });
+
+  it('refuses an en-passant flag whose captured pawn would stand off the board', () => {
+    // The generator never flags one, but a stored move can carry enPassant onto
+    // the first or last rank. Clearing the square behind it grew the board to 72
+    // entries for black and wrote a stray '-8' key onto the array for white.
+    const board = boardFromString('1k1k4/7p/8/8/8/8/P7/1K1K4');
+    const black = new Position(board, 'b');
+    const before = black.key();
+    expect(() => black.makeMove({ from: parseSquare('h7'), to: parseSquare('h8'), piece: 'p', enPassant: true })).toThrow('Off-board capture 71');
+    expect(black.board).toHaveLength(64);
+    expect(black.key()).toBe(before);
+    expect(black.moveCount).toBe(0);
+    const white = new Position(board, 'w');
+    expect(() => white.makeMove({ from: parseSquare('a2'), to: parseSquare('a1'), piece: 'p', enPassant: true })).toThrow('Off-board capture -8');
+    expect(Object.keys(white.board)).toHaveLength(64);
+    expect(white.moveCount).toBe(0);
+  });
+
+  it('reads a square off the board as empty', () => {
+    const pos = new Position(boardFromString(START));
+    expect(pos.pieceAt(parseSquare('e1'))).toEqual({ type: 'k', color: 'w' });
+    expect(pos.pieceAt(parseSquare('e4'))).toBeNull();
+    expect(pos.pieceAt(-1)).toBeNull();
+    expect(pos.pieceAt(64)).toBeNull();
   });
 });
