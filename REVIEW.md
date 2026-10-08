@@ -22,6 +22,8 @@ Repository hardening applied here as well: every GitHub Action is pinned to a co
 
 Default branch (2026-09-23): `claude/two-king-chess-app-k423c0`, not `claude/repo-review-security-baiyud`, the branch this work was done on, so neither Dependabot's security updates nor CI's weekly run reach this work until `main` is created from it and made the default (shared items 4 and 10).
 
+Website pass (2026-10-08): `CI-1` is fixed. `pages.yml` no longer rewrites app.json with `node -e`; it runs `scripts/build-web.mjs` with the repository name passed through the step's environment.
+
 The rest of this document is the review as written. Fixed items are left in place so the reasoning behind each change stays with it.
 
 ## Summary

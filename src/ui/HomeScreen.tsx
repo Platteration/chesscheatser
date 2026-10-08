@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Difficulty } from '../engine/ai';
 import type { CheatLevel } from '../engine/cheat';
@@ -275,7 +275,14 @@ export function HomeScreen({ config, onChange, onStart, onDaily, daily, onRanked
           options={cosmeticsOfKind('pieces').map((c) => ({ value: c.id as PieceStyle, label: label(c) }))}
         />
         <SwitchRow label="Sound" hint="Moves, captures, checks and the cheat calls." value={settings.sounds} onValueChange={(v) => update({ sounds: v })} />
-        <SwitchRow label="Vibration" hint="A tap for a move, a buzz for a capture or a check." value={settings.haptics} onValueChange={(v) => update({ haptics: v })} />
+        {/* src/haptics.ts plays nothing in the browser, so there the switch would do nothing: it shows off, greyed out, and says why. The stored choice is left as it is. */}
+        <SwitchRow
+          label="Vibration"
+          hint={Platform.OS === 'web' ? 'Only in the phone app: the browser game does not vibrate.' : 'A tap for a move, a buzz for a capture or a check.'}
+          value={Platform.OS === 'web' ? false : settings.haptics}
+          onValueChange={(v) => update({ haptics: v })}
+          disabled={Platform.OS === 'web'}
+        />
         <Label hint="The moved piece jumps to its square instead of gliding. System follows your device's setting.">Reduce motion</Label>
         <Segmented<ReduceMotionSetting>
           value={settings.reduceMotion}

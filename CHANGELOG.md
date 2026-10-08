@@ -57,3 +57,16 @@
   computer's turn, or the comeback measurement after a move). The e2e helpers
   wait on it instead of fixed sleeps, and a failing scenario now reports the
   locator, helper and app state it stalled on.
+
+### Website
+- The browser build is a website with its own hosting layer (`public/`,
+  `deploy/nginx.conf`, built by `scripts/build-web.mjs`): a measured
+  Content-Security-Policy with Trusted Types and no framing, the other security
+  headers and cache lifetimes for Netlify, Cloudflare Pages, Apache and nginx,
+  the policy as `<meta>` tags for GitHub Pages, a not-found page, `robots.txt`,
+  `.well-known/security.txt`, and a note in place of an empty page when the game
+  cannot load or start. The end-to-end suite plays every scenario under those
+  headers at the Pages sub-path.
+- In the browser, the Vibration switch shows off, greyed out, and says why, and Share
+  result copies the result where there is no share sheet (or shows it to copy
+  by hand) instead of doing nothing.

@@ -80,10 +80,12 @@ interface SwitchRowProps {
   hint?: string;
   value: boolean;
   onValueChange: (v: boolean) => void;
+  /** For a feature this platform does not have: the switch is greyed out, and the hint says why. */
+  disabled?: boolean;
 }
 
 /** A labelled on/off row. The switch carries the row's label, so a screen reader names it. */
-export function SwitchRow({ label, hint, value, onValueChange }: SwitchRowProps) {
+export function SwitchRow({ label, hint, value, onValueChange, disabled = false }: SwitchRowProps) {
   const styles = useStyles();
   const theme = useTheme();
   return (
@@ -95,6 +97,7 @@ export function SwitchRow({ label, hint, value, onValueChange }: SwitchRowProps)
       <Switch
         value={value}
         onValueChange={onValueChange}
+        disabled={disabled}
         accessibilityLabel={label}
         trackColor={{ true: theme.accent, false: theme.border }}
       />

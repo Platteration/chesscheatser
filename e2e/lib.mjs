@@ -46,9 +46,44 @@ export async function describeApp(page) {
   }
 }
 
-/** Fresh page at the app root with console/page errors collected. */
-export async function openApp(browser, url, viewport = { width: 390, height: 844 }, { intro = false, storage = null } = {}) {
-  const context = await browser.newContext({ viewport, deviceScaleFactor: 1 });
+/**
+ * Collects on `page` everything that says the site, as published, does not work: an uncaught
+ * error, a console error, any console line about the security policy, the permissions policy
+ * or Trusted Types at whatever level the browser logs it, a `securitypolicyviolation` event
+ * (`watchPolicy` must have run on the context), and any request that leaves the site at
+ * `site`, the page's own address included in that prefix. Returns the list it fills.
+ */
+export function collectFailures(page, site) {
+  const errors = [];
+  page.on('pageerror', (e) => errors.push('pageerror: ' + e.message));
+  page.on('console', (m) => {
+    if (m.type() === 'error' || /Content Security Policy|Content-Security-Policy|Permissions-Policy|Trusted Type|policy violation/i.test(m.text())) {
+      errors.push(`console ${m.type()}: ${m.text()}`);
+    }
+  });
+  page.on('request', (r) => {
+    if (!r.url().startsWith(site)) errors.push('request outside the site: ' + r.url());
+  });
+  return errors;
+}
+
+/** Reports every CSP violation in the context's pages as a console error, which collectFailures reads. */
+export async function watchPolicy(context) {
+  await context.addInitScript(() => {
+    document.addEventListener('securitypolicyviolation', (e) => {
+      console.error(`policy violation: ${e.violatedDirective} blocked ${e.blockedURI || 'inline'} at ${e.sourceFile}:${e.lineNumber}`);
+    });
+  });
+}
+
+/**
+ * Fresh page at the app root with console/page errors, policy violations and requests outside
+ * the site collected; `url` is the site's own address, so it is also the prefix every request
+ * has to stay under.
+ */
+export async function openApp(browser, url, viewport = { width: 390, height: 844 }, { intro = false, storage = null, permissions = [] } = {}) {
+  const context = await browser.newContext({ viewport, deviceScaleFactor: 1, permissions });
+  await watchPolicy(context);
   if (storage) {
     // Records already on the device when the app opens, for scenarios about what
     // it does with what it finds there.
@@ -71,11 +106,7 @@ export async function openApp(browser, url, viewport = { width: 390, height: 844
   const page = await context.newPage();
   activePage = page;
   activeHelper = null;
-  const errors = [];
-  page.on('pageerror', (e) => errors.push('pageerror: ' + e.message));
-  page.on('console', (m) => {
-    if (m.type() === 'error') errors.push('console: ' + m.text());
-  });
+  const errors = collectFailures(page, url);
   await page.goto(url);
   await page.waitForTimeout(800);
   return { page, context, errors };

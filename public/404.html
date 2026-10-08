@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<!-- Two Kings Chess: the page a host shows for an address the site does not have. It needs no
+     script. Its addresses are written from the site root; scripts/build-web.mjs moves them under
+     the base URL of a sub-path build, because this page is served at whatever depth the missing
+     address had and a relative path would resolve from there. -->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <meta name="theme-color" content="#19232d" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#f5f0e6" media="(prefers-color-scheme: light)" />
+    <title>Page not found · Two Kings Chess</title>
+    <link rel="icon" href="/favicon.ico" />
+    <link rel="stylesheet" href="/site.css" />
+  </head>
+  <body class="not-found">
+    <main class="site-note">
+      <div class="mark" aria-hidden="true">♚♚</div>
+      <h1>That page isn’t here</h1>
+      <p>The address may be mistyped, or the page may have moved. All of Two Kings Chess is on one page: the board, the daily challenge, the ladder and the puzzles.</p>
+      <p><a class="button" href="/">Play Two Kings Chess</a></p>
+    </main>
+  </body>
+</html>

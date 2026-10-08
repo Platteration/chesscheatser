@@ -1,0 +1,101 @@
+/* Two Kings Chess: the page around the app. Expo's template carried the first three rules as an
+   inline <style>; they live here so the page's own styles never need the policy's
+   'unsafe-inline', which only react-native-web's runtime stylesheet asks for. The colours are
+   the app's own dark and light palettes (src/ui/theme.ts). */
+
+/* The react-native-web root element reset: https://necolas.github.io/react-native-web/docs/setup/#root-element */
+html,
+body {
+  height: 100%;
+}
+/* The app scrolls inside its own ScrollViews. */
+body {
+  overflow: hidden;
+  margin: 0;
+  background: #19232d;
+  color: #f7f1e5;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+#root {
+  display: flex;
+  height: 100%;
+  flex: 1;
+}
+
+/* The note the page shows when the game cannot start: no JavaScript (<noscript>), or the
+   bundle failed to load or threw before it drew anything (guard.js). */
+.site-note {
+  box-sizing: border-box;
+  width: calc(100% - 2rem);
+  max-width: 34rem;
+  margin: 15vh auto 0;
+  padding: 1.5rem;
+  border: 1px solid #526674;
+  border-radius: 12px;
+  background: #24323e;
+  line-height: 1.5;
+}
+.site-note[hidden] {
+  display: none;
+}
+.site-note h1 {
+  margin: 0 0 0.5rem;
+  font-size: 1.25rem;
+}
+.site-note p {
+  margin: 0.5rem 0 0;
+  color: #b7c2c7;
+}
+.site-note a {
+  color: #e8bd70;
+}
+/* While the note is up there is nothing in the root to see. */
+.site-failed #root {
+  display: none;
+}
+
+/* 404.html */
+.not-found {
+  overflow: auto;
+}
+.not-found .site-note p:last-child {
+  margin-top: 1.25rem;
+}
+.button {
+  display: inline-block;
+  padding: 0.6rem 1.1rem;
+  border-radius: 12px;
+  background: #e8bd70;
+  color: #1a1300;
+  font-weight: 600;
+  text-decoration: none;
+}
+.site-note a.button {
+  color: #1a1300;
+}
+.mark {
+  font-size: 2.5rem;
+  line-height: 1;
+}
+
+@media (prefers-color-scheme: light) {
+  body {
+    background: #f5f0e6;
+    color: #24333e;
+  }
+  .site-note {
+    border-color: #b7b2a4;
+    background: #fffaf0;
+  }
+  .site-note p {
+    color: #5b6b72;
+  }
+  .site-note a {
+    color: #6f4a14;
+  }
+  .button,
+  .site-note a.button {
+    background: #a57127;
+    color: #0f0b00;
+  }
+}

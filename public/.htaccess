@@ -1,0 +1,52 @@
+# Two Kings Chess: Apache 2.4 (mod_rewrite, mod_headers, mod_mime). Netlify and Cloudflare Pages
+# read _headers instead; nginx: see deploy/nginx.conf. The header values are the same in all of
+# them, and src/__tests__/website.test.ts fails when they differ; _headers says what each is for.
+# Apache never serves a file whose name starts with .ht, so this one is not published.
+
+Options -Indexes
+ServerSignature Off
+AddDefaultCharset utf-8
+# A sub-path build (--base-url) rewrites these two addresses to the path it is served under.
+ErrorDocument 404 /404.html
+ErrorDocument 403 /404.html
+
+<IfModule mod_mime.c>
+  AddType text/javascript .js
+  AddType text/css .css
+  AddType font/ttf .ttf
+  AddType audio/wav .wav
+  AddType image/x-icon .ico
+</IfModule>
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  # everything over https
+  RewriteCond %{HTTPS} !=on
+  RewriteCond %{HTTP:X-Forwarded-Proto} !=https
+  RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
+  # never a dotfile (.git above all), except the folder RFC 9116 and certificate checks use
+  RewriteRule (^|/)\.(?!well-known/) - [R=404,L]
+  # the other hosts' configs, and the repository's own files if a checkout were published
+  RewriteRule ^(_headers|_redirects|README\.md|package\.json|deploy(/.*)?|public(/.*)?|src(/.*)?)$ - [R=404,L]
+  # a folder with no page of its own is a 404, not a listing or a 403 that hints at one
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteCond %{REQUEST_FILENAME}/index.html !-f
+  RewriteRule ^ - [R=404,L]
+</IfModule>
+
+<IfModule mod_headers.c>
+  Header always set Content-Security-Policy "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self'; font-src 'self'; media-src 'self'; connect-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'; frame-ancestors 'none'; upgrade-insecure-requests; require-trusted-types-for 'script'; trusted-types 'none'"
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set X-Frame-Options "DENY"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  Header always set Permissions-Policy "accelerometer=(), autoplay=(self), browsing-topics=(), camera=(), clipboard-read=(), clipboard-write=(self), compute-pressure=(), display-capture=(), encrypted-media=(), fullscreen=(), gamepad=(), geolocation=(), gyroscope=(), hid=(), identity-credentials-get=(), idle-detection=(), local-fonts=(), magnetometer=(), microphone=(), midi=(), otp-credentials=(), payment=(), picture-in-picture=(), publickey-credentials-create=(), publickey-credentials-get=(), screen-wake-lock=(), serial=(), storage-access=(), usb=(), window-management=(), xr-spatial-tracking=()"
+  Header always set Cross-Origin-Opener-Policy "same-origin"
+  Header always set Cross-Origin-Resource-Policy "same-origin"
+  Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains" env=HTTPS
+  # Revalidated on every load, except what carries a content hash in its name (the bundle,
+  # index-<hash>.js, and the assets, <name>.<hash>.<ext>), which a new build renames.
+  Header always set Cache-Control "no-cache"
+  <FilesMatch "[.-][0-9a-f]{32}\.(js|ttf|wav)$">
+    Header always set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+</IfModule>

@@ -17,8 +17,11 @@ an optional cheating computer opponent.
 - `npm run check` — the gate before a push: the lint, the type check, the unit
   tests and `npm run test:conventions` (the repository's shape against
   `CONVENTIONS.md`)
-- `npm run test:e2e` — export the web build and drive it in headless Chromium
+- `npm run test:e2e` — build the website for the `/chesscheatser/` sub-path and
+  play it in headless Chromium with the site's headers on every response
   (`e2e/run.mjs`); `npm run test:all` runs the unit suite and then this
+- `npm run build:web -- --host <host> [--base-url /<path>]` — the website
+  (`scripts/build-web.mjs`; see Website below)
 - `CI=1 npx expo export --platform web|android --output-dir <dir>` — Metro bundle check
 
 ## Layout
@@ -146,6 +149,51 @@ press handler is left off there so the address does not open twice, and everywhe
 null rule, what Reset touches, what starting a game asks, the About text and its link's
 web anchor, and the accessibility floor (every `Pressable` has a role; the shared
 `Button` and `Segmented` are where most get it).
+
+## Website
+
+The browser build is also a website, on the art app's model: the game stays in the
+browser and the host does only the hosting (headers, cache lifetimes, the 404 page,
+refusing what is not part of the site). `public/` is that layer and the web export
+copies it into the site: `index.html` is SDK 57's template for a single-page export
+(the CLI replaces the first `%LANG_ISO_CODE%` and `%WEB_TITLE%` and appends the bundle's
+script before the first `</body>`, so none of those may appear earlier, comments
+included), `guard.js` the safety net (loaded first, plain old-browser JavaScript;
+it notes a bundle that fails to load or throws before `#root` has children, and
+stays silent once the app has drawn, where `src/recovery.ts` takes over),
+`site.css`, `404.html`, `robots.txt`, `.well-known/security.txt` and the host
+configs `_headers`, `_redirects`, `.htaccess`; `deploy/nginx.conf` is nginx's.
+`scripts/build-web.mjs` runs the export and then writes the CSP and referrer
+`<meta>` tags into every page from `public/_headers`. They are not in
+`public/index.html` because that is also the dev server's page, whose live reload a
+policy would block. It also moves `404.html`'s root-absolute addresses and
+`.htaccess`'s `ErrorDocument` under `--base-url`, keeps only the `--host`'s config,
+drops `metadata.json`, and refuses a page that names a file the site does not hold.
+`app.config.js` exists only to pass `WEB_BASE_URL` into `experiments.baseUrl` for a
+sub-path build; unset, app.json is used as written.
+
+The policy is one set of values in four places (`_headers`, `.htaccess`,
+`nginx.conf`, the `<meta>`, which drops only `frame-ancestors`), and
+`src/__tests__/website.test.ts` reads it back out of each and fails when they
+differ, along with the cache lifetimes and each config's refusal of the repository's
+files. It was measured: `style-src` has `'unsafe-inline'` because react-native-web's
+stylesheet and expo-font's `@font-face` are `<style>` elements written at runtime
+(without it the board has no layout), and Trusted Types are enforced with
+`trusted-types 'none'`. The browser suite serves every scenario through
+`e2e/serve.mjs`, which sends `_headers` as written under the sub-path, answers
+`404.html` for anything missing, refuses dotfiles and the host configs, and records
+requests outside the site; `openApp` fails a scenario on any violation, any console
+line about the policy, the permissions policy or Trusted Types, and any request
+outside the site. So a change that loads something new (a font, an image, a fetch)
+fails there until the policy allows it in every place at once. Not 4190 for the
+suite's port: Node's `fetch` refuses it as a bad port.
+
+What the browser cannot do degrades visibly: the Vibration switch shows off and is
+disabled on the web, with a hint saying why (`src/haptics.ts` plays nothing there; the
+stored choice is left alone for the phone), and Share result
+goes through `shareOnWeb` in `src/share.ts` (the share sheet, else the clipboard,
+else the text shown to copy) with a note under the button, since react-native-web's
+`Share.share` simply rejects where `navigator.share` is missing.
 
 ## Conventions
 

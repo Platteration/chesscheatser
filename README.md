@@ -97,6 +97,10 @@ Cheats are revealed at the end of the game.
   so they look identical on every device. See `assets/fonts/LICENSE-DejaVu.txt`.
 - The current game is saved automatically and can be resumed from the home screen.
 - Win/loss/draw record against the computer.
+- In the browser everything above works but vibration, which the browser game
+  does not do: its switch shows off, greyed out, and says so. Where the browser has no
+  share sheet, Share result copies the result instead, and where it cannot copy
+  either, shows it to copy by hand.
 
 ## Monetization
 
@@ -153,8 +157,102 @@ npx eas build --profile production --platform ios
 
 ### Deploy
 
-`.github/workflows/pages.yml` publishes the web build to GitHub Pages once
-Pages is enabled for the repository (Settings → Pages → GitHub Actions).
+The browser build is a website: the game runs in the browser exactly as it
+does on a phone, and the host only serves files, with the headers, the
+not-found page and the refusals that `public/` and `deploy/nginx.conf` give it.
+Nothing about the game moves to a server; it makes no network requests of its
+own, and the site's policy refuses any.
+
+```sh
+npm run build:web -- --host netlify                                  # dist-web/, for a site at the root of its own domain
+npm run build:web -- --host github-pages --base-url /chesscheatser  # what pages.yml publishes
+```
+
+`scripts/build-web.mjs` runs `expo export --platform web` (which copies
+`public/` into the site and fills in `public/index.html`), then adds the
+Content-Security-Policy and referrer `<meta>` tags to every page from
+`public/_headers`, moves `404.html`'s addresses under `--base-url`, and keeps
+only the config file the `--host` reads (`github-pages`, `netlify`,
+`cloudflare`, `apache` or `nginx`; without it all three stay, and each host
+ignores the others'). It refuses a site in which a page names a file the build
+does not hold. Publish the folder it writes, never the checkout.
+
+What the site holds besides the game: `guard.js`, the safety net loaded before
+the bundle, which shows a note in place of an empty page when the bundle does
+not arrive or throws before it has drawn anything (with JavaScript off, the
+page's `<noscript>` note says what is needed); `site.css`; `404.html`, the
+game's look for an address the site does not have; `robots.txt`; and
+`.well-known/security.txt`, pointing at private vulnerability reporting
+(`Expires` is 2027-10-08, and `src/__tests__/website.test.ts` goes red once it
+passes, so it is renewed before then).
+
+**Hosts.**
+
+- **GitHub Pages**: `.github/workflows/pages.yml` publishes on a push to `main`
+  once Pages is enabled for the repository (Settings → Pages → GitHub Actions).
+  Pages sends no headers of its own choosing, so there the policy and the
+  referrer policy arrive as `<meta>` tags, and everything a `<meta>` cannot
+  carry needs a host that sends headers: `frame-ancestors` and
+  `X-Frame-Options` (no framing), `nosniff`, `Permissions-Policy`, the two
+  cross-origin policies, HSTS and the cache lifetimes. `robots.txt` and
+  `security.txt` under `/chesscheatser/` are not at the address's root, where
+  crawlers and RFC 9116 look for them.
+- **Netlify** and **Cloudflare Pages** read `_headers` (and Netlify
+  `_redirects`) from the published folder: build with `--host netlify` or
+  `--host cloudflare`.
+- **Apache** reads `.htaccess` (`AllowOverride All`, with `mod_rewrite`,
+  `mod_headers` and `mod_mime`): `--host apache`.
+- **nginx**: `deploy/nginx.conf`, included from the `http {}` block, serving the
+  folder `--host nginx` writes.
+
+**One address for every app.** A GitHub Pages project site lives at
+`platteration.github.io/chesscheatser/`, and every other app the account
+publishes lives on the same origin, `platteration.github.io`. Browsers key
+storage to the origin, not the path, so there each of those apps can read and
+rewrite this game's saved records (PRIVACY.md says so), and a script injected
+into any one of them reaches all of them. Give the game an address of its own,
+a custom domain or subdomain (Pages lets each repository have one; Netlify and
+Cloudflare Pages give every site one), and build it for the root. The storage
+keys stay prefixed (`twokings.*`) either way.
+
+**Response headers**, the same in `public/_headers`, `public/.htaccess` and
+`deploy/nginx.conf` (`src/__tests__/website.test.ts` fails when they differ;
+`public/_headers` says what each source is for):
+
+| Header | Value |
+| --- | --- |
+| `Content-Security-Policy` | `default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self'; font-src 'self'; media-src 'self'; connect-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'; frame-ancestors 'none'; upgrade-insecure-requests; require-trusted-types-for 'script'; trusted-types 'none'` |
+| `X-Content-Type-Options` | `nosniff` |
+| `X-Frame-Options` | `DENY` |
+| `Referrer-Policy` | `strict-origin-when-cross-origin` |
+| `Permissions-Policy` | every feature off but `autoplay` and `clipboard-write`, which are this site's alone |
+| `Cross-Origin-Opener-Policy` | `same-origin` |
+| `Cross-Origin-Resource-Policy` | `same-origin` |
+| `Strict-Transport-Security` | `max-age=31536000; includeSubDomains` |
+| `Cache-Control` | a year, `immutable`, for the bundle and the assets, whose names carry a content hash; `no-cache` for everything else |
+
+The policy was measured rather than copied: the browser suite plays the whole
+game with these headers on every response and fails on any violation. Two
+things in it are there because the game needs them: `'unsafe-inline'` in
+`style-src`, because react-native-web writes its stylesheet, and expo-font the
+chess glyphs' `@font-face`, into `<style>` elements at runtime (without it the
+board has no layout and the pieces no font), and `media-src 'self'` for the
+sounds. Trusted Types are enforced with no policy allowed at all.
+
+**Launch checklist**, with `SITE` the site's https address:
+
+```sh
+curl -sI http://SITE/ | head -1                     # a 301 to https (Apache, nginx; a switch on the other hosts)
+curl -sI https://SITE/ | grep -iE 'content-security|x-frame|nosniff|referrer|permissions|cross-origin|strict-transport|cache-control'
+curl -sI https://SITE/.git/HEAD | head -1           # 404
+curl -sI https://SITE/README.md | head -1           # 404
+curl -sI https://SITE/assets/ | head -1             # 404: no folder listing
+curl -s  https://SITE/no-such-page | grep -c 'That page isn'   # 1: the site's own 404 page
+curl -s  https://SITE/.well-known/security.txt      # the contact, and an Expires date in the future
+```
+
+Then play a game in the browser and check that its console shows no
+`Content Security Policy` line.
 
 ## Development
 
@@ -171,12 +269,16 @@ npm run test:all          # npm test, then the e2e suite
 The e2e suite (`e2e/run.mjs`) plays real games through the UI: settings,
 hints/undo/resume, computer cheating and accusations, player cheating, the
 daily challenge, the ladder, puzzles, the pass-and-play clock, review and Pro
-gating. When a scenario fails the runner prints Playwright's call log (the
+gating. It plays the website as it is published: built for the
+`/chesscheatser/` sub-path and served by `e2e/serve.mjs` with the headers
+`public/_headers` writes on every response, and a scenario fails on any policy
+violation, page error or request that leaves the site. One more scenario checks
+the website itself: every file's headers and cache lifetime, the `<meta>`
+copies, the 404 page, that another page cannot frame the game, and the safety
+net's notes. When a scenario fails the runner prints Playwright's call log (the
 locator it waited on and why), the helper it was in and the app's state
 (status line, `aria-busy`, open overlays, disabled controls); with
 `E2E_SHOTS=<dir>` it also saves a screenshot of the failure.
-`.github/workflows/pages.yml` publishes the web build to GitHub Pages
-once Pages is enabled for the repository (Settings → Pages → GitHub Actions).
 
 CI (`.github/workflows/ci.yml`) runs the lint, the type check, the unit tests,
 the conventions test, a Metro bundle for Android and web, and the end-to-end
@@ -208,6 +310,11 @@ much below half, the draft has stopped doing its job.
   heuristic, driven by iterative deepening under a time budget).
 - `src/game`: event-sourced game controller (moves, passes, accusations), undo and persistence.
 - `src/ui`: screens and board rendering.
+- `public/`: the website around the game, which the web export copies into the
+  site: the page template, `guard.js`, `site.css`, `404.html`, `robots.txt`,
+  `.well-known/security.txt` and the host configs (`_headers`, `_redirects`,
+  `.htaccess`); `deploy/nginx.conf` is nginx's. `scripts/build-web.mjs` builds
+  the site, and `app.config.js` hands it the base URL of a sub-path build.
 
 ## License
 

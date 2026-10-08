@@ -1,0 +1,16 @@
+# Two Kings Chess: Netlify. The published folder is the web export, which holds none of the
+# repository's own files; these answer 404 for the ones that would be there if a checkout were
+# published by mistake, and for Apache's config, which scripts/build-web.mjs leaves out of a
+# --host netlify build anyway. The ! makes a rule apply even where a file exists (Netlify serves
+# an existing file over a rule without it). Netlify serves dotfiles; .well-known/ is the one
+# folder of them that belongs to the site. Cloudflare Pages has no 404 rules: build for it with
+# --host cloudflare, which keeps only its own config.
+/.htaccess        /404.html  404!
+/.git/*           /404.html  404!
+/.github/*        /404.html  404!
+/.env             /404.html  404!
+/README.md        /404.html  404!
+/package.json     /404.html  404!
+/deploy/*         /404.html  404!
+/public/*         /404.html  404!
+/src/*            /404.html  404!

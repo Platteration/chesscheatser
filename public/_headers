@@ -1,0 +1,70 @@
+# Two Kings Chess: response headers for Netlify and Cloudflare Pages, which read this file from the
+# published folder and do not serve it. Apache: see .htaccess. nginx: see deploy/nginx.conf.
+# GitHub Pages sends no headers of its own choosing: there scripts/build-web.mjs copies the policy
+# and the referrer policy into each page as <meta> tags, which cannot carry frame-ancestors.
+# The same values are in all of these, and src/__tests__/website.test.ts fails when they differ.
+#
+# The policy was measured, not copied: e2e/run.mjs drives the whole game with these headers on
+# every response and fails on any violation. What each source is for:
+#   script-src 'self'       the bundle and guard.js; nothing inline, no eval
+#   style-src 'unsafe-inline'  react-native-web writes its stylesheet, and expo-font the
+#                           @font-face for the chess glyphs, into <style> elements at runtime;
+#                           without it the board has no layout and the pieces no font
+#   img-src 'self'          the favicon
+#   font-src 'self'         the bundled chess glyph font
+#   media-src 'self'        the move, capture and check sounds
+#   connect-src 'none'      the game makes no network requests
+#   require-trusted-types-for 'script'; trusted-types 'none'
+#                           no string ever becomes HTML or script: React, react-native-web and
+#                           Expo run without creating a single Trusted Types policy
+# frame-ancestors 'none' and X-Frame-Options: DENY: the game is not meant to be embedded, so no
+# other site can frame it and steer its buttons.
+#
+# Permissions-Policy turns off what the game never uses. It uses autoplay (sounds after a move)
+# and clipboard-write (copying a result where the browser has no share sheet), each for this site
+# only; web-share, the share sheet itself, keeps its default of this site only and is not listed,
+# because Chromium builds without the share sheet warn about the name in every visitor's console.
+#
+# Cache-Control: the bundle and the assets carry a content hash in their names, so a new build
+# gets new names and they can be kept for a year. Everything else is revalidated on every load.
+# Every file the site holds has exactly one rule below; the browser suite checks that.
+
+/*
+  Content-Security-Policy: default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self'; font-src 'self'; media-src 'self'; connect-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'; frame-ancestors 'none'; upgrade-insecure-requests; require-trusted-types-for 'script'; trusted-types 'none'
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: accelerometer=(), autoplay=(self), browsing-topics=(), camera=(), clipboard-read=(), clipboard-write=(self), compute-pressure=(), display-capture=(), encrypted-media=(), fullscreen=(), gamepad=(), geolocation=(), gyroscope=(), hid=(), identity-credentials-get=(), idle-detection=(), local-fonts=(), magnetometer=(), microphone=(), midi=(), otp-credentials=(), payment=(), picture-in-picture=(), publickey-credentials-create=(), publickey-credentials-get=(), screen-wake-lock=(), serial=(), storage-access=(), usb=(), window-management=(), xr-spatial-tracking=()
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Resource-Policy: same-origin
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+
+/_expo/static/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/
+  Cache-Control: no-cache
+
+/index.html
+  Cache-Control: no-cache
+
+/404.html
+  Cache-Control: no-cache
+
+/site.css
+  Cache-Control: no-cache
+
+/guard.js
+  Cache-Control: no-cache
+
+/favicon.ico
+  Cache-Control: no-cache
+
+/robots.txt
+  Cache-Control: no-cache
+
+/.well-known/security.txt
+  Cache-Control: no-cache

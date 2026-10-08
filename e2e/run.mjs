@@ -1,20 +1,167 @@
-// End-to-end suite: builds nothing itself; run `npm run test:e2e` (which exports the
-// web bundle first) or point it at an existing export with E2E_ROOT.
+// End-to-end suite: builds nothing itself; run `npm run test:e2e` (which builds the website
+// first, with scripts/build-web.mjs) or point it at an existing build with E2E_ROOT.
+//
+// Every scenario plays the site as it is published: under a sub-path, as a GitHub Pages project
+// site is, with the headers public/_headers writes on every response (e2e/serve.mjs). openApp
+// fails a scenario on any policy violation and any request that leaves the site, so a policy
+// that blocks something the game really does fails here, in the scenario that does it.
 import fs from 'node:fs';
+import http from 'node:http';
 import path from 'node:path';
-import { assert, cellCounts, clickSquares, currentHelper, currentPage, describeApp, draftCount, exact, gameOver, launch, makeAnyMove, openApp, readBoard, resetDraftCount, serve, sq, text, unlockPro, waitHuman, walkPawnToLastRank } from './lib.mjs';
+import { assert, cellCounts, clickSquares, collectFailures, currentHelper, currentPage, describeApp, draftCount, exact, gameOver, launch, makeAnyMove, openApp, readBoard, resetDraftCount, serve, sq, text, unlockPro, waitHuman, walkPawnToLastRank, watchPolicy } from './lib.mjs';
+import { headersFor, parseHeaders } from './serve.mjs';
+import { metaPolicy, sitePolicy } from '../scripts/build-web.mjs';
 
-const root = process.env.E2E_ROOT || path.resolve('dist-web');
-const port = Number(process.env.E2E_PORT || 4190);
+const root = path.resolve(process.env.E2E_ROOT || 'dist-web');
+// Not 4190, which the suite used until it read headers with Node's fetch: that port is on the
+// Fetch standard's list of ports a client refuses (ManageSieve), and fetch() answers "bad port".
+const port = Number(process.env.E2E_PORT || 4191);
+// The path the build was made for (npm run test:e2e builds with --base-url /chesscheatser).
+const base = process.env.E2E_BASE || '/chesscheatser/';
 // 127.0.0.1 rather than localhost: the server binds loopback v4 only.
-const url = `http://127.0.0.1:${port}/`;
+const url = `http://127.0.0.1:${port}${base}`;
 const shots = process.env.E2E_SHOTS || '';
 const KIND_ORDER = ['double-1', 'mate-1', 'win-2'];
 const puzzles = JSON.parse(fs.readFileSync(path.resolve('assets/puzzles.json'), 'utf8')).sort(
   (a, b) => KIND_ORDER.indexOf(a.kind) - KIND_ORDER.indexOf(b.kind) || a.pieces - b.pieces,
 );
 
+/** Every file of the built site, as paths relative to its root. */
+function siteFiles(dir = root, rel = '') {
+  return fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+    const p = rel ? `${rel}/${e.name}` : e.name;
+    return e.isDirectory() ? siteFiles(path.join(dir, e.name), p) : [p];
+  });
+}
+
+/** A name a build gives a new value when the content changes: index-<hash>.js, <name>.<hash>.<ext>. */
+const HASHED = /[.-][0-9a-f]{32}\.[a-z0-9]+$/;
+
 const scenarios = {
+  async 'the website: headers, policy, not-found page, framing and the safety net'(browser) {
+    const rules = parseHeaders(fs.readFileSync(path.join(root, '_headers'), 'utf8'));
+    const policy = sitePolicy(fs.readFileSync(path.join(root, '_headers'), 'utf8'));
+    const security = [...headersFor(rules, '/no-such-file')];
+    assert(security.length >= 8, 'the /* rule sets the security headers: ' + JSON.stringify(security));
+
+    // Every file the site serves carries every security header with _headers' value, and exactly
+    // one Cache-Control: a year for a name with a content hash in it, revalidation for the rest.
+    const configs = ['_headers', '_redirects', '.htaccess'];
+    const files = siteFiles().filter((f) => !configs.includes(f));
+    assert(files.length > 10 && files.some((f) => f.startsWith('_expo/static/js/web/')), 'the site has its bundle: ' + files);
+    for (const f of files) {
+      const res = await fetch(url + f);
+      assert(res.status === 200, `${f} is served: ${res.status}`);
+      for (const [name, value] of security) assert(res.headers.get(name) === value, `${f}: ${name} is ${res.headers.get(name)}`);
+      const cache = res.headers.get('cache-control');
+      const want = HASHED.test(f) ? 'public, max-age=31536000, immutable' : 'no-cache';
+      assert(cache === want, `${f}: Cache-Control is ${JSON.stringify(cache)}, not ${want}`);
+      if (f.endsWith('.js')) assert(res.headers.get('content-type').startsWith('text/javascript'), `${f} is served as script`);
+    }
+    // The site's own address, a missing page, the host configs, dotfiles and a folder are not files of the site.
+    assert((await fetch(url)).headers.get('cache-control') === 'no-cache', 'the page itself is revalidated');
+    for (const p of ['no/such/page', ...configs, '.git/config', '.env', 'README.md', 'deploy/nginx.conf', 'assets/', '_expo/static/js/web/']) {
+      const res = await fetch(url + p);
+      const body = await res.text();
+      assert(res.status === 404 && body.includes('That page isn’t here'), `${p} is the 404 page: ${res.status}`);
+      assert(res.headers.get('content-security-policy') === policy.csp, `${p}: the 404 page is under the policy too`);
+    }
+
+    // Each page carries the policy as a <meta> as well, for hosts that send no headers: the same
+    // policy less frame-ancestors, which a <meta> cannot carry.
+    for (const page of ['index.html', '404.html']) {
+      const html = fs.readFileSync(path.join(root, page), 'utf8');
+      const metas = [...html.matchAll(/<meta http-equiv="Content-Security-Policy" content="([^"]*)"/g)].map((m) => m[1]);
+      assert(metas.length === 1 && metas[0] === metaPolicy(policy.csp), `${page} carries the policy once: ${metas}`);
+      assert(html.includes(`<meta name="referrer" content="${policy.referrer}" />`), `${page} carries the referrer policy`);
+    }
+
+    // The game runs under it (openApp fails on any violation), and the safety net stays hidden.
+    const { page, context, errors } = await openApp(browser, url);
+    assert((await page.locator('#site-note').isHidden()), 'no failure note over a game that started');
+    await exact(page, 'White').first().click();
+    await exact(page, 'Never').click();
+    await exact(page, 'New game with these settings').click();
+    assert(await makeAnyMove(page), 'a move under the policy');
+    await waitHuman(page);
+    const fonts = await page.evaluate(() => [...document.fonts].filter((f) => f.status === 'loaded').map((f) => f.family));
+    assert(fonts.some((f) => f.includes('ChessGlyphs')), 'the chess glyph font loaded under font-src: ' + fonts);
+    assert(errors.length === 0, errors.join('\n'));
+    await context.close();
+
+    // The not-found page: status 404, the site's look, and its one link back to the game.
+    {
+      const context = await browser.newContext();
+      await watchPolicy(context);
+      const page = await context.newPage();
+      const failures = collectFailures(page, url);
+      const res = await page.goto(url + 'no/such/page');
+      assert(res.status() === 404, 'a missing page answers 404');
+      assert((await page.title()) === 'Page not found · Two Kings Chess', 'the 404 page: ' + (await page.title()));
+      const play = page.getByRole('link', { name: 'Play Two Kings Chess' });
+      assert((await play.getAttribute('href')) === base, 'the 404 page links to the game at its base: ' + (await play.getAttribute('href')));
+      const styled = await page.evaluate(() => getComputedStyle(document.querySelector('.site-note')).borderTopStyle);
+      assert(styled === 'solid', 'the 404 page has its stylesheet at this depth: ' + styled);
+      await play.click();
+      await exact(page, 'New game with these settings').waitFor({ timeout: 10000 });
+      // The browser logs the 404 itself as a failed load; nothing else may appear.
+      const rest = failures.filter((f) => !/Failed to load resource: the server responded with a status of 404/.test(f));
+      assert(rest.length === 0, rest.join('\n'));
+      await context.close();
+    }
+
+    // No other site can frame the game (frame-ancestors 'none', X-Frame-Options: DENY). The
+    // framing page is served by a server of its own on another loopback port, which is another
+    // origin the browser would otherwise let frame the game: about:blank is refused even by
+    // `frame-ancestors *`, which matches network schemes only, and a page the test answers
+    // through a route counts as public, which Chromium's private network checks stop from
+    // framing a loopback address before the headers are read. Either would pass with no
+    // protection at all.
+    {
+      const framer = http.createServer((req, res) => {
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        res.end(`<!doctype html><title>another site</title><iframe src="${url}" width="400" height="600"></iframe>`);
+      });
+      await new Promise((resolve) => framer.listen(0, '127.0.0.1', resolve));
+      const context = await browser.newContext();
+      const page = await context.newPage();
+      await page.goto(`http://127.0.0.1:${framer.address().port}/`);
+      await page.waitForTimeout(2000);
+      const frame = page.frames().find((f) => f !== page.mainFrame());
+      assert(frame, 'the framing page has its frame');
+      const framed = await frame.evaluate(() => !!document.getElementById('root')).catch(() => false);
+      assert(!framed, 'the game refuses to load inside another site: ' + frame.url());
+      await context.close();
+      framer.close();
+    }
+
+    // The safety net: a bundle that does not arrive, and one that throws before drawing, each
+    // leave a note rather than an empty page; with JavaScript off the <noscript> note shows.
+    const broken = async (handle, expect) => {
+      const context = await browser.newContext();
+      await watchPolicy(context);
+      await context.route('**/_expo/static/js/web/*.js', handle);
+      const page = await context.newPage();
+      const failures = collectFailures(page, url);
+      await page.goto(url);
+      await page.getByRole('heading', { name: expect }).waitFor({ timeout: 10000 });
+      assert(await page.locator('#site-note').isVisible(), `the note is shown: ${expect}`);
+      const policyFailures = failures.filter((f) => /polic|Trusted Type/i.test(f));
+      assert(policyFailures.length === 0, policyFailures.join('\n'));
+      await page.getByRole('link', { name: 'Reload the page' }).waitFor();
+      await context.close();
+    };
+    await broken((route) => route.abort(), 'Two Kings Chess could not load');
+    await broken((route) => route.fulfill({ contentType: 'text/javascript', body: 'throw new Error("the bundle threw while starting")' }), 'Two Kings Chess could not start');
+    {
+      const context = await browser.newContext({ javaScriptEnabled: false });
+      const page = await context.newPage();
+      await page.goto(url);
+      assert(await page.getByRole('heading', { name: 'Two Kings Chess needs JavaScript' }).isVisible(), 'the no-JavaScript note shows');
+      await context.close();
+    }
+  },
+
   async 'home settings persist'(browser) {
     const { page, context, errors } = await openApp(browser, url);
     await exact(page, 'Light').click();
@@ -25,6 +172,10 @@ const scenarios = {
     const saved = await page.evaluate(() => localStorage.getItem('twokings.appsettings.v1'));
     assert(saved && saved.includes('"boardTheme":"marble"') && saved.includes('"colorScheme":"light"') && saved.includes('"sounds":false'), 'settings saved: ' + saved);
     assert((await page.getByRole('switch', { name: 'Sound' }).isChecked()) === false, 'sound switch reads back off');
+    // The browser game cannot vibrate, so its switch is greyed out and says why instead of doing nothing.
+    assert(await page.getByRole('switch', { name: 'Vibration' }).isDisabled(), 'the Vibration switch is disabled in the browser');
+    assert((await page.getByRole('switch', { name: 'Vibration' }).isChecked()) === false, 'and shows off, which is what the browser game does');
+    assert((await exact(page, 'Only in the phone app: the browser game does not vibrate.').count()) === 1, 'and its hint says why');
     assert((await page.getByRole('link', { name: 'Privacy' }).count()) === 1, 'about card links the privacy statement');
     // A real anchor, not a div that only answers a click: the browser can offer
     // open-in-new-tab, copy link address and a status-bar preview.
@@ -160,18 +311,50 @@ const scenarios = {
   },
 
   async 'daily challenge records a result'(browser) {
-    const { page, context, errors } = await openApp(browser, url);
+    const { page, context, errors } = await openApp(browser, url, undefined, { permissions: ['clipboard-write'] });
+    // The site's Permissions-Policy turns clipboard-read off, so the page cannot read back what it
+    // wrote; the write is recorded on its way through instead.
+    await context.addInitScript(() => {
+      const write = navigator.clipboard.writeText.bind(navigator.clipboard);
+      navigator.clipboard.writeText = (text) => write(text).then(() => {
+        window.__copied = text;
+      });
+    });
+    await page.reload();
+    await page.waitForTimeout(800);
     await exact(page, 'Play').first().click();
     await page.waitForTimeout(500);
     assert((await text(page, '/Daily challenge/')) !== null, 'daily subtitle');
     await exact(page, 'Resign').click();
     await page.waitForTimeout(300);
     assert((await exact(page, 'Share result').count()) === 1, 'share button');
+    // A browser without a share sheet (Chromium on Linux has none, so this scenario relies on
+    // that) used to do nothing at all here. The result goes to the clipboard, and the sheet says so.
+    assert(!(await page.evaluate(() => typeof navigator.share === 'function')), 'this browser has no share sheet, which the next step needs');
+    await exact(page, 'Share result').click();
+    await exact(page, 'Copied. Paste it wherever you like.').waitFor({ timeout: 5000 });
+    const copied = await page.evaluate(() => window.__copied);
+    assert(/^Two Kings Chess · Daily \d{4}-\d{2}-\d{2}\nI lost 💀 in \d+ moves\./.test(copied), 'the result is on the clipboard: ' + copied);
     await exact(page, 'Home').click();
     await page.waitForTimeout(300);
     assert((await text(page, '/today/')) !== null, 'card shows today result');
     assert(errors.length === 0, errors.join('\n'));
     await context.close();
+
+    // With no clipboard either, the sheet says so and shows the text to copy by hand.
+    const bare = await openApp(browser, url);
+    await bare.context.addInitScript(() => Object.defineProperty(Navigator.prototype, 'clipboard', { get: () => undefined }));
+    await bare.page.reload();
+    await bare.page.waitForTimeout(800);
+    await exact(bare.page, 'Play').first().click();
+    await bare.page.waitForTimeout(500);
+    await exact(bare.page, 'Resign').click();
+    await bare.page.waitForTimeout(300);
+    await exact(bare.page, 'Share result').click();
+    await exact(bare.page, 'This browser cannot share or copy it for you. Select the text below to copy it.').waitFor({ timeout: 5000 });
+    assert((await bare.page.locator('text=/^Two Kings Chess · Daily /').count()) === 1, 'the result is shown to copy by hand');
+    assert(bare.errors.length === 0, bare.errors.join('\n'));
+    await bare.context.close();
   },
 
   async 'ranked ladder records rank'(browser) {
@@ -423,7 +606,7 @@ const scenarios = {
 };
 
 const only = process.argv.slice(2);
-const server = await serve(root, port);
+const server = await serve(root, port, { base });
 const browser = await launch();
 let failed = 0;
 for (const [name, fn] of Object.entries(scenarios)) {
@@ -451,5 +634,10 @@ for (const [name, fn] of Object.entries(scenarios)) {
 }
 await browser.close();
 server.close();
+// The browser-side check sees the pages' requests; this sees every request the server got.
+if (server.outside.length) {
+  failed++;
+  console.log(`FAIL  requests outside ${base}: ${server.outside.join(', ')}`);
+}
 console.log(failed ? `${failed} scenario(s) failed` : 'all scenarios passed');
 process.exit(failed ? 1 : 0);

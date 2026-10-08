@@ -15,8 +15,15 @@ Two Kings Chess does not collect, transmit or sell any personal data.
   data in your browser, or play the installed app.
 - The app makes no network requests of its own. It has no accounts, no
   analytics, no advertising and no third-party SDKs that phone home.
+- Opening the browser build is a visit to a website: the host that serves its
+  files (GitHub Pages, for the published build) receives those requests the
+  way any web server does, under its own terms. The game asks it for its own
+  files and nothing else (the page, the code, the chess font and the sounds),
+  and the site's security policy refuses every other address.
 - Sharing a daily result uses the system share sheet; only the text you see
-  in the sheet is shared, and only with the app you pick.
+  in the sheet is shared, and only with the app you pick. In a browser without
+  a share sheet the same text is copied to your clipboard instead, and goes
+  wherever you paste it.
 - If in-app purchases are enabled in a release, the purchase itself is
   handled by the App Store or Google Play under their terms; the app only
   records locally that the unlock was made.

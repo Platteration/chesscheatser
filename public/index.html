@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<!-- Two Kings Chess: the page Expo exports the web build into (public/index.html is SDK 57's
+     template for a single-page export: the CLI fills in the language and the title, each
+     placeholder once, and adds the bundle's script tag at the end of the body). scripts/build-web.mjs adds the
+     Content-Security-Policy and referrer <meta> tags from public/_headers to the exported copy,
+     not here: this file is also the dev server's page, whose live reload a policy would block. -->
+<html lang="%LANG_ISO_CODE%">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <title>%WEB_TITLE%</title>
+    <meta name="description" content="A chess variant with two kings a side, random armies, comeback powers for whoever is behind, and a computer opponent that sometimes cheats." />
+    <meta name="theme-color" content="#19232d" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#f5f0e6" media="(prefers-color-scheme: light)" />
+    <link rel="stylesheet" href="site.css" />
+    <script src="guard.js"></script>
+  </head>
+
+  <body>
+    <noscript>
+      <div class="site-note" role="alert">
+        <h1>Two Kings Chess needs JavaScript</h1>
+        <p>The board, the computer opponent and your saved games all run in your browser, and nothing is sent anywhere, but they are drawn with JavaScript. Turn it on for this site and reload the page.</p>
+      </div>
+    </noscript>
+    <!-- guard.js fills this in when the game cannot start. -->
+    <div id="site-note" class="site-note" role="alert" hidden></div>
+    <!-- The root element for the Expo app. -->
+    <div id="root"></div>
+  </body>
+</html>

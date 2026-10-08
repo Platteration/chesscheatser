@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Modal, ScrollView, Share, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Modal, Platform, ScrollView, Share, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { opposite, squareName } from '../engine/board';
 import { moveToSAN } from '../engine/position';
@@ -16,6 +16,7 @@ import { CHESS_FONT, GLYPH } from './PieceGlyph';
 import { useEntitlements } from '../entitlements';
 import { useSettings } from '../settings';
 import { haptics } from '../haptics';
+import { shareOnWeb, SHARE_NOTES, type WebShareOutcome } from '../share';
 import { playSound } from '../sounds';
 import { PowerDraftPicker } from './PowerDraftPicker';
 import { pickerChoices, type PendingPick } from './picker';
@@ -73,10 +74,20 @@ export function GameScreen({ start, onExit, onSave, onFinished, dailyStreak = 0,
     onFinished(outcomeOf(state));
   }, [state, onFinished]);
 
+  /** What the browser build did with this game's shared result, when it had to fall back (src/share.ts). */
+  const [shared, setShared] = useState<{ game: string; outcome: Exclude<WebShareOutcome, 'shared'>; text: string } | null>(null);
   const onShare = useCallback(() => {
     const o = outcomeOf(state);
     const rec: DailyRecord = { date: o.daily ?? state.setup.seed.toString(), ...o };
-    Share.share({ message: shareText(rec, dailyStreak, isSupporter) }).catch(() => {});
+    const message = shareText(rec, dailyStreak, isSupporter);
+    if (Platform.OS !== 'web') {
+      Share.share({ message }).catch(() => {});
+      return;
+    }
+    const game = reportKey(state);
+    shareOnWeb(message, typeof navigator === 'undefined' ? undefined : navigator).then((outcome) =>
+      setShared(outcome === 'shared' ? null : { game, outcome, text: message }),
+    );
   }, [state, dailyStreak, isSupporter]);
 
   useEffect(() => {
@@ -387,6 +398,16 @@ export function GameScreen({ start, onExit, onSave, onFinished, dailyStreak = 0,
             )}
             <View style={styles.resultButtons}>
               {state.daily && <Button title="Share result" onPress={onShare} />}
+              {state.daily && shared?.game === reportKey(state) && (
+                <View accessibilityLiveRegion="polite">
+                  <Text style={styles.shareNote}>{SHARE_NOTES[shared.outcome]}</Text>
+                  {shared.outcome === 'manual' && (
+                    <Text selectable style={styles.shareText}>
+                      {shared.text}
+                    </Text>
+                  )}
+                </View>
+              )}
               <Button title="Rematch (same armies)" variant={state.daily ? 'secondary' : 'primary'} onPress={() => { setShowResult(false); rematch(); }} />
               <Button title="New armies" variant="secondary" onPress={() => { setShowResult(false); newGame(); }} />
               <Button title="Review board" variant="ghost" onPress={() => setShowResult(false)} />
@@ -748,6 +769,8 @@ const useStyles = themedStyles((theme) => ({
   resultDetail: { color: theme.textMuted, fontSize: 13, textAlign: 'center', marginTop: 4 },
   resultComeback: { color: theme.power, fontSize: 15, fontWeight: '700', textAlign: 'center', marginTop: 10 },
   resultButtons: { marginTop: 18, gap: 10 },
+  shareNote: { color: theme.textMuted, fontSize: 13, textAlign: 'center' },
+  shareText: { color: theme.text, fontSize: 13, textAlign: 'center', marginTop: 6, padding: 8, borderRadius: 8, backgroundColor: theme.surfaceAlt },
   tipText: { color: theme.text, fontSize: 15, lineHeight: 22, textAlign: 'center', marginTop: 10 },
 }));
 

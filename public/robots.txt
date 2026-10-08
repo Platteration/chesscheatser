@@ -1,0 +1,3 @@
+# Two Kings Chess: a single-page game. Everything public is the one page.
+User-agent: *
+Allow: /
