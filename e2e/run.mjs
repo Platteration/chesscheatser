@@ -9,6 +9,7 @@ import fs from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
 import { assert, cellCounts, clickSquares, collectFailures, currentHelper, currentPage, describeApp, draftCount, exact, gameOver, launch, makeAnyMove, openApp, readBoard, resetDraftCount, serve, sq, text, unlockPro, waitHuman, walkPawnToLastRank, watchPolicy } from './lib.mjs';
+import { apacheRefuses, netlifyRefuses, nginxRefuses, parseNginx } from './hosts.mjs';
 import { headersFor, parseHeaders } from './serve.mjs';
 import { metaPolicy, sitePolicy } from '../scripts/build-web.mjs';
 
@@ -57,6 +58,16 @@ const scenarios = {
       const want = HASHED.test(f) ? 'public, max-age=31536000, immutable' : 'no-cache';
       assert(cache === want, `${f}: Cache-Control is ${JSON.stringify(cache)}, not ${want}`);
       if (f.endsWith('.js')) assert(res.headers.get('content-type').startsWith('text/javascript'), `${f} is served as script`);
+    }
+    // Each host's own config serves every file of this build, and the page itself, rather than only the
+    // sample of them the unit test knows: nginx and Apache serve the site's paths and nothing else.
+    const nginx = parseNginx(fs.readFileSync('deploy/nginx.conf', 'utf8'));
+    const htaccess = fs.readFileSync(path.join(root, '.htaccess'), 'utf8');
+    const redirects = fs.readFileSync(path.join(root, '_redirects'), 'utf8');
+    for (const f of ['', ...files]) {
+      assert(!nginxRefuses(nginx, f), `nginx.conf refuses /${f}, a file of the site`);
+      assert(!apacheRefuses(htaccess, f), `.htaccess refuses /${f}, a file of the site`);
+      assert(!netlifyRefuses(redirects, f), `_redirects refuses /${f}, a file of the site`);
     }
     // The site's own address, a missing page, the host configs, dotfiles and a folder are not files of the site.
     assert((await fetch(url)).headers.get('cache-control') === 'no-cache', 'the page itself is revalidated');
@@ -135,12 +146,13 @@ const scenarios = {
       framer.close();
     }
 
-    // The safety net: a bundle that does not arrive, and one that throws before drawing, each
-    // leave a note rather than an empty page; with JavaScript off the <noscript> note shows.
-    const broken = async (handle, expect) => {
+    // The safety net: a bundle that does not arrive, one that throws or rejects before drawing, and
+    // a stylesheet that does not arrive each leave a note rather than an empty or broken page; with
+    // JavaScript off the <noscript> note shows.
+    const broken = async (handle, expect, pattern = '**/_expo/static/js/web/*.js') => {
       const context = await browser.newContext();
       await watchPolicy(context);
-      await context.route('**/_expo/static/js/web/*.js', handle);
+      await context.route(pattern, handle);
       const page = await context.newPage();
       const failures = collectFailures(page, url);
       await page.goto(url);
@@ -153,6 +165,97 @@ const scenarios = {
     };
     await broken((route) => route.abort(), 'Two Kings Chess could not load');
     await broken((route) => route.fulfill({ contentType: 'text/javascript', body: 'throw new Error("the bundle threw while starting")' }), 'Two Kings Chess could not start');
+    await broken((route) => route.fulfill({ contentType: 'text/javascript', body: 'Promise.reject(new Error("the bundle rejected while starting"))' }), 'Two Kings Chess could not start');
+    // site.css is requested before the bundle, so guard.js has to be listening before it is.
+    await broken((route) => route.fulfill({ status: 404, contentType: 'text/html', body: 'not here' }), 'Two Kings Chess could not load', '**/site.css');
+    await broken((route) => route.abort(), 'Two Kings Chess could not load', '**/site.css');
+
+    // ...and once the game has drawn, it stays out of the way. A sound that fails to load rejects
+    // a promise nothing handles (expo-audio's play()), after a move; a safety net that answered
+    // that would hide the running game behind "could not start".
+    {
+      const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+      await watchPolicy(context);
+      await context.addInitScript(() => {
+        window.__rejections = 0;
+        window.addEventListener('unhandledrejection', () => window.__rejections++);
+        try {
+          if (!localStorage.getItem('twokings.appsettings.v1')) localStorage.setItem('twokings.appsettings.v1', JSON.stringify({ seenIntro: true }));
+        } catch {}
+      });
+      await context.route('**/*.wav', (route) => route.abort());
+      const page = await context.newPage();
+      const failures = collectFailures(page, url);
+      await page.goto(url);
+      await exact(page, 'White').first().click();
+      await exact(page, 'Never').click();
+      await exact(page, 'New game with these settings').click();
+      assert(await makeAnyMove(page), 'a move with the sounds failing');
+      await waitHuman(page);
+      await page.waitForTimeout(500);
+      assert((await page.evaluate(() => window.__rejections)) > 0, 'the failed sound reached the page as a rejection nothing handled');
+      assert(await page.locator('#site-note').isHidden(), 'no failure note over a game that has drawn');
+      assert((await page.evaluate(() => getComputedStyle(document.getElementById('root')).display)) !== 'none', 'the game is still shown');
+      assert(await makeAnyMove(page), 'and still plays');
+      const policyFailures = failures.filter((f) => /polic|Trusted Type/i.test(f));
+      assert(policyFailures.length === 0, policyFailures.join('\n'));
+      await context.close();
+    }
+
+    // What 'unsafe-inline' in style-src is for, measured: with it replaced by the hash of the empty
+    // string, react-native-web's runtime <style> (empty, then filled through insertRule) lays the
+    // board out as before, and the one thing refused is expo-font's @font-face text, which
+    // names the font's address and so differs from build to build. When this fails because nothing
+    // is refused, the policy no longer needs 'unsafe-inline'.
+    {
+      const EMPTY = "'sha256-47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU='";
+      const strict = (csp) => csp.replace("style-src 'self' 'unsafe-inline'", `style-src 'self' ${EMPTY} 'report-sample'`);
+      assert(strict(policy.csp) !== policy.csp && strict(metaPolicy(policy.csp)) !== metaPolicy(policy.csp), 'the probe policy differs from the real one');
+      // A fresh context each time, so the second game is not asked to replace the first.
+      const measure = async (probe) => {
+        const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+        await context.addInitScript(() => {
+          window.__violations = [];
+          document.addEventListener('securitypolicyviolation', (e) => window.__violations.push({ directive: e.effectiveDirective, sample: e.sample }));
+          try {
+            localStorage.setItem('twokings.appsettings.v1', JSON.stringify({ seenIntro: true }));
+          } catch {}
+        });
+        let served = null;
+        if (probe) {
+          await context.route(url, async (route) => {
+            const response = await route.fetch();
+            const body = (await response.text()).replace(metaPolicy(policy.csp), strict(metaPolicy(policy.csp)));
+            served = body;
+            await route.fulfill({ response, body, headers: { ...response.headers(), 'content-security-policy': strict(policy.csp) } });
+          });
+        }
+        const page = await context.newPage();
+        await page.goto(url);
+        await exact(page, 'White').first().click();
+        await exact(page, 'Never').click();
+        await exact(page, 'New game with these settings').click();
+        await sq(page, 'a1').waitFor({ timeout: 10000 });
+        await page.waitForTimeout(500);
+        const box = await sq(page, 'a1').boundingBox();
+        const violations = await page.evaluate(() => window.__violations);
+        await context.close();
+        return { box, violations, served };
+      };
+      const real = await measure(false);
+      assert(real.violations.length === 0, 'no violation under the real policy: ' + JSON.stringify(real.violations));
+      const { box, violations, served } = await measure(true);
+      assert(served && served.includes(strict(metaPolicy(policy.csp))), 'the page carried the probe policy as a <meta> too');
+      // The same squares in the same column. Not always the same pixel row: the glyph font is
+      // refused under the probe, and the fallback glyphs in the rows above the board measured a
+      // pixel shorter. Without react-native-web's rules the page is not laid out at all.
+      const same = real.box && box && box.width === real.box.width && box.height === real.box.height && box.x === real.box.x && Math.abs(box.y - real.box.y) <= 2;
+      assert(same, `the board lays out the same without 'unsafe-inline': ${JSON.stringify(box)}, not ${JSON.stringify(real.box)}`);
+      assert(violations.length > 0, "nothing is refused without 'unsafe-inline' any more: take it out of the policy");
+      for (const v of violations) {
+        assert(v.directive === 'style-src-elem' && v.sample.startsWith('@font-face{font-family:"ChessGlyphs"'), "only expo-font's @font-face needs 'unsafe-inline': " + JSON.stringify(v));
+      }
+    }
     {
       const context = await browser.newContext({ javaScriptEnabled: false });
       const page = await context.newPage();
@@ -609,14 +712,25 @@ const scenarios = {
     await page.waitForTimeout(700);
 
     resetDraftCount();
-    for (let ply = 0; ply < 14 && draftCount() === 0; ply++) {
-      if (shots && (await page.locator('[data-testid="power-draft"]').count())) {
-        await page.screenshot({ path: `${shots}/draft.png` });
+    // A chaos game can also end before anyone is far enough behind (a checkmate inside fourteen
+    // plies failed a full run of this suite), and a finished game offers no draft: deal new
+    // armies from the result sheet, as a player would, rather than reading a draft count off a
+    // game that is over.
+    for (let armies = 0; armies < 6 && draftCount() === 0; armies++) {
+      if (armies > 0) {
+        await page.getByRole('dialog').getByText('New armies', { exact: true }).click();
+        await page.waitForTimeout(700);
       }
-      if (await gameOver(page)) break;
-      if (!(await makeAnyMove(page))) break; // settles a draft if one is open
+      for (let ply = 0; ply < 14 && draftCount() === 0; ply++) {
+        if (shots && (await page.locator('[data-testid="power-draft"]').count())) {
+          await page.screenshot({ path: `${shots}/draft.png` });
+        }
+        if (await gameOver(page)) break;
+        if (!(await makeAnyMove(page))) break; // settles a draft if one is open
+      }
+      if (!(await gameOver(page))) break; // still running: fourteen plies passed, or no move was found
     }
-    assert(draftCount() > 0, 'a draft was offered within fourteen plies of a chaos game');
+    assert(draftCount() > 0, 'a draft was offered within fourteen plies of a chaos game, within six armies');
     // The meter shows a star per power once a side has drafted one.
     assert((await text(page, '/★/')) !== null, 'the meter shows a drafted power');
     if (shots) await page.screenshot({ path: `${shots}/comeback.png` });

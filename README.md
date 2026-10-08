@@ -177,9 +177,16 @@ only the config file the `--host` reads (`github-pages`, `netlify`,
 ignores the others'). It refuses a site in which a page names a file the build
 does not hold. Publish the folder it writes, never the checkout.
 
+The export empties `--output-dir` before it writes, so the script checks that
+folder first: inside the checkout it has to be `dist-web` (the default), `dist`
+or `web-build`; it is never the checkout or a folder that holds it; and a folder
+elsewhere that already holds files has to be a previous build of the site (its
+`index.html` and `_expo/`). Anything else is refused before the export runs.
+
 What the site holds besides the game: `guard.js`, the safety net loaded before
-the bundle, which shows a note in place of an empty page when the bundle does
-not arrive or throws before it has drawn anything (with JavaScript off, the
+the stylesheet and the bundle, which shows a note in place of an empty or broken
+page when either does not arrive or the bundle throws before it has drawn
+anything, and stays silent once the game has drawn (with JavaScript off, the
 page's `<noscript>` note says what is needed); `site.css`; `404.html`, the
 game's look for an address the site does not have; `robots.txt`; and
 `.well-known/security.txt`, pointing at private vulnerability reporting
@@ -203,7 +210,14 @@ passes, so it is renewed before then).
 - **Apache** reads `.htaccess` (`AllowOverride All`, with `mod_rewrite`,
   `mod_headers` and `mod_mime`): `--host apache`.
 - **nginx**: `deploy/nginx.conf`, included from the `http {}` block, serving the
-  folder `--host nginx` writes.
+  folder `--host nginx` writes at the root of its domain. It is not written for
+  a sub-path: its locations and cache rules all start at `/`.
+
+Apache and nginx serve the site's own paths and answer 404 for every other
+address, so a checkout published by mistake gives away none of the
+repository's files, `.git` and any `.env` included. Netlify cannot serve a list
+of paths alone, so `_redirects` refuses the repository's entries by name, and
+`src/__tests__/website.test.ts` runs every tracked file through all three.
 
 **One address for every app.** A GitHub Pages project site lives at
 `platteration.github.io/chesscheatser/`, and every other app the account
@@ -228,7 +242,7 @@ keys stay prefixed (`twokings.*`) either way.
 | `X-Content-Type-Options` | `nosniff` |
 | `X-Frame-Options` | `DENY` |
 | `Referrer-Policy` | `strict-origin-when-cross-origin` |
-| `Permissions-Policy` | every feature off but `autoplay` and `clipboard-write`, which are this site's alone |
+| `Permissions-Policy` | `accelerometer=(), autoplay=(self), browsing-topics=(), camera=(), clipboard-read=(), clipboard-write=(self), compute-pressure=(), display-capture=(), encrypted-media=(), fullscreen=(), gamepad=(), geolocation=(), gyroscope=(), hid=(), identity-credentials-get=(), idle-detection=(), local-fonts=(), magnetometer=(), microphone=(), midi=(), otp-credentials=(), payment=(), picture-in-picture=(), publickey-credentials-create=(), publickey-credentials-get=(), screen-wake-lock=(), serial=(), storage-access=(), usb=(), window-management=(), xr-spatial-tracking=()`: the listed features off, `autoplay` and `clipboard-write` for this site only; `web-share` and every feature not listed keep the browser's default |
 | `Cross-Origin-Opener-Policy` | `same-origin` |
 | `Cross-Origin-Resource-Policy` | `same-origin` |
 | `Strict-Transport-Security` | `max-age=31536000; includeSubDomains` |
@@ -237,10 +251,14 @@ keys stay prefixed (`twokings.*`) either way.
 The policy was measured rather than copied: the browser suite plays the whole
 game with these headers on every response and fails on any violation. Two
 things in it are there because the game needs them: `'unsafe-inline'` in
-`style-src`, because react-native-web writes its stylesheet, and expo-font the
-chess glyphs' `@font-face`, into `<style>` elements at runtime (without it the
-board has no layout and the pieces no font), and `media-src 'self'` for the
-sounds. Trusted Types are enforced with no policy allowed at all.
+`style-src`, because expo-font writes the chess glyphs' `@font-face` into a
+`<style>` element as text at runtime (without it the pieces have no font), and
+`media-src 'self'` for the sounds. That text names the font's address, base path
+and content hash included, so no one hash covers every build.
+react-native-web's own runtime `<style>` would need only the hash of the empty
+string, since it is filled through `insertRule`, which the policy does not
+govern; the browser suite measures both. Trusted Types are enforced with no
+policy allowed at all.
 
 **Launch checklist**, with `SITE` the site's https address:
 
@@ -277,10 +295,12 @@ website as it is published: built for the `/chesscheatser/` sub-path and
 served by `e2e/serve.mjs` with the headers
 `public/_headers` writes on every response, and a scenario fails on any policy
 violation, page error or request that leaves the site. One more scenario checks
-the website itself: every file's headers and cache lifetime, the `<meta>`
-copies, the 404 page, that another page cannot frame the game, and the safety
-net's notes. When a scenario fails the runner prints Playwright's call log (the
-locator it waited on and why), the helper it was in and the app's state
+the website itself: every file's headers and cache lifetime, that each host's
+config serves every file of the build, the `<meta>` copies, the 404 page, that
+another page cannot frame the game, the safety net's notes (and its silence
+once the game has drawn), and what `'unsafe-inline'` in `style-src` is for.
+When a scenario fails the runner prints Playwright's call log (the locator it
+waited on and why), the helper it was in and the app's state
 (status line, `aria-busy`, open overlays, disabled controls); with
 `E2E_SHOTS=<dir>` it also saves a screenshot of the failure.
 

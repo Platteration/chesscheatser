@@ -21,6 +21,11 @@
 //    not-found page is served at whatever depth the missing address had;
 //  - removes metadata.json, which the export writes for EAS Update and no page loads;
 //  - and refuses a site in which a page names a file the export does not hold.
+//
+// The output folder is emptied before the export writes it (the exporter empties it too), so
+// --output-dir is checked before anything runs: inside the checkout it is one of OUT_FOLDERS,
+// which .gitignore lists; it is never the checkout or a folder that holds it; and a folder
+// outside the checkout that already holds files has to be a previous build of this site.
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -37,6 +42,37 @@ const HOSTS = {
 const CONFIGS = ['_headers', '_redirects', '.htaccess'];
 /** What every published site holds besides the bundle, whichever host it is for. */
 const SITE_FILES = ['index.html', '404.html', 'site.css', 'guard.js', 'favicon.ico', 'robots.txt', '.well-known/security.txt'];
+/** The folders inside the checkout the site may be written to: .gitignore lists each one. */
+export const OUT_FOLDERS = ['dist-web', 'dist', 'web-build'];
+
+/** Whether `child` is `parent` or lies somewhere below it. */
+function within(parent, child) {
+  const rel = path.relative(parent, child);
+  return rel === '' || (rel !== '..' && !rel.startsWith('..' + path.sep) && !path.isAbsolute(rel));
+}
+
+/**
+ * Why `out` may not be emptied and written, or null when it may. `root` is the checkout. A
+ * folder outside it that already holds something must hold a previous build (its index.html
+ * and _expo/), so a mistyped path cannot empty another project or a home folder.
+ */
+export function outputRefusal(root, out) {
+  // Compared as the folders they really are, so a link named dist-web cannot stand for `..`; a
+  // folder that does not exist yet is its nearest existing parent's real path plus the rest.
+  const real = (p) => (fs.existsSync(p) ? fs.realpathSync(p) : path.join(real(path.dirname(p)), path.basename(p)));
+  root = real(root);
+  out = real(out);
+  if (within(out, root)) return `${out} holds the checkout, which the export would empty first`;
+  if (within(root, out)) {
+    const inside = path.relative(root, out).split(path.sep).join('/');
+    return OUT_FOLDERS.includes(inside) ? null : `inside the checkout the output folder is one of ${OUT_FOLDERS.join(', ')}, which the export empties first; not ${inside}`;
+  }
+  if (!fs.existsSync(out)) return null;
+  if (!fs.statSync(out).isDirectory()) return `${out} is a file, not a folder`;
+  const entries = fs.readdirSync(out);
+  if (entries.length === 0 || (entries.includes('index.html') && entries.includes('_expo'))) return null;
+  return `${out} already holds files that are not a build of this site, and the export empties it first: name a new or empty folder, or a previous build`;
+}
 
 /** The policy and the referrer policy, as public/_headers writes them for every path. */
 export function sitePolicy(headersText) {
@@ -113,6 +149,8 @@ function args(argv) {
 
 function build({ baseUrl, outputDir, host }) {
   const out = path.resolve(ROOT, outputDir);
+  const refusal = outputRefusal(ROOT, out);
+  if (refusal) throw new Error(`--output-dir: ${refusal}`);
   fs.rmSync(out, { recursive: true, force: true });
   const run = spawnSync(process.execPath, [path.join(ROOT, 'node_modules/expo/bin/cli'), 'export', '--platform', 'web', '--output-dir', out], {
     cwd: ROOT,

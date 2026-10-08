@@ -168,9 +168,12 @@ refusing what is not part of the site). `public/` is that layer and the web expo
 copies it into the site: `index.html` is SDK 57's template for a single-page export
 (the CLI replaces the first `%LANG_ISO_CODE%` and `%WEB_TITLE%` and appends the bundle's
 script before the first `</body>`, so none of those may appear earlier, comments
-included), `guard.js` the safety net (loaded first, plain old-browser JavaScript;
-it notes a bundle that fails to load or throws before `#root` has children, and
-stays silent once the app has drawn, where `src/recovery.ts` takes over),
+included), `guard.js` the safety net (loaded first, ahead of `site.css` too, since
+it hears only the load failures it is already listening for; ES5, using nothing in
+the page newer than IE 9 has, which the website test parses; it notes a stylesheet
+or bundle that fails to load, or a bundle that throws or rejects before `#root` has
+children, and stays silent once the app has drawn, where `src/recovery.ts` takes
+over: the browser suite holds both halves, a sound that fails after a move included),
 `site.css`, `404.html`, `robots.txt`, `.well-known/security.txt` and the host
 configs `_headers`, `_redirects`, `.htaccess`; `deploy/nginx.conf` is nginx's.
 `scripts/build-web.mjs` runs the export and then writes the CSP and referrer
@@ -179,17 +182,32 @@ configs `_headers`, `_redirects`, `.htaccess`; `deploy/nginx.conf` is nginx's.
 policy would block. It also moves `404.html`'s root-absolute addresses and
 `.htaccess`'s `ErrorDocument` under `--base-url`, keeps only the `--host`'s config,
 drops `metadata.json`, and refuses a page that names a file the site does not hold.
+The export empties its output folder first, so `outputRefusal` checks `--output-dir`
+before anything runs: inside the checkout only `dist-web`, `dist` or `web-build`
+(`OUT_FOLDERS`, each in `.gitignore`), never the checkout or a folder holding it, and
+elsewhere a folder that is new, empty or a previous build (`index.html` and `_expo/`),
+compared by real path. The website test runs the script against a stand-in exporter in
+a temporary folder, because a broken guard tried on the checkout deletes it.
 `app.config.js` exists only to pass `WEB_BASE_URL` into `experiments.baseUrl` for a
 sub-path build; unset, app.json is used as written.
 
 The policy is one set of values in four places (`_headers`, `.htaccess`,
 `nginx.conf`, the `<meta>`, which drops only `frame-ancestors`), and
 `src/__tests__/website.test.ts` reads it back out of each and fails when they
-differ, along with the cache lifetimes and each config's refusal of the repository's
-files. It was measured: `style-src` has `'unsafe-inline'` because react-native-web's
-stylesheet and expo-font's `@font-face` are `<style>` elements written at runtime
-(without it the board has no layout), and Trusted Types are enforced with
-`trusted-types 'none'`. The browser suite serves every scenario through
+differ, along with the cache lifetimes, where nginx sets its headers (at server level
+only: a location with an `add_header` of its own, at any depth, drops them all) and
+what each host serves. nginx and Apache serve the site's own paths and answer 404 for
+everything else; Netlify cannot, so `_redirects` refuses the repository's entries by
+name; the test runs every file `git ls-files` lists through all three, read the way
+each host reads its config (`e2e/hosts.mjs`), and the browser suite runs every file of
+a real build through them. `nginx.conf` is for a site at the root of its domain: its
+locations and cache map all start at `/`. It was measured: `style-src` has
+`'unsafe-inline'` because expo-font writes the glyph font's `@font-face` into a
+`<style>` as text, and that text holds the base path and the font's content hash, so
+no fixed hash covers every build; react-native-web's own `<style>` would need only the
+hash of the empty string, since it fills it through `insertRule`. The browser suite
+measures both, and fails once nothing needs `'unsafe-inline'`. Trusted Types are
+enforced with `trusted-types 'none'`. The browser suite serves every scenario through
 `e2e/serve.mjs`, which sends `_headers` as written under the sub-path, answers
 `404.html` for anything missing, refuses dotfiles and the host configs, and records
 requests outside the site; `openApp` fails a scenario on any violation, any console

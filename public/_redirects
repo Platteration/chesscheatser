@@ -1,16 +1,60 @@
-# Two Kings Chess: Netlify. The published folder is the web export, which holds none of the
-# repository's own files; these answer 404 for the ones that would be there if a checkout were
-# published by mistake, and for Apache's config, which scripts/build-web.mjs leaves out of a
-# --host netlify build anyway. The ! makes a rule apply even where a file exists (Netlify serves
-# an existing file over a rule without it). Netlify serves dotfiles; .well-known/ is the one
-# folder of them that belongs to the site. Cloudflare Pages has no 404 rules: build for it with
-# --host cloudflare, which keeps only its own config.
-/.htaccess        /404.html  404!
-/.git/*           /404.html  404!
-/.github/*        /404.html  404!
-/.env             /404.html  404!
-/README.md        /404.html  404!
-/package.json     /404.html  404!
-/deploy/*         /404.html  404!
-/public/*         /404.html  404!
-/src/*            /404.html  404!
+# Two Kings Chess: Netlify. Publish the folder `node scripts/build-web.mjs --host netlify` writes,
+# which holds the site and nothing else. Netlify has no rule that serves only a list of paths, so
+# should a checkout be published instead, these keep the repository out of the site by name:
+# every top-level entry it tracks, the folders git, npm and Expo leave beside them, the usual
+# .env files, and Apache's config, which a --host netlify build leaves out anyway.
+# src/__tests__/website.test.ts runs every tracked file through these rules, so an entry added
+# to the repository fails it until it is listed here. The ! makes a rule apply even where a file
+# exists (Netlify serves an existing file over a rule without it). Netlify serves dotfiles;
+# .well-known/ is the one folder of them that belongs to the site. The site's own assets are
+# under /assets/assets/, which neither the repository's two asset folders nor /assets/:file (one
+# segment, the files at the top of assets/) reach. Cloudflare Pages has no 404 rules: build for
+# it with --host cloudflare, which keeps only its own config.
+/.htaccess                /404.html  404!
+/.git/*                   /404.html  404!
+/.github/*                /404.html  404!
+/.claude/*                /404.html  404!
+/.expo/*                  /404.html  404!
+/.editorconfig            /404.html  404!
+/.gitignore               /404.html  404!
+/.nvmrc                   /404.html  404!
+/.env                     /404.html  404!
+/.env.local               /404.html  404!
+/.env.development         /404.html  404!
+/.env.development.local   /404.html  404!
+/.env.production          /404.html  404!
+/.env.production.local    /404.html  404!
+/.env.test                /404.html  404!
+/.env.test.local          /404.html  404!
+/node_modules/*           /404.html  404!
+/AGENTS.md                /404.html  404!
+/App.tsx                  /404.html  404!
+/CHANGELOG.md             /404.html  404!
+/CLAUDE.md                /404.html  404!
+/CONVENTIONS.md           /404.html  404!
+/LICENSE                  /404.html  404!
+/PRIVACY.md               /404.html  404!
+/README.md                /404.html  404!
+/REVIEW.md                /404.html  404!
+/SECURITY-AUDIT.md        /404.html  404!
+/SECURITY.md              /404.html  404!
+/VISUAL_STYLE.md          /404.html  404!
+/app.config.js            /404.html  404!
+/app.json                 /404.html  404!
+/assets/:file             /404.html  404!
+/assets/fonts/*           /404.html  404!
+/assets/sounds/*          /404.html  404!
+/deploy/*                 /404.html  404!
+/e2e/*                    /404.html  404!
+/eas.json                 /404.html  404!
+/eslint.config.js         /404.html  404!
+/index.ts                 /404.html  404!
+/package-lock.json        /404.html  404!
+/package.json             /404.html  404!
+/plugins/*                /404.html  404!
+/public/*                 /404.html  404!
+/scripts/*                /404.html  404!
+/src/*                    /404.html  404!
+/test/*                   /404.html  404!
+/tsconfig.json            /404.html  404!
+/vitest.config.ts         /404.html  404!

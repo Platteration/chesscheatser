@@ -24,14 +24,12 @@ ErrorDocument 403 /404.html
   RewriteCond %{HTTPS} !=on
   RewriteCond %{HTTP:X-Forwarded-Proto} !=https
   RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
-  # never a dotfile (.git above all), except the folder RFC 9116 and certificate checks use
-  RewriteRule (^|/)\.(?!well-known/) - [R=404,L]
-  # the other hosts' configs, and the repository's own files if a checkout were published
-  RewriteRule ^(_headers|_redirects|README\.md|package\.json|deploy(/.*)?|public(/.*)?|src(/.*)?)$ - [R=404,L]
-  # a folder with no page of its own is a 404, not a listing or a 403 that hints at one
-  RewriteCond %{REQUEST_FILENAME} -d
-  RewriteCond %{REQUEST_FILENAME}/index.html !-f
-  RewriteRule ^ - [R=404,L]
+  # The site's own files and nothing else; the empty path is the page itself. Every other
+  # address answers 404: the repository's own files, .git, node_modules and any .env among them,
+  # and every folder, so none is listed. The bundle and the assets are matched by the content
+  # hash in their names. .well-known/ holds security.txt and the certificate checks a webroot
+  # ACME client writes.
+  RewriteRule !^(index\.html|404\.html|site\.css|guard\.js|favicon\.ico|robots\.txt|\.well-known/security\.txt|\.well-known/acme-challenge/[A-Za-z0-9_-]+|_expo/static/js/web/[A-Za-z0-9_-]+-[0-9a-f]{32}\.js|assets/([A-Za-z0-9_-]+/)+[A-Za-z0-9_-]+\.[0-9a-f]{32}\.[a-z0-9]+)?$ - [R=404,L]
 </IfModule>
 
 <IfModule mod_headers.c>

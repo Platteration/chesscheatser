@@ -12,8 +12,10 @@
     <meta name="description" content="A chess variant with two kings a side, random armies, comeback powers for whoever is behind, and a computer opponent that sometimes cheats." />
     <meta name="theme-color" content="#19232d" media="(prefers-color-scheme: dark)" />
     <meta name="theme-color" content="#f5f0e6" media="(prefers-color-scheme: light)" />
-    <link rel="stylesheet" href="site.css" />
+    <!-- The safety net before the stylesheet: it hears a stylesheet or a script that fails to
+         load only if it is already listening when that happens. -->
     <script src="guard.js"></script>
+    <link rel="stylesheet" href="site.css" />
   </head>
 
   <body>

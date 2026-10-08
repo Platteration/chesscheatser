@@ -1,6 +1,6 @@
 /* Two Kings Chess: the page around the app. Expo's template carried the first three rules as an
    inline <style>; they live here so the page's own styles never need the policy's
-   'unsafe-inline', which only react-native-web's runtime stylesheet asks for. The colours are
+   'unsafe-inline', which only expo-font's runtime @font-face asks for. The colours are
    the app's own dark and light palettes (src/ui/theme.ts). */
 
 /* The react-native-web root element reset: https://necolas.github.io/react-native-web/docs/setup/#root-element */

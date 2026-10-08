@@ -7,9 +7,13 @@
 # The policy was measured, not copied: e2e/run.mjs drives the whole game with these headers on
 # every response and fails on any violation. What each source is for:
 #   script-src 'self'       the bundle and guard.js; nothing inline, no eval
-#   style-src 'unsafe-inline'  react-native-web writes its stylesheet, and expo-font the
-#                           @font-face for the chess glyphs, into <style> elements at runtime;
-#                           without it the board has no layout and the pieces no font
+#   style-src 'unsafe-inline'  expo-font writes the chess glyphs' @font-face into a <style>
+#                           element as text at runtime; without it the pieces have no font. The
+#                           text names the font's address, which holds the base path and the
+#                           font's content hash, so no fixed hash would cover every build.
+#                           react-native-web's own <style> would need only the hash of the empty
+#                           string: it starts empty and is filled through insertRule, which the
+#                           policy does not govern (e2e/run.mjs measures both)
 #   img-src 'self'          the favicon
 #   font-src 'self'         the bundled chess glyph font
 #   media-src 'self'        the move, capture and check sounds
@@ -20,10 +24,11 @@
 # frame-ancestors 'none' and X-Frame-Options: DENY: the game is not meant to be embedded, so no
 # other site can frame it and steer its buttons.
 #
-# Permissions-Policy turns off what the game never uses. It uses autoplay (sounds after a move)
-# and clipboard-write (copying a result where the browser has no share sheet), each for this site
-# only; web-share, the share sheet itself, keeps its default of this site only and is not listed,
-# because Chromium builds without the share sheet warn about the name in every visitor's console.
+# Permissions-Policy turns off, by name, features the game never uses; one it does not name keeps
+# the browser's default. The game uses autoplay (sounds after a move) and clipboard-write (copying
+# a result where the browser has no share sheet), each for this site only; web-share, the share
+# sheet itself, keeps its default of this site only and is not listed, because Chromium builds
+# without the share sheet warn about the name in every visitor's console.
 #
 # Cache-Control: the bundle and the assets carry a content hash in their names, so a new build
 # gets new names and they can be kept for a year. Everything else is revalidated on every load.

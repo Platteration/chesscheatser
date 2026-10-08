@@ -67,6 +67,11 @@
   `.well-known/security.txt`, and a note in place of an empty page when the game
   cannot load or start. The end-to-end suite plays every scenario under those
   headers at the Pages sub-path.
+- On Apache and nginx the site serves its own files and nothing else, so a
+  checkout published by mistake gives none of the repository away; Netlify
+  refuses the repository's files by name. `scripts/build-web.mjs` refuses an
+  output folder it could not safely empty (the checkout, a folder holding it,
+  or one holding other work) before it deletes anything.
 - In the browser, the Vibration switch shows off, greyed out, and says why, and Share
   result copies the result where there is no share sheet (or shows it to copy
   by hand) instead of doing nothing.
