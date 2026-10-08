@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useEffect, useSyncExternalStore } from 'react';
 import { Linking, Platform, Pressable, StyleSheet, Switch, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { onStorageRefusedChange, STORAGE_REFUSED_NOTE, storageRefused } from '../storage';
 import { themedStyles, useTheme } from './theme';
 
 interface ButtonProps {
@@ -133,6 +135,59 @@ export function Link({ label, url }: { label: string; url: string }) {
   );
 }
 
+/**
+ * How tall the storage note is drawn, 0 while it is not. The game and puzzle boards are sized
+ * from the window rather than from the room their screen is given, so without this the note
+ * would be drawn over the board's bottom rank in landscape.
+ */
+let noteHeight = 0;
+const noteHeightListeners = new Set<() => void>();
+
+function setNoteHeight(next: number) {
+  if (next === noteHeight) return;
+  noteHeight = next;
+  for (const listener of noteHeightListeners) listener();
+}
+
+function onNoteHeightChange(listener: () => void): () => void {
+  noteHeightListeners.add(listener);
+  return () => {
+    noteHeightListeners.delete(listener);
+  };
+}
+
+const currentNoteHeight = () => noteHeight;
+
+/** The height the storage note takes from the bottom of the window (0 while it is not shown). */
+export function useStorageNoteHeight(): number {
+  return useSyncExternalStore(onNoteHeightChange, currentNoteHeight, currentNoteHeight);
+}
+
+/**
+ * Said under every screen while the store refuses to save (`storageRefused` in src/storage.ts):
+ * on the shared GitHub Pages address another app can fill the storage this one writes to, and a
+ * game that silently stops saving is lost on the next reload. Gone again once a write gets through.
+ */
+export function StorageNote() {
+  const refused = useSyncExternalStore(onStorageRefusedChange, storageRefused, storageRefused);
+  const styles = useStyles();
+  const insets = useSafeAreaInsets();
+  useEffect(() => {
+    if (!refused) setNoteHeight(0);
+  }, [refused]);
+  if (!refused) return null;
+  return (
+    <View
+      accessibilityRole="alert"
+      testID="storage-note"
+      onLayout={(e) => setNoteHeight(e.nativeEvent.layout.height)}
+      style={[styles.storageNote, { paddingBottom: 10 + insets.bottom }]}
+    >
+      <Text style={styles.storageNoteText}>{Platform.OS === 'web' ? STORAGE_REFUSED_NOTE.web : STORAGE_REFUSED_NOTE.native}</Text>
+    </View>
+  );
+}
+
 export function Label({ children, hint }: { children: string; hint?: string }) {
   const styles = useStyles();
   const theme = useTheme();
@@ -192,6 +247,14 @@ const useStyles = themedStyles((theme) => ({
   switchText: { flex: 1 },
   link: { paddingVertical: 6 },
   linkText: { color: theme.accent, fontWeight: '700', fontSize: 14 },
+  storageNote: {
+    backgroundColor: theme.surface,
+    borderTopWidth: 3,
+    borderTopColor: theme.danger,
+    paddingTop: 10,
+    paddingHorizontal: 16,
+  },
+  storageNoteText: { color: theme.text, fontSize: 13, lineHeight: 18, fontWeight: '600' },
   card: {
     backgroundColor: theme.surface,
     borderRadius: theme.radius,

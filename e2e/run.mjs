@@ -526,6 +526,67 @@ const scenarios = {
     await dropped.context.close();
   },
 
+  async 'a browser that will not save says so, and catches up once it can'(browser) {
+    // On the GitHub Pages address every app the account publishes shares one origin, so one
+    // localStorage allowance. Another app filling it used to leave this game playing on with
+    // nothing stored and nothing said, and a reload found no game to resume.
+    const { page, context, errors } = await openApp(browser, url);
+    const note = page.getByTestId('storage-note');
+    assert((await note.count()) === 0, 'no note while saving works');
+    const cotenant = await page.evaluate(() => {
+      // Another app on the same origin takes whatever room is left.
+      let n = 0;
+      for (let size = 1 << 20; size >= 1; size >>= 1) {
+        const chunk = 'x'.repeat(size);
+        for (;;) {
+          try {
+            localStorage.setItem(`another-app.${n++}`, chunk);
+          } catch {
+            break;
+          }
+        }
+      }
+      return n;
+    });
+    assert(cotenant > 1, 'the other app filled the storage');
+
+    await exact(page, 'White').first().click();
+    await note.waitFor({ timeout: 5000 });
+    assert((await note.innerText()).startsWith('This browser is not saving the game'), 'the note says what is wrong: ' + (await note.innerText()));
+    await exact(page, 'Never').click();
+    await exact(page, 'New game with these settings').click();
+    assert(await makeAnyMove(page), 'the game plays on while nothing is saved');
+    await waitHuman(page);
+    assert(await note.isVisible(), 'the note stays over the game while nothing is saved');
+    assert((await page.evaluate(() => localStorage.getItem('twokings.game.v1'))) === null, 'and nothing was saved');
+    // The board is sized from the window, so it has to leave the note its room: in landscape
+    // the note was drawn over the bottom rank.
+    for (const viewport of [{ width: 844, height: 390 }, { width: 390, height: 844 }]) {
+      await page.setViewportSize(viewport);
+      await page.waitForTimeout(400);
+      const lowest = await page.$$eval('[aria-label]', (els) =>
+        Math.max(...els.filter((e) => /^[a-h][1-8](,|$)/.test(e.getAttribute('aria-label') || '')).map((e) => e.getBoundingClientRect().bottom)),
+      );
+      const drawn = await note.boundingBox();
+      assert(drawn && lowest > 0 && lowest <= drawn.y, `${viewport.width}x${viewport.height}: the board clears the note: board ends at ${lowest}, the note starts at ${drawn?.y}`);
+    }
+
+    // The other app frees its room: the next save gets through and brings the refused ones with it.
+    await page.evaluate(() => {
+      for (const key of Object.keys(localStorage)) if (key.startsWith('another-app.')) localStorage.removeItem(key);
+    });
+    assert(await makeAnyMove(page), 'a move once there is room');
+    await note.waitFor({ state: 'detached', timeout: 10000 });
+    const stored = await page.evaluate(() => [localStorage.getItem('twokings.settings.v1'), localStorage.getItem('twokings.game.v1')]);
+    const config = JSON.parse(stored[0] || '{}');
+    assert(config.playAs === 'w' && config.cheating === 'off', 'the settings chosen while nothing was saved were written once there was room: ' + stored[0]);
+    assert(stored[1] !== null, 'the game is saved');
+    await page.reload();
+    await exact(page, 'Resume game').waitFor({ timeout: 10000 });
+    assert(errors.length === 0, errors.join('\n'));
+    await context.close();
+  },
+
   async 'stats screen'(browser) {
     const { page, context, errors } = await openApp(browser, url);
     await page.locator('text=/^Stats ·/').click();

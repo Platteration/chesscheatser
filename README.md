@@ -210,9 +210,12 @@ passes, so it is renewed before then).
 publishes lives on the same origin, `platteration.github.io`. Browsers key
 storage to the origin, not the path, so there each of those apps can read and
 rewrite this game's saved records (PRIVACY.md says so), and a script injected
-into any one of them reaches all of them. Give the game an address of its own,
-a custom domain or subdomain (Pages lets each repository have one; Netlify and
-Cloudflare Pages give every site one), and build it for the root. The storage
+into any one of them reaches all of them. They share its few megabytes of
+storage too: once another app has filled them, the game says under every
+screen that it is not saving, and writes what it could not as soon as there is
+room again. Give the game an address of its own, a custom domain or subdomain
+(Pages lets each repository have one; Netlify and Cloudflare Pages give every
+site one), and build it for the root. The storage
 keys stay prefixed (`twokings.*`) either way.
 
 **Response headers**, the same in `public/_headers`, `public/.htaccess` and
@@ -268,9 +271,10 @@ npm run test:all          # npm test, then the e2e suite
 
 The e2e suite (`e2e/run.mjs`) plays real games through the UI: settings,
 hints/undo/resume, computer cheating and accusations, player cheating, the
-daily challenge, the ladder, puzzles, the pass-and-play clock, review and Pro
-gating. It plays the website as it is published: built for the
-`/chesscheatser/` sub-path and served by `e2e/serve.mjs` with the headers
+daily challenge, the ladder, puzzles, the pass-and-play clock, review, Pro
+gating, and a browser whose storage another app has filled. It plays the
+website as it is published: built for the `/chesscheatser/` sub-path and
+served by `e2e/serve.mjs` with the headers
 `public/_headers` writes on every response, and a scenario fails on any policy
 violation, page error or request that leaves the site. One more scenario checks
 the website itself: every file's headers and cache lifetime, the `<meta>`

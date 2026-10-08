@@ -43,5 +43,8 @@ Known limits rather than vulnerabilities: on GitHub Pages
 (`<user>.github.io/<repo>/`) only the `<meta>` copy of the policy applies,
 because Pages sends no headers of a site's choosing, and that address's origin is shared
 with every other project site the same account publishes, whose pages can read
-and rewrite this game's saved records (PRIVACY.md says so; the README's Deploy
-section recommends an address of the game's own).
+and rewrite this game's saved records and fill the storage the origin is
+allowed (PRIVACY.md says so; the README's Deploy section recommends an address
+of the game's own). A record they plant is validated on the way in
+(`src/validate.ts`), and a save they crowd out is said on screen rather than
+lost silently (`src/storage.ts`).

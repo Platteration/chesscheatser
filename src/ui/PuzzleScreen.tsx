@@ -9,7 +9,7 @@ import { isSolution, PUZZLE_KIND_LABEL, puzzlePosition, type Puzzle, type Puzzle
 import { haptics } from '../haptics';
 import { playSound } from '../sounds';
 import { Board } from './Board';
-import { Button } from './components';
+import { Button, useStorageNoteHeight } from './components';
 import { PromotionPicker } from './PromotionPicker';
 import { themedStyles, useTheme } from './theme';
 
@@ -47,7 +47,9 @@ function PuzzlePlayer({ puzzles, progress, onSolved, onBack }: Props) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
-  const boardSize = Math.floor(Math.min(width - 16, height * 0.55));
+  // The storage note, while it shows, takes its height from the bottom of the window.
+  const room = height - useStorageNoteHeight();
+  const boardSize = Math.floor(Math.min(width - 16, room * 0.55));
   const solved = useMemo(() => new Set(progress.solved), [progress.solved]);
 
   const firstUnsolved = Math.max(0, puzzles.findIndex((p) => !solved.has(p.id)));

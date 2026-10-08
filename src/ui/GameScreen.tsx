@@ -11,7 +11,7 @@ import { shareText, type DailyRecord } from '../game/daily';
 import { canUndo, COMEBACK_THRESHOLD, reportKey, type GameOutcome } from '../game/flow';
 import { useGame, type GameState, type StartOptions } from '../game/useGame';
 import { Board } from './Board';
-import { Button } from './components';
+import { Button, useStorageNoteHeight } from './components';
 import { CHESS_FONT, GLYPH } from './PieceGlyph';
 import { useEntitlements } from '../entitlements';
 import { useSettings } from '../settings';
@@ -59,8 +59,10 @@ export function GameScreen({ start, onExit, onSave, onFinished, dailyStreak = 0,
   const reported = useRef<string | null>(null);
 
   const landscape = width > height;
+  // The storage note, while it shows, takes its height from the bottom of the window.
+  const room = height - useStorageNoteHeight();
   // Landscape: leave room for the top bar (~48) and margins; portrait: leave the lower half for controls.
-  const boardSize = Math.floor(landscape ? Math.min(height - insets.top - insets.bottom - 72, width * 0.55) : Math.min(width - 16, height * 0.55));
+  const boardSize = Math.floor(landscape ? Math.min(room - insets.top - insets.bottom - 72, width * 0.55) : Math.min(width - 16, room * 0.55));
 
   const humanTurn = state.config.mode === 'local' || state.turn === state.humanColor;
   const isFlipped = flipped ?? (state.config.mode === 'ai' && state.humanColor === 'b');

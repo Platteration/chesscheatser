@@ -53,6 +53,16 @@ an optional cheating computer opponent.
   where Resume was. On the Pages build these are all plain localStorage on an
   origin shared with every other project site the account publishes, so the
   device owner is not the only writer.
+- `src/storage.ts` — the only reader and writer of those keys. A write the store
+  refuses is never swallowed: on the Pages build the few megabytes of storage are
+  the shared origin's, another app can fill them, and every save then throws.
+  `saveJSON` and `remove` record the refusal, `StorageNote` (`src/ui/components.tsx`,
+  mounted under every screen in `App.tsx`) says so until the key's next write gets
+  through, and each refused record is written again after the next write the store
+  accepts, but only while it is still the newest value asked of its key. The game
+  and puzzle boards are sized from the window, so they take the note's height off
+  (`useStorageNoteHeight`). `e2e/run.mjs` fills the origin's storage, plays on, then
+  frees it and checks that everything caught up.
 - `src/recovery.ts` — what the error boundary offers after a render throws, as a
   pure state machine so it can be tested without a renderer. Two rules, both
   pinned by tests: the non-destructive recovery is always offered and always

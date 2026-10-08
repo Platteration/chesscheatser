@@ -20,6 +20,7 @@ import { RulesScreen } from './src/ui/RulesScreen';
 import { EntitlementsProvider, mockStore } from './src/entitlements';
 import { SettingsProvider, useSettings } from './src/settings';
 import { ProScreen } from './src/ui/ProScreen';
+import { StorageNote } from './src/ui/components';
 import { StatsScreen } from './src/ui/StatsScreen';
 import { theme as staticTheme, useTheme } from './src/ui/theme';
 
@@ -350,6 +351,7 @@ function Root() {
   return (
     <View style={[styles.root, { backgroundColor: theme.bg }]}>
       {content}
+      <StorageNote />
       <StatusBar style={theme.scheme === 'dark' ? 'light' : 'dark'} />
     </View>
   );

@@ -70,3 +70,8 @@
 - In the browser, the Vibration switch shows off, greyed out, and says why, and Share
   result copies the result where there is no share sheet (or shows it to copy
   by hand) instead of doing nothing.
+- When the browser (or the phone) refuses to save, the game says so under every
+  screen instead of playing on with nothing stored, and writes what it could not
+  as soon as a save gets through again. On the GitHub Pages address every app
+  the account publishes shares one storage allowance, so another of them can
+  fill it.
