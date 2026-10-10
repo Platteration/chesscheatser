@@ -16,6 +16,7 @@ interface Props {
 }
 
 const DEFAULT_CHOICES: PieceType[] = ['q', 'r', 'b', 'n'];
+const PIECE_NAME: Record<PieceType, string> = { k: 'king', q: 'queen', r: 'rook', b: 'bishop', n: 'knight', p: 'pawn' };
 
 export function PromotionPicker({ visible, color, title = 'Promote to', choices = DEFAULT_CHOICES, keepLabel, onPick, onCancel }: Props) {
   const styles = useStyles();
@@ -27,13 +28,13 @@ export function PromotionPicker({ visible, color, title = 'Promote to', choices 
           <Text style={styles.title}>{title}</Text>
           <View style={styles.row}>
             {choices.map((t) => (
-              <Pressable key={t} onPress={() => onPick(t)} style={({ pressed }) => [styles.choice, pressed && { opacity: 0.6 }]}>
+              <Pressable key={t} accessibilityRole="button" accessibilityLabel={`${title} ${PIECE_NAME[t]}`} onPress={() => onPick(t)} style={({ pressed }) => [styles.choice, pressed && { opacity: 0.6 }]}>
                 <PieceGlyph piece={{ type: t, color }} size={64} />
               </Pressable>
             ))}
           </View>
           {keepLabel && (
-            <Pressable onPress={() => onPick(null)} style={({ pressed }) => [styles.keep, pressed && { opacity: 0.6 }]}>
+            <Pressable accessibilityRole="button" accessibilityLabel={keepLabel} onPress={() => onPick(null)} style={({ pressed }) => [styles.keep, pressed && { opacity: 0.6 }]}>
               <Text style={[styles.keepText, { color: theme.text }]}>{keepLabel}</Text>
             </Pressable>
           )}

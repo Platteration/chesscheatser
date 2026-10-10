@@ -1,10 +1,9 @@
-# Publishes the web build to GitHub Pages so testers can play in a browser.
-# Enable Pages for the repository (Settings → Pages → Source: GitHub Actions) once.
+# Publishes Two Kings Chess for browser testing; native store releases use EAS.
 name: Deploy web build
 
 on:
   push:
-    branches: [main, master]
+    branches: [codex/ui-readiness-fixes-20261010, main, master, claude/two-king-chess-app-k423c0]
   workflow_dispatch:
 
 permissions:
@@ -20,15 +19,21 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Serve from the repository sub-path (<user>.github.io/<repo>/)
-        run: node -e "const fs=require('fs');const a=JSON.parse(fs.readFileSync('app.json'));a.expo.experiments={...(a.expo.experiments||{}),baseUrl:'/${{ github.event.repository.name }}'};fs.writeFileSync('app.json',JSON.stringify(a,null,2))"
-      - name: Export web build
+      - name: Check chesscheatser before publishing
+        run: npm run typecheck && npm test
+        env:
+          CI: 1
+      - name: Configure repository URL prefix
+        env:
+          REPOSITORY_NAME: ${{ github.event.repository.name }}
+        run: node -e "const fs=require('fs');const a=JSON.parse(fs.readFileSync('app.json'));a.expo.experiments={...(a.expo.experiments||{}),baseUrl:'/'+process.env.REPOSITORY_NAME};fs.writeFileSync('app.json',JSON.stringify(a,null,2))"
+      - name: Export Two Kings Chess for the web
         run: npx expo export --platform web --output-dir dist-web
         env:
           CI: 1

@@ -19,7 +19,7 @@ export function ProScreen({ progress, onBack }: Props) {
   const styles = useStyles();
   const theme = useTheme();
   const insets = useSafeAreaInsets();
-  const { owned, isSupporter, products, purchasing, buy, restore } = useEntitlements();
+  const { preview, owned, isSupporter, products, purchasing, buy, restore } = useEntitlements();
   const [message, setMessage] = useState<string | null>(null);
 
   const supporter = products.find((p) => p.id === 'supporter');
@@ -35,7 +35,7 @@ export function ProScreen({ progress, onBack }: Props) {
     <View style={[styles.root, { paddingTop: insets.top }]}>
       <View style={styles.topBar}>
         <Button title="‹ Back" variant="ghost" small onPress={onBack} />
-        <Text style={styles.title}>Support the game</Text>
+        <Text style={styles.title}>{preview ? 'Cosmetic preview' : 'Support the game'}</Text>
         <View style={{ width: 64 }} />
       </View>
       <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 24 }]}>
@@ -44,6 +44,7 @@ export function ProScreen({ progress, onBack }: Props) {
           Every mode, every power and every puzzle is free, and no purchase changes how the computer plays. These are
           cosmetics, and each one can be earned by playing instead.
         </Text>
+        {preview && <Text style={styles.pitch}>Purchases are not enabled in this build. No payment is taken. Previews are saved only on this device.</Text>}
 
         <Card>
           <Text style={styles.cardTitle}>Supporter</Text>
@@ -53,13 +54,13 @@ export function ProScreen({ progress, onBack }: Props) {
             </Text>
           ))}
           {isSupporter ? (
-            <Text style={[styles.status, { color: theme.success }]}>You have it. Thank you.</Text>
+            <Text style={[styles.status, { color: theme.success }]}>{preview ? 'Preview enabled on this device.' : 'You have it. Thank you.'}</Text>
           ) : (
             <Button
-              title={purchasing ? 'Purchasing…' : `Unlock everything · ${supporter?.price ?? '…'}`}
+              title={purchasing ? (preview ? 'Enabling preview…' : 'Purchasing…') : preview ? 'Preview everything' : `Unlock everything · ${supporter?.price ?? '…'}`}
               onPress={async () => {
                 const ok = await buy('supporter');
-                setMessage(ok ? 'Thank you.' : 'Purchase did not complete.');
+                setMessage(ok ? (preview ? 'Local preview unlocked.' : 'Thank you.') : preview ? 'Preview did not complete.' : 'Purchase did not complete.');
               }}
               disabled={purchasing || !supporter}
               style={styles.buy}
@@ -80,14 +81,14 @@ export function ProScreen({ progress, onBack }: Props) {
                   </Text>
                 ))}
                 {have ? (
-                  <Text style={[styles.status, { color: theme.success }]}>Owned</Text>
+                  <Text style={[styles.status, { color: theme.success }]}>{preview ? 'Preview enabled' : 'Owned'}</Text>
                 ) : (
                   <Button
-                    title={purchasing ? 'Purchasing…' : `Buy · ${p.price}`}
+                    title={purchasing ? (preview ? 'Enabling preview…' : 'Purchasing…') : preview ? `Preview ${p.title}` : `Buy · ${p.price}`}
                     variant="secondary"
                     onPress={async () => {
                       const ok = await buy(p.id);
-                      setMessage(ok ? `${p.title} unlocked.` : 'Purchase did not complete.');
+                      setMessage(ok ? `${p.title} ${preview ? 'preview enabled.' : 'unlocked.'}` : preview ? 'Preview did not complete.' : 'Purchase did not complete.');
                     }}
                     disabled={purchasing}
                     style={styles.buy}
@@ -98,15 +99,15 @@ export function ProScreen({ progress, onBack }: Props) {
           })}
 
         <Button
-          title="Restore purchases"
+          title={preview ? 'Restore local previews' : 'Restore purchases'}
           variant="ghost"
           onPress={async () => {
             await restore();
-            setMessage('Restore finished.');
+            setMessage(preview ? 'Local previews restored.' : 'Restore finished.');
           }}
         />
         {message && <Text style={styles.status}>{message}</Text>}
-        <Text style={styles.note}>One-time purchases, no subscription. No ads, ever.</Text>
+        <Text style={styles.note}>{preview ? 'Local cosmetic previews are free. No ads, ever.' : 'One-time purchases, no subscription. No ads, ever.'}</Text>
       </ScrollView>
     </View>
   );

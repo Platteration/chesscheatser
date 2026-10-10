@@ -28,6 +28,8 @@ interface EntitlementState {
 const KEY = 'twokings.entitlements.v1';
 
 export interface StoreProvider {
+  /** Local previews never show prices or imply a real transaction. */
+  preview?: boolean;
   getProducts(): Promise<Product[]>;
   purchase(id: ProductId): Promise<boolean>;
   restore(): Promise<ProductId[]>;
@@ -57,6 +59,7 @@ export const CATALOGUE: readonly Product[] = [
  * behaves like the real thing rather than silently doing nothing.
  */
 export const mockStore: StoreProvider = {
+  preview: true,
   async getProducts() {
     return [...CATALOGUE];
   },
@@ -70,6 +73,7 @@ export const mockStore: StoreProvider = {
 };
 
 interface EntitlementsValue {
+  preview: boolean;
   /** Products this device has bought. */
   owned: ProductId[];
   /** The one-time tip; also unlocks every cosmetic at once. */
@@ -81,6 +85,7 @@ interface EntitlementsValue {
 }
 
 const Ctx = createContext<EntitlementsValue>({
+  preview: true,
   owned: [],
   isSupporter: false,
   products: [],
@@ -133,8 +138,8 @@ export function EntitlementsProvider({ children, store = mockStore }: { children
   }, [store, grant]);
 
   const value = useMemo<EntitlementsValue>(
-    () => ({ owned: state.owned, isSupporter: state.owned.includes('supporter'), products, purchasing, buy, restore }),
-    [state.owned, products, purchasing, buy, restore],
+    () => ({ preview: !!store.preview, owned: state.owned, isSupporter: state.owned.includes('supporter'), products, purchasing, buy, restore }),
+    [store.preview, state.owned, products, purchasing, buy, restore],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

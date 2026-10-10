@@ -56,7 +56,7 @@ export function HomeScreen({ config, onChange, onStart, onDaily, daily, onRanked
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const { settings, update } = useSettings();
-  const { owned } = useEntitlements();
+  const { owned, preview } = useEntitlements();
   const progress: Progress = useMemo(
     () => ({ stats, daily, ladder, puzzlesSolved }),
     [stats, daily, ladder, puzzlesSolved],
@@ -70,7 +70,7 @@ export function HomeScreen({ config, onChange, onStart, onDaily, daily, onRanked
     ? `${nextLocked.label}: ${describeEarn(nextLocked.earn!)} (${Math.min(
         earnProgress(nextLocked.earn!, progress).have,
         earnProgress(nextLocked.earn!, progress).need,
-      )}/${earnProgress(nextLocked.earn!, progress).need}), or support the game.`
+      )}/${earnProgress(nextLocked.earn!, progress).need}), or ${preview ? 'preview the cosmetics' : 'support the game'}.`
     : undefined;
   const label = (c: Cosmetic) => c.label + (unlocked.has(c.id) ? '' : ' 🔒');
   const set = <K extends keyof GameConfig>(key: K, value: GameConfig[K]) => onChange({ ...config, [key]: value });
@@ -275,7 +275,7 @@ export function HomeScreen({ config, onChange, onStart, onDaily, daily, onRanked
       <Button title="New game with these settings" variant="secondary" onPress={onStart} style={styles.start} />
       <Button title={`Puzzles · ${puzzlesSolved}/${puzzleCount} solved`} variant="secondary" onPress={onPuzzles} />
       <Button title="How to play" variant="secondary" onPress={onRules} />
-      <Button title="Support the game" variant="ghost" onPress={onPro} />
+      <Button title={preview ? 'Preview cosmetics' : 'Support the game'} variant="ghost" onPress={onPro} />
 
       <Button title={`Stats · ${stats.wins} W · ${stats.losses} L · ${stats.draws} D`} variant="ghost" onPress={onStats} />
     </ScrollView>

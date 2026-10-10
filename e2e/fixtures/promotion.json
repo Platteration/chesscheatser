@@ -1,0 +1,102 @@
+{
+  "saved": {
+    "config": {
+      "mode": "local",
+      "difficulty": "easy",
+      "material": "mirror",
+      "playAs": "w",
+      "armySize": "small",
+      "cheating": "off",
+      "comeback": false,
+      "doubleCheck": "answer",
+      "kings": 2
+    },
+    "seed": 1,
+    "humanColor": "w",
+    "events": [
+      {
+        "type": "move",
+        "move": {
+          "from": 12,
+          "to": 28,
+          "piece": "p",
+          "doublePush": true,
+          "checkedAfter": []
+        }
+      },
+      {
+        "type": "move",
+        "move": {
+          "from": 51,
+          "to": 35,
+          "piece": "p",
+          "doublePush": true,
+          "checkedAfter": []
+        }
+      },
+      {
+        "type": "move",
+        "move": {
+          "from": 28,
+          "to": 35,
+          "piece": "p",
+          "captured": "p",
+          "checkedAfter": []
+        }
+      },
+      {
+        "type": "move",
+        "move": {
+          "from": 52,
+          "to": 36,
+          "piece": "p",
+          "doublePush": true,
+          "checkedAfter": []
+        }
+      },
+      {
+        "type": "move",
+        "move": {
+          "from": 35,
+          "to": 43,
+          "piece": "p",
+          "checkedAfter": []
+        }
+      },
+      {
+        "type": "move",
+        "move": {
+          "from": 36,
+          "to": 28,
+          "piece": "p",
+          "checkedAfter": []
+        }
+      },
+      {
+        "type": "move",
+        "move": {
+          "from": 43,
+          "to": 51,
+          "piece": "p",
+          "checkedAfter": []
+        }
+      },
+      {
+        "type": "move",
+        "move": {
+          "from": 28,
+          "to": 20,
+          "piece": "p",
+          "checkedAfter": []
+        }
+      }
+    ]
+  },
+  "promotion": {
+    "from": 51,
+    "to": 59,
+    "piece": "p",
+    "promotion": "q",
+    "checkedAfter": []
+  }
+}

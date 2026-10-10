@@ -125,9 +125,11 @@ shared results. No ads, no subscriptions, no energy, and the store is one quiet
 row on the home screen.
 
 `src/entitlements.tsx` keeps the store behind a `StoreProvider` interface. The
-bundled provider is a **local mock** (purchases recorded on the device only);
-swap in `react-native-iap` / `expo-iap` with real App Store and Google Play
-products before release.
+bundled provider enables **free local previews**. Its screen shows no prices,
+takes no payment, and restores only previews saved on this device. The earn-by-play
+paths still work. Swap in `react-native-iap` / `expo-iap` with real App Store and
+Google Play products before offering paid purchases; a live provider must return
+localized prices and leave `preview` false.
 
 ## Tech
 
@@ -152,8 +154,8 @@ npm run web        # run in the browser
 Store builds use EAS (requires an Expo account); profiles live in `eas.json`:
 
 ```sh
-npx eas build --profile preview --platform android   # installable APK
-npx eas build --profile production --platform ios
+npx eas-cli build --profile preview --platform android   # installable APK
+npx eas-cli build --profile production --platform ios
 ```
 
 CI (`.github/workflows/ci.yml`) runs the type check, the unit tests, a Metro
