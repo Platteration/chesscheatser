@@ -357,7 +357,7 @@ const useStyles = themedStyles((theme) => ({
   },
   dailyTitle: { color: theme.text, fontWeight: '800', fontSize: 14 },
   dailyText: { color: theme.textMuted, fontSize: 12, marginTop: 2 },
-  dailyStreak: { color: theme.accent, fontSize: 12, marginTop: 2, fontWeight: '700' },
+  dailyStreak: { color: theme.accentInk, fontSize: 12, marginTop: 2, fontWeight: '700' },
   root: { flex: 1, backgroundColor: theme.bg },
   content: { paddingHorizontal: 16, gap: 12 },
   hero: { alignItems: 'center', marginBottom: 8 },

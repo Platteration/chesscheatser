@@ -2,7 +2,7 @@ import React from 'react';
 import { Platform, StyleSheet, Text } from 'react-native';
 import type { Piece, PieceType } from '../engine/types';
 import { useSettings } from '../settings';
-import { pieceHalo } from './pieceHalo';
+import { pieceHalo, pieceInk } from './pieceHalo';
 
 /** Filled glyphs for both colours; colour comes from the text style. */
 export const GLYPH: Record<PieceType, string> = {
@@ -33,6 +33,7 @@ export const PieceGlyph = React.memo(function PieceGlyph({ piece, size }: Props)
   const { settings } = useSettings();
   const white = piece.color === 'w';
   const classic = settings.pieceStyle === 'classic';
+  const neon = settings.boardTheme === 'neon';
   const glyph = classic && white ? OUTLINE_GLYPH[piece.type] : GLYPH[piece.type];
   return (
     <Text
@@ -42,8 +43,8 @@ export const PieceGlyph = React.memo(function PieceGlyph({ piece, size }: Props)
         {
           fontSize: size * 0.78,
           lineHeight: size,
-          color: classic ? '#141414' : white ? '#fff5df' : '#24333e',
-          ...pieceHalo(classic, white),
+          color: pieceInk(classic, white, neon),
+          ...pieceHalo(classic, white, neon),
         },
       ]}
     >

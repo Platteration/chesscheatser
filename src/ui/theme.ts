@@ -25,7 +25,10 @@ export interface Theme {
   textMuted: string;
   accent: string;
   accentText: string;
+  /** Accent ink for small text on a panel rather than a filled button. */
+  accentInk: string;
   danger: string;
+  onDanger: string;
   success: string;
   /** Comeback power accent. */
   power: string;
@@ -62,7 +65,9 @@ const DARK: Omit<Theme, 'board' | 'scheme'> = {
   textMuted: '#b7c2c7',
   accent: '#e8bd70',
   accentText: '#1a1300',
+  accentInk: '#e8bd70',
   danger: '#ef9290',
+  onDanger: '#19232d',
   success: '#93c6a1',
   power: '#c07be8',
   kingA: '#e8bd70',
@@ -76,11 +81,13 @@ const LIGHT: Omit<Theme, 'board' | 'scheme'> = {
   surfaceAlt: '#e9e2d3',
   border: '#b7b2a4',
   text: '#24333e',
-  textMuted: '#5b6b72',
+  textMuted: '#536269',
   accent: '#a57127',
   // 4.67:1 on the accent; '#1a1300' measured 4.39:1, under AA for the 14-16 px button text.
   accentText: '#0f0b00',
+  accentInk: '#90601f',
   danger: '#b4424a',
+  onDanger: '#fffaf0',
   success: '#37734d',
   power: '#8a3fc4',
   kingA: '#a57127',

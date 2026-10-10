@@ -40,7 +40,7 @@ export const AURAS: Record<string, { label: string; dark: string; light: string 
   'aura.embers': { label: 'Embers', dark: '#ff8a4c', light: '#c2410c' },
   'aura.frost': { label: 'Frost', dark: '#67d8ef', light: '#0e7490' },
   'aura.static': { label: 'Static', dark: '#9ae66e', light: '#3f7d20' },
-  'aura.gold': { label: 'Gold leaf', dark: '#f2c14e', light: '#a97a12' },
+  'aura.gold': { label: 'Gold leaf', dark: '#f2c14e', light: '#936a0d' },
 };
 
 export const DEFAULT_AURA = 'aura.violet';

@@ -45,6 +45,9 @@ const scenarios = {
     await page.getByText('‹ Home').click();
     await exact(page, 'Resume game').waitFor({ timeout: 10000 });
     assert((await exact(page, 'Resume game').count()) === 1, 'resume offered');
+    await page.reload();
+    await exact(page, 'Resume game').waitFor({ timeout: 10000 });
+    assert((await exact(page, 'Resume game').count()) === 1, 'resume survives a full reload');
     await exact(page, 'Resume game').click();
     await waitHuman(page);
     assert((await text(page, '/^1\\. /')) !== null, 'resumed game keeps moves');
@@ -208,6 +211,26 @@ const scenarios = {
     const box = await page.locator('[aria-label^="a1"]').boundingBox();
     assert(box && box.y + box.height <= 390 && box.x + box.width <= 844, 'board fits the landscape viewport: ' + JSON.stringify(box));
     assert(await makeAnyMove(page), 'move in landscape');
+    assert(errors.length === 0, errors.join('\n'));
+    await context.close();
+  },
+
+  async 'compact portrait controls remain reachable'(browser) {
+    const { page, context, errors } = await openApp(browser, url, { width: 320, height: 568 });
+    await exact(page, 'Pass & play').click();
+    await exact(page, 'Mirror').click();
+    await exact(page, 'Full').click();
+    await exact(page, 'Off').first().click();
+    await exact(page, 'New game with these settings').click();
+    await waitHuman(page);
+    const resign = exact(page, 'Resign');
+    await page.mouse.move(160, 500);
+    await page.mouse.wheel(0, 568);
+    await page.waitForTimeout(200);
+    const box = await resign.boundingBox();
+    assert(box && box.y >= 0 && box.y + box.height <= 568, 'Resign is entirely reachable: ' + JSON.stringify(box));
+    await resign.click();
+    await exact(page, 'Review board').waitFor();
     assert(errors.length === 0, errors.join('\n'));
     await context.close();
   },

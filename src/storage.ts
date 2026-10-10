@@ -23,7 +23,8 @@ export async function loadJSON<T>(key: string, fallback: T): Promise<T> {
     const raw = await AsyncStorage.getItem(key);
     if (!raw) return fallback;
     const parsed = safeParse<unknown>(raw);
-    return isRecord(parsed) && isRecord(fallback) ? { ...fallback, ...parsed } : fallback;
+    if (!isRecord(parsed)) return fallback;
+    return isRecord(fallback) ? { ...fallback, ...parsed } : parsed as T;
   } catch {
     return fallback;
   }
