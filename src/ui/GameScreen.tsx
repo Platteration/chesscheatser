@@ -253,7 +253,7 @@ export function GameScreen({ start, onExit, onSave, onFinished, dailyStreak = 0,
         <Button title="Flip" variant="ghost" small onPress={() => setFlipped(!isFlipped)} />
       </View>
 
-      <View style={landscape ? styles.landscape : undefined}>
+      <ScrollView style={styles.gameContent} contentContainerStyle={landscape ? styles.landscape : styles.portraitContent}>
       <View style={landscape ? styles.landscapeBoard : undefined}>
       {!landscape && <PlayerStrip state={state} color={topColor} active={state.turn === topColor && !state.gameOver} />}
 
@@ -320,7 +320,7 @@ export function GameScreen({ start, onExit, onSave, onFinished, dailyStreak = 0,
 
       {state.canAccuse && state.config.cheating !== 'off' && (
         <View style={styles.accuseRow}>
-          <Button title="Cheater!" small onPress={accuse} style={styles.accuseButton} />
+          <Button title="Cheater!" variant="dangerFilled" small onPress={accuse} />
           <Text style={styles.accuseHint}>Was that last move legal? Call it out before you move.</Text>
         </View>
       )}
@@ -355,7 +355,7 @@ export function GameScreen({ start, onExit, onSave, onFinished, dailyStreak = 0,
       </View>
 
       </View>
-      </View>
+      </ScrollView>
 
       <IntroTip kings={state.config.kings ?? 2} />
 
@@ -692,7 +692,9 @@ function MoveList({ state }: { state: GameState }) {
 
 const useStyles = themedStyles((theme) => ({
   root: { flex: 1, backgroundColor: theme.bg },
-  landscape: { flex: 1, flexDirection: 'row', alignItems: 'flex-start' },
+  gameContent: { flex: 1 },
+  portraitContent: { flexGrow: 1 },
+  landscape: { flexGrow: 1, flexDirection: 'row', alignItems: 'flex-start' },
   landscapeBoard: { justifyContent: 'center' },
   landscapeSide: { flex: 1, paddingTop: 6 },
   center: { alignItems: 'center', justifyContent: 'center' },
@@ -725,9 +727,8 @@ const useStyles = themedStyles((theme) => ({
   meterSub: { fontSize: 10, color: theme.textMuted },
   statusBox: { paddingHorizontal: 16, paddingTop: 8, minHeight: 44 },
   accuseRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingTop: 6 },
-  accuseButton: { backgroundColor: theme.danger },
   accuseHint: { color: theme.textMuted, fontSize: 12, flex: 1 },
-  resultCheats: { color: theme.accent, fontSize: 13, textAlign: 'center', marginTop: 10 },
+  resultCheats: { color: theme.accentInk, fontSize: 13, textAlign: 'center', marginTop: 10 },
   status: { color: theme.text, fontSize: 15, fontWeight: '600', textAlign: 'center' },
   statusDanger: { color: theme.danger },
   statusDetail: { color: theme.textMuted, fontSize: 12, textAlign: 'center', marginTop: 2 },
