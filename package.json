@@ -31,5 +31,10 @@
     "e2e": "CI=1 expo export --platform web --output-dir dist-web && node e2e/run.mjs",
     "e2e:run": "node e2e/run.mjs"
   },
-  "private": true
+  "private": true,
+  "overrides": {
+    "xcode": {
+      "uuid": "11.1.1"
+    }
+  }
 }
