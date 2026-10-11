@@ -4,7 +4,7 @@ The app identifiers are `com.platteration.twokingschess` on iOS and Android. Con
 
 ## Browser publication
 
-`.github/workflows/pages.yml` runs checks and exports with `/chesscheatser` as the URL prefix. It publishes through GitHub Actions on the default/release branch and `codex/ui-readiness-fixes-20261010`, and can be dispatched manually. GitHub Pages must use the GitHub Actions source. A browser preview is separate from a signed app-store release.
+`.github/workflows/pages.yml` runs checks and exports with `/chesscheatser` as the URL prefix. It publishes through GitHub Actions on pushes to the default branch (`claude/two-king-chess-app-k423c0`, or `main`/`master`), and can be dispatched manually. GitHub Pages must use the GitHub Actions source. A browser preview is separate from a signed app-store release.
 
 Xcode's UUID dependency is scoped to 11.1.1 to clear its UUID advisory while preserving Xcode's CommonJS `v4()` API. ID generation and project write/parse checks pass; signed native builds remain required. Remove this override when upstream Xcode depends on a patched UUID version.
 

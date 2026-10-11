@@ -3,7 +3,7 @@ name: Deploy web build
 
 on:
   push:
-    branches: [codex/ui-readiness-fixes-20261010, main, master, claude/two-king-chess-app-k423c0]
+    branches: [claude/two-king-chess-app-k423c0, main, master]
   workflow_dispatch:
 
 permissions:
