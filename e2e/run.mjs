@@ -758,37 +758,36 @@ const scenarios = {
   },
 
   async 'comeback powers appear for the side that is behind'(browser) {
+    // The game is pinned rather than dealt. Dealt, it was a chaos game from a random seed played on
+    // by random moves until somebody fell far enough behind, and it failed when neither did: armies
+    // within two pawns of each other and fourteen plies without a swing left a game still running
+    // with no draft offered, which ended the search for one (1 run in 22 here). Seed 2's chaos
+    // armies are 41.5 pawns against 47.7, a 620-centipawn deficit that a depth-2 search puts at
+    // 575, so White is offered a draft before the first move whether or not that search finishes
+    // within the game's 100 ms (without it the deficit is the material alone; either is past the
+    // 200 a first power needs). Pass and play, so the side that is behind is shown the draft rather
+    // than the computer taking it silently; no clock; nothing in it is random.
+    const pinned = {
+      seed: 2,
+      humanColor: 'w',
+      config: { mode: 'local', difficulty: 'medium', material: 'chaos', playAs: 'w', armySize: 'any', cheating: 'off', comeback: true, doubleCheck: 'answer' },
+      events: [],
+    };
     const { page, context, errors } = await openApp(browser, url);
-    // Pass-and-play makes this deterministic: both colours are human, so whichever
-    // side falls behind is *shown* the draft rather than the computer taking it
-    // silently. Chaos armies guarantee somebody is behind within a few plies.
-    await exact(page, 'Pass & play').click();
-    await exact(page, 'Chaos').click();
-    await exact(page, 'New game with these settings').click();
-    await page.waitForTimeout(700);
+    await page.evaluate((game) => localStorage.setItem('twokings.game.v1', game), JSON.stringify(pinned));
+    await page.reload();
+    await exact(page, 'Resume game').click();
+    assert((await text(page, '/^Chaos armies · seed 2$/')) !== null, 'the pinned armies are on the board');
 
     resetDraftCount();
-    // A chaos game can also end before anyone is far enough behind (a checkmate inside fourteen
-    // plies failed a full run of this suite), and a finished game offers no draft: deal new
-    // armies from the result sheet, as a player would, rather than reading a draft count off a
-    // game that is over.
-    for (let armies = 0; armies < 6 && draftCount() === 0; armies++) {
-      if (armies > 0) {
-        await page.getByRole('dialog').getByText('New armies', { exact: true }).click();
-        await page.waitForTimeout(700);
-      }
-      for (let ply = 0; ply < 14 && draftCount() === 0; ply++) {
-        if (shots && (await page.locator('[data-testid="power-draft"]').count())) {
-          await page.screenshot({ path: `${shots}/draft.png` });
-        }
-        if (await gameOver(page)) break;
-        if (!(await makeAnyMove(page))) break; // settles a draft if one is open
-      }
-      if (!(await gameOver(page))) break; // still running: fourteen plies passed, or no move was found
-    }
-    assert(draftCount() > 0, 'a draft was offered within fourteen plies of a chaos game, within six armies');
+    await page.getByTestId('power-draft').waitFor({ timeout: 10000 });
+    assert((await exact(page, 'White fell behind').count()) === 1, `the draft is offered to White, the side that is behind: ${await describeApp(page)}`);
+    if (shots) await page.screenshot({ path: `${shots}/draft.png` });
+    await waitHuman(page); // takes the first power offered
+    assert(draftCount() === 1, `one draft was offered and answered, not ${draftCount()}`);
     // The meter shows a star per power once a side has drafted one.
     assert((await text(page, '/★/')) !== null, 'the meter shows a drafted power');
+    assert(await makeAnyMove(page), 'White plays on with the power');
     if (shots) await page.screenshot({ path: `${shots}/comeback.png` });
     assert(errors.length === 0, errors.join('\n'));
     await context.close();
