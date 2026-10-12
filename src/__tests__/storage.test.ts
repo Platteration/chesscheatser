@@ -58,11 +58,14 @@ describe('loadJSON', () => {
     const { loadJSON } = await import('../storage');
     spy.stored['k.rec'] = JSON.stringify({ a: 2 });
     expect(await loadJSON('k.rec', { a: 1, b: 1 })).toEqual({ a: 2, b: 1 });
-    for (const raw of ['[1,2]', '"text"', '3', 'null', '{not json']) {
+    for (const raw of ['[1,2]', '[]', '"text"', '3', 'false', 'null', '{not json']) {
       spy.stored['k.bad'] = raw;
       expect(await loadJSON<unknown>('k.bad', null), raw).toBeNull();
       expect(await loadJSON('k.bad', { a: 1 }), raw).toEqual({ a: 1 });
     }
+    // Nothing stored at all is the fallback too, whatever its kind.
+    expect(await loadJSON<unknown>('k.never-written', null)).toBeNull();
+    expect(await loadJSON('k.never-written', { a: 1 })).toEqual({ a: 1 });
     spy.stored['k.proto'] = '{"__proto__":{"polluted":true},"a":3}';
     const read = await loadJSON<unknown>('k.proto', null);
     expect(read).toEqual({ a: 3 });

@@ -129,12 +129,14 @@ shared results. No ads, no subscriptions, no energy, and the store is one quiet
 row on the home screen.
 
 `src/entitlements.tsx` keeps the store behind a `StoreProvider` interface. The
-bundled provider is a **local mock** (purchases recorded on the device only);
-swap in `react-native-iap` / `expo-iap` with real App Store and Google Play
-products before release. `EntitlementsProvider` takes its store as a required
-prop, so the mock is always named at the mount site rather than shipped by
-default, and the mock's prices read "free in this build" rather than a
-currency amount, because the public web build serves it and takes no payment.
+bundled provider enables **free local previews**. Its screen shows no prices,
+takes no payment, and restores only previews saved on this device. The earn-by-play
+paths still work. Swap in `react-native-iap` / `expo-iap` with real App Store and
+Google Play products before offering paid purchases; a live provider must return
+localized prices and leave `preview` false. `EntitlementsProvider` takes its store
+as a required prop, so the mock is always named at the mount site rather than
+shipped by default, and the mock's catalogue prices read "free in this build"
+rather than a currency amount, because the public web build serves it.
 
 ## Running it
 
@@ -151,8 +153,8 @@ npm run web        # run in the browser
 Store builds use EAS (requires an Expo account); profiles live in `eas.json`:
 
 ```sh
-npx eas build --profile preview --platform android   # installable APK
-npx eas build --profile production --platform ios
+npx eas-cli build --profile preview --platform android   # installable APK
+npx eas-cli build --profile production --platform ios
 ```
 
 ### Deploy
@@ -288,9 +290,10 @@ npm run test:all          # npm test, then the e2e suite
 ```
 
 The e2e suite (`e2e/run.mjs`) plays real games through the UI: settings,
-hints/undo/resume, computer cheating and accusations, player cheating, the
-daily challenge, the ladder, puzzles, the pass-and-play clock, review, Pro
-gating, and a browser whose storage another app has filled. It plays the
+hints/undo/resume (across a reload), computer cheating and accusations, player
+cheating, the daily challenge, the ladder, puzzles, the pass-and-play clock,
+review, promotion, comeback drafts, a 320-pixel-wide phone, Pro gating and the
+preview store's wording, and a browser whose storage another app has filled. It plays the
 website as it is published: built for the `/chesscheatser/` sub-path and
 served by `e2e/serve.mjs` with the headers
 `public/_headers` writes on every response, and a scenario fails on any policy

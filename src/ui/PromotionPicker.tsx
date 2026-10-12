@@ -51,7 +51,7 @@ export function PromotionPicker({ visible, color, title = 'Promote to', choices 
             ))}
           </View>
           {keepLabel && (
-            <Pressable accessibilityRole="button" onPress={() => onPick(null)} style={({ pressed }) => [styles.keep, pressed && { opacity: 0.6 }]}>
+            <Pressable accessibilityRole="button" accessibilityLabel={keepLabel} onPress={() => onPick(null)} style={({ pressed }) => [styles.keep, pressed && { opacity: 0.6 }]}>
               <Text style={[styles.keepText, { color: theme.text }]}>{keepLabel}</Text>
             </Pressable>
           )}

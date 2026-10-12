@@ -7,7 +7,7 @@ import { themedStyles, useTheme } from './theme';
 interface ButtonProps {
   title: string;
   onPress: () => void;
-  variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
+  variant?: 'primary' | 'secondary' | 'ghost' | 'danger' | 'dangerFilled';
   disabled?: boolean;
   style?: StyleProp<ViewStyle>;
   small?: boolean;
@@ -29,6 +29,7 @@ export function Button({ title, onPress, variant = 'primary', disabled, style, s
         variant === 'secondary' && styles.secondary,
         variant === 'ghost' && styles.ghost,
         variant === 'danger' && styles.dangerBtn,
+        variant === 'dangerFilled' && styles.dangerFilled,
         disabled && styles.disabled,
         pressed && !disabled && styles.pressed,
         style,
@@ -40,6 +41,7 @@ export function Button({ title, onPress, variant = 'primary', disabled, style, s
           small && styles.buttonTextSmall,
           variant === 'primary' && styles.primaryText,
           variant === 'danger' && styles.dangerText,
+          variant === 'dangerFilled' && styles.dangerFilledText,
         ]}
       >
         {title}
@@ -219,12 +221,14 @@ const useStyles = themedStyles((theme) => ({
   secondary: { backgroundColor: theme.surfaceAlt, borderWidth: 1, borderColor: theme.border },
   ghost: { backgroundColor: 'transparent' },
   dangerBtn: { backgroundColor: 'transparent', borderWidth: 1, borderColor: theme.danger },
+  dangerFilled: { backgroundColor: theme.danger },
   disabled: { opacity: 0.4 },
-  pressed: { opacity: 0.75 },
+  pressed: { transform: [{ scale: 0.98 }] },
   buttonText: { color: theme.text, fontSize: 16, fontWeight: '600' },
   buttonTextSmall: { fontSize: 14 },
   primaryText: { color: theme.accentText },
   dangerText: { color: theme.danger },
+  dangerFilledText: { color: theme.onDanger },
   segmented: {
     flexDirection: 'row',
     backgroundColor: theme.surfaceAlt,

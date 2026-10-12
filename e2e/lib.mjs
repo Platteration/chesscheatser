@@ -345,11 +345,11 @@ export async function clickSquares(page, from, to) {
 export const text = (page, re) => page.locator(`text=${re}`).first().textContent().catch(() => null);
 export const exact = (page, t) => page.getByText(t, { exact: true });
 
-/** Buys the Supporter tier through the mock store, unlocking every cosmetic. */
+/** Takes the Supporter tier through the bundled preview store, unlocking every cosmetic. */
 export async function unlockPro(page) {
-  await exact(page, 'Support the game').click();
+  await exact(page, 'Preview cosmetics').click();
   await page.waitForTimeout(300);
-  await page.locator('text=/Unlock everything/').click();
+  await exact(page, 'Preview everything').click();
   await page.waitForTimeout(300);
   await page.getByText('‹ Back').click();
   await page.waitForTimeout(300);

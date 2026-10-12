@@ -265,6 +265,39 @@ const scenarios = {
     }
   },
 
+  async 'promotion choices have names and persist'(browser) {
+    // Seed 1, eight legal pawn moves; generated with the app's setup and engine.
+    const fixture = JSON.parse(fs.readFileSync('e2e/fixtures/promotion.json', 'utf8'));
+    for (const [kind, name] of [['q', 'queen'], ['r', 'rook'], ['b', 'bishop'], ['n', 'knight']]) {
+      const { page, context, errors } = await openApp(browser, url);
+      await page.evaluate((saved) => localStorage.setItem('twokings.game.v1', JSON.stringify(saved)), fixture.saved);
+      await page.reload();
+      await exact(page, 'Resume game').click();
+      await waitHuman(page);
+      await page.getByRole('button', { name: 'd7, white pawn', exact: true }).click();
+      await page.getByRole('button', { name: 'd8', exact: true }).click();
+      await exact(page, 'Promote to').waitFor();
+      // Each choice is a button named for its piece, under the sheet's "Promote to" title (the
+      // same picker asks "Bring back" and "Arrive as a queen?", so the piece is the whole name).
+      for (const choice of ['Queen', 'Rook', 'Bishop', 'Knight']) {
+        assert(await page.getByRole('button', { name: choice, exact: true }).count() === 1, `named ${choice} choice`);
+      }
+      if (shots) {
+        fs.mkdirSync(shots, { recursive: true });
+        await page.waitForTimeout(400); // let the modal's fade finish for the visual record
+        await page.screenshot({ path: `${shots}/promotion-${kind}.png` });
+      }
+      await page.getByRole('button', { name: name[0].toUpperCase() + name.slice(1), exact: true }).click();
+      await page.getByRole('button', { name: `d8, white ${name}`, exact: true }).waitFor();
+      await page.waitForFunction((kind) => JSON.parse(localStorage.getItem('twokings.game.v1'))?.events.at(-1)?.move?.promotion === kind, kind);
+      await page.reload();
+      await exact(page, 'Resume game').click();
+      await page.getByRole('button', { name: `d8, white ${name}`, exact: true }).waitFor();
+      assert(errors.length === 0, errors.join('\n'));
+      await context.close();
+    }
+  },
+
   async 'home settings persist'(browser) {
     const { page, context, errors } = await openApp(browser, url);
     await exact(page, 'Light').click();
@@ -341,6 +374,9 @@ const scenarios = {
     await page.getByText('‹ Home').click();
     await exact(page, 'Resume game').waitFor({ timeout: 10000 });
     assert((await exact(page, 'Resume game').count()) === 1, 'resume offered');
+    await page.reload();
+    await exact(page, 'Resume game').waitFor({ timeout: 10000 });
+    assert((await exact(page, 'Resume game').count()) === 1, 'resume survives a full reload');
     await exact(page, 'Resume game').click();
     await waitHuman(page);
     assert((await text(page, '/^1\\. /')) !== null, 'resumed game keeps moves');
@@ -690,6 +726,26 @@ const scenarios = {
     await context.close();
   },
 
+  async 'compact portrait controls remain reachable'(browser) {
+    const { page, context, errors } = await openApp(browser, url, { width: 320, height: 568 });
+    await exact(page, 'Pass & play').click();
+    await exact(page, 'Mirror').click();
+    await exact(page, 'Full').click();
+    await exact(page, 'Off').first().click();
+    await exact(page, 'New game with these settings').click();
+    await waitHuman(page);
+    const resign = exact(page, 'Resign');
+    await page.mouse.move(160, 500);
+    await page.mouse.wheel(0, 568);
+    await page.waitForTimeout(200);
+    const box = await resign.boundingBox();
+    assert(box && box.y >= 0 && box.y + box.height <= 568, 'Resign is entirely reachable: ' + JSON.stringify(box));
+    await resign.click();
+    await exact(page, 'Review board').waitFor();
+    assert(errors.length === 0, errors.join('\n'));
+    await context.close();
+  },
+
   async 'stats screen'(browser) {
     const { page, context, errors } = await openApp(browser, url);
     await page.locator('text=/^Stats ·/').click();
@@ -761,6 +817,23 @@ const scenarios = {
     await context.close();
   },
 
+  async 'preview store discloses local unlocks'(browser) {
+    const { page, context, errors } = await openApp(browser, url);
+    await exact(page, 'Neon 🔒').click();
+    await exact(page, 'Cosmetic preview').waitFor({ timeout: 5000 });
+    assert((await page.getByText('No payment is taken.', { exact: false }).count()) === 1, 'preview explains there is no payment');
+    assert(!/\$[0-9]/.test(await page.locator('body').innerText()), 'preview does not show pretend prices');
+    await exact(page, 'Preview everything').click();
+    await exact(page, 'Preview enabled on this device.').waitFor();
+    await exact(page, 'Restore local previews').click();
+    await exact(page, 'Local previews restored.').waitFor();
+    await exact(page, '‹ Back').click();
+    await page.reload();
+    await exact(page, 'Neon').waitFor();
+    assert(errors.length === 0, errors.join('\n'));
+    await context.close();
+  },
+
   async 'pro gating'(browser) {
     const { page, context, errors } = await openApp(browser, url);
     assert((await exact(page, 'Neon 🔒').count()) === 1, 'neon starts locked');
@@ -768,9 +841,9 @@ const scenarios = {
     assert((await page.locator('text=/Hint \\(/').count()) === 0, 'hints are not rationed');
     await exact(page, 'Neon 🔒').click();
     await page.waitForTimeout(300);
-    assert((await page.locator('text=/Support the game/').count()) > 0, 'store opened');
+    assert((await exact(page, 'Cosmetic preview').count()) === 1, 'local preview store opened');
     assert((await page.locator('text=/Win 5 games/').count()) > 0, 'the store shows how to earn it instead');
-    await page.locator('text=/Unlock everything/').click();
+    await exact(page, 'Preview everything').click();
     await page.waitForTimeout(300);
     await page.getByText('‹ Back').click();
     await page.waitForTimeout(300);

@@ -45,6 +45,7 @@
 /assets/fonts/*           /404.html  404!
 /assets/sounds/*          /404.html  404!
 /deploy/*                 /404.html  404!
+/docs/*                   /404.html  404!
 /e2e/*                    /404.html  404!
 /eas.json                 /404.html  404!
 /eslint.config.js         /404.html  404!

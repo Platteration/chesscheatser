@@ -32,6 +32,7 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
+      - run: npm run typecheck
       - run: npm test
       # The site is served from <user>.github.io/<repo>/, so every address in it carries /<repo>;
       # Pages reads none of the host configs in public/, so none is published; and the policy
