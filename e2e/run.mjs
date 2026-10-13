@@ -39,6 +39,20 @@ function siteFiles(dir = root, rel = '') {
   });
 }
 
+/**
+ * A game with nothing random in it, for a scenario that has to make more than one move: seed 1's
+ * fair armies, pass and play (no computer), comeback powers off (no draft), no clock. Dealt
+ * against the computer instead, a game can be over after the first exchange (the computer's
+ * reply mates White in 2 of 40 dealt games, measured), and the next move waits out its 30 s on a
+ * disabled board. d2-d3, then b7-b6, then f2-f3 are pawn pushes on it, none of which gives check.
+ */
+const PINNED_GAME = {
+  seed: 1,
+  humanColor: 'w',
+  config: { mode: 'local', difficulty: 'medium', material: 'fair', playAs: 'w', armySize: 'any', cheating: 'off', comeback: false, doubleCheck: 'answer' },
+  events: [],
+};
+
 /** A name a build gives a new value when the content changes: index-<hash>.js, <name>.<hash>.<ext>. */
 const HASHED = /[.-][0-9a-f]{32}\.[a-z0-9]+$/;
 
@@ -190,17 +204,24 @@ const scenarios = {
       await context.route('**/*.wav', (route) => route.abort());
       const page = await context.newPage();
       const failures = collectFailures(page, url);
+      // Two moves, so the pinned game (PINNED_GAME): a dealt one can be mated after the first
+      // exchange, and then the second move here waited out its 30 s (CI run 38395881433).
       await page.goto(url);
-      await exact(page, 'White').first().click();
-      await exact(page, 'Never').click();
-      await exact(page, 'New game with these settings').click();
-      assert(await makeAnyMove(page), 'a move with the sounds failing');
+      await page.evaluate((game) => localStorage.setItem('twokings.game.v1', game), JSON.stringify(PINNED_GAME));
+      await page.reload();
+      await exact(page, 'Resume game').click();
+      const push = async (from, to, mover) => {
+        await waitHuman(page);
+        await clickSquares(page, from, to);
+        await page.getByRole('button', { name: `${to}, ${mover} pawn`, exact: true }).waitFor({ timeout: 5000 });
+      };
+      await push('d2', 'd3', 'white');
       await waitHuman(page);
       await page.waitForTimeout(500);
       assert((await page.evaluate(() => window.__rejections)) > 0, 'the failed sound reached the page as a rejection nothing handled');
       assert(await page.locator('#site-note').isHidden(), 'no failure note over a game that has drawn');
       assert((await page.evaluate(() => getComputedStyle(document.getElementById('root')).display)) !== 'none', 'the game is still shown');
-      assert(await makeAnyMove(page), 'and still plays');
+      await push('b7', 'b6', 'black'); // and still plays
       const policyFailures = failures.filter((f) => /polic|Trusted Type/i.test(f));
       assert(policyFailures.length === 0, policyFailures.join('\n'));
       await context.close();
@@ -686,12 +707,7 @@ const scenarios = {
     // draft), no clock, and three pawn pushes, none of which gives check. Nothing in it is random,
     // and every step checks it did what it says. The planted record is also why the end checks the
     // moves and not only that a game is stored: the planted game, with none, is stored throughout.
-    const pinned = {
-      seed: 1,
-      humanColor: 'w',
-      config: { mode: 'local', difficulty: 'medium', material: 'fair', playAs: 'w', armySize: 'any', cheating: 'off', comeback: false, doubleCheck: 'answer' },
-      events: [],
-    };
+    const pinned = PINNED_GAME;
     const { page, context, errors } = await openApp(browser, url);
     // Planted once, rather than through openApp's `storage`, whose script would plant it again at
     // the reload at the end and answer for the game this scenario stores.
