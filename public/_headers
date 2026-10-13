@@ -17,7 +17,10 @@
 #   img-src 'self'          the favicon
 #   font-src 'self'         the bundled chess glyph font
 #   media-src 'self'        the move, capture and check sounds
-#   connect-src 'none'      the game makes no network requests
+#   connect-src 'self'      the site's own api/: api/config (whether sign-in and the shop are on),
+#                           and where a backend answers (server/kit), the account and Checkout
+#                           calls. Google and Stripe are top-level navigations, which the policy
+#                           does not govern, so no other source is named anywhere
 #   require-trusted-types-for 'script'; trusted-types 'none'
 #                           no string ever becomes HTML or script: React, react-native-web and
 #                           Expo run without creating a single Trusted Types policy
@@ -30,12 +33,17 @@
 # sheet itself, keeps its default of this site only and is not listed, because Chromium builds
 # without the share sheet warn about the name in every visitor's console.
 #
+# api/: on Cloudflare Pages the Function in functions/api/ answers every address under it, and
+# this file is not applied to what a Function sends (Cloudflare's "Headers" page says so): the
+# kit (server/kit) sets its own headers on every answer. /api/config below is the static file
+# that answers on a host with no backend, saying sign-in and the shop are off.
+#
 # Cache-Control: the bundle and the assets carry a content hash in their names, so a new build
 # gets new names and they can be kept for a year. Everything else is revalidated on every load.
 # Every file the site holds has exactly one rule below; the browser suite checks that.
 
 /*
-  Content-Security-Policy: default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self'; font-src 'self'; media-src 'self'; connect-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'; frame-ancestors 'none'; upgrade-insecure-requests; require-trusted-types-for 'script'; trusted-types 'none'
+  Content-Security-Policy: default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self'; font-src 'self'; media-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'; frame-ancestors 'none'; upgrade-insecure-requests; require-trusted-types-for 'script'; trusted-types 'none'
   X-Content-Type-Options: nosniff
   X-Frame-Options: DENY
   Referrer-Policy: strict-origin-when-cross-origin
@@ -72,4 +80,7 @@
   Cache-Control: no-cache
 
 /.well-known/security.txt
+  Cache-Control: no-cache
+
+/api/config
   Cache-Control: no-cache

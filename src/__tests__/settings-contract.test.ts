@@ -9,7 +9,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
 import { DEFAULT_SETTINGS, resetSettings, resolveScheme, type AppSettings } from '../appSettings';
 import { NEW_GAME_PROMPT } from '../game/flow';
-import { STORAGE_KEYS } from '../storage';
+import { SESSION_KEYS, STORAGE_KEYS } from '../storage';
 import { SETTING_TABLES } from '../validate';
 
 vi.mock('expo-constants', () => ({ default: { expoConfig: { version: '9.9.9' } } }));
@@ -28,6 +28,15 @@ describe('storage keys', () => {
       appsettings: 'twokings.appsettings.v1',
       entitlements: 'twokings.entitlements.v1',
     });
+  });
+
+  it("names the website's one sessionStorage note beside them, which nothing reads at launch", () => {
+    expect(SESSION_KEYS).toEqual({ checkout: 'twokings.checkout.pending' });
+    // The tab's own storage, used by the web shop alone; never AsyncStorage, which clearAll empties.
+    const web = read('../shop.web.ts');
+    expect(web).toMatch(/const PENDING_KEY = SESSION_KEYS\.checkout;/);
+    expect(web.match(/window\.\w+Storage/g)).toEqual(['window.sessionStorage']);
+    expect(read('../storage.ts')).not.toMatch(/SESSION_KEYS\.\w+/);
   });
 });
 
@@ -138,8 +147,12 @@ describe('about', () => {
     expect(about.SOURCE_URL).toBe('https://github.com/Platteration/chesscheatser');
     expect(about.PRIVACY_URL).toBe(`${about.SOURCE_URL}/blob/HEAD/PRIVACY.md`);
     expect(about.CHANGELOG_URL).toBe(`${about.SOURCE_URL}/blob/HEAD/CHANGELOG.md`);
-    // The privacy sentence is quoted from the statement itself, so it cannot drift from it.
+    // The privacy sentences are quoted from the statement itself, so they cannot drift from it:
+    // the phone app's, and the browser build's, which asks its own site whether sign-in and the
+    // shop are on and sends anything only when the visitor signs in or buys.
     expect(read('../../PRIVACY.md')).toContain(about.PRIVACY_SENTENCE);
+    expect(read('../../PRIVACY.md')).toContain(about.WEB_PRIVACY_SENTENCE);
+    expect(read('../ui/HomeScreen.tsx')).toMatch(/Platform\.OS === 'web' \? WEB_PRIVACY_SENTENCE : `Nothing leaves your device: \$\{PRIVACY_SENTENCE\.toLowerCase\(\)\}`/);
     expect(read('../../CHANGELOG.md').length).toBeGreaterThan(0);
   });
 

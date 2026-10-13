@@ -128,15 +128,27 @@ powers, so the thing you own decorates the game's signature moment. A one-time
 shared results. No ads, no subscriptions, no energy, and the store is one quiet
 row on the home screen.
 
-`src/entitlements.tsx` keeps the store behind a `StoreProvider` interface. The
-bundled provider enables **free local previews**. Its screen shows no prices,
-takes no payment, and restores only previews saved on this device. The earn-by-play
-paths still work. Swap in `react-native-iap` / `expo-iap` with real App Store and
-Google Play products before offering paid purchases; a live provider must return
+`src/entitlements.tsx` keeps the store behind a `StoreProvider` interface. On
+the phone, and on a website with no backend (GitHub Pages), the bundled provider
+enables **free local previews**. Its screen shows no prices, takes no payment,
+and restores only previews saved on this device. The earn-by-play paths still
+work. Swap in `react-native-iap` / `expo-iap` with real App Store and Google Play
+products before offering paid purchases on a phone; a live provider must return
 localized prices and leave `preview` false. `EntitlementsProvider` takes its store
-as a required prop, so the mock is always named at the mount site rather than
-shipped by default, and the mock's catalogue prices read "free in this build"
-rather than a currency amount, because the public web build serves it.
+as a required prop, so the store is always named at the mount site (`App.tsx`)
+rather than shipped by default, and the mock's catalogue prices read "free in
+this build" rather than a currency amount, because the public web build serves it.
+
+**The website's shop.** Where the site's own backend has its keys (see
+"Sign-in and the shop" under Deploy), the website sells the same four products
+for real: sign in with Google, then Buy opens Stripe's Checkout page, and only
+Stripe's signed webhook grants the purchase, to the Google account. The store is
+then the site's record (`api/me`), not the browser's: a local preview unlocks
+nothing while the shop is on, and a purchase follows the account to another
+browser. Unlocking a cosmetic happens in the page, so anyone can make their own
+copy of the page show one; that gates a cosmetic, not a secret, and nothing of
+value is behind it. The phone app has no shop of its own (the App Store and
+Google Play want theirs) and no network code.
 
 ## Running it
 
@@ -162,8 +174,10 @@ npx eas-cli build --profile production --platform ios
 The browser build is a website: the game runs in the browser exactly as it
 does on a phone, and the host only serves files, with the headers, the
 not-found page and the refusals that `public/` and `deploy/nginx.conf` give it.
-Nothing about the game moves to a server; it makes no network requests of its
-own, and the site's policy refuses any.
+Nothing about the game moves to a server. The one request it makes of its own
+is to its own site, `api/config`, which on a static host is a file saying that
+sign-in and the shop are off; the site's policy refuses every other address.
+Where the site has a backend, sign-in and the shop run on it (below).
 
 ```sh
 npm run build:web -- --host netlify                                  # dist-web/, for a site at the root of its own domain
@@ -193,7 +207,8 @@ page's `<noscript>` note says what is needed); `site.css`; `404.html`, the
 game's look for an address the site does not have; `robots.txt`; and
 `.well-known/security.txt`, pointing at private vulnerability reporting
 (`Expires` is 2027-10-08, and `src/__tests__/website.test.ts` goes red once it
-passes, so it is renewed before then).
+passes, so it is renewed before then); and `api/config`, the static answer that
+sign-in and the shop are off, which a host with the backend answers itself.
 
 **Hosts.**
 
@@ -208,12 +223,17 @@ passes, so it is renewed before then).
   crawlers and RFC 9116 look for them.
 - **Netlify** and **Cloudflare Pages** read `_headers` (and Netlify
   `_redirects`) from the published folder: build with `--host netlify` or
-  `--host cloudflare`.
+  `--host cloudflare`. A Cloudflare build also gets `_routes.json`, which sends
+  the site's `api/` (and nothing else) to the Pages Function in
+  `functions/api/`.
 - **Apache** reads `.htaccess` (`AllowOverride All`, with `mod_rewrite`,
   `mod_headers` and `mod_mime`): `--host apache`.
 - **nginx**: `deploy/nginx.conf`, included from the `http {}` block, serving the
   folder `--host nginx` writes at the root of its domain. It is not written for
-  a sub-path: its locations and cache rules all start at `/`.
+  a sub-path: its locations and cache rules all start at `/`. Its
+  `location ^~ /api/` proxies the site's API to `server/start.mjs` (below); with
+  no API running there nginx answers `api/` with 502 and the page draws no
+  sign-in or shop, so delete that block to serve the site without one.
 
 Apache and nginx serve the site's own paths and answer 404 for every other
 address, so a checkout published by mistake gives away none of the
@@ -234,13 +254,48 @@ room again. Give the game an address of its own, a custom domain or subdomain
 site one), and build it for the root. The storage
 keys stay prefixed (`twokings.*`) either way.
 
+**Sign-in and the shop.** The website can sign people in with Google and sell
+the four products of the Monetization section through Stripe Checkout, with a
+small backend on the site's own origin under `api/`: `server/kit/`, the same
+files in every app of the family (never edited here), with this app's
+catalogue, `server/catalogue.js`. It is **off until its keys are set**: with
+none (and on GitHub Pages, where no backend runs) `api/config` says nothing is
+on and the game is exactly what it was. `server/kit/README.md` is the owner's
+guide: every variable, the routes, the webhook, what is stored, and the Google
+and Stripe set-up. This app's Stripe prices are `STRIPE_PRICE_SUPPORTER`,
+`STRIPE_PRICE_PACK_AURAS`, `STRIPE_PRICE_PACK_BOARDS` and
+`STRIPE_PRICE_PACK_PIECES` (one-time prices); a product without one is not sold.
+
+- **Cloudflare Pages** is the reference host: `functions/api/[[path]].js` is the
+  Function, a KV namespace bound as `KIT_STORE` keeps the records, the
+  variables are the project's encrypted environment variables, and
+  `--host cloudflare` writes the `_routes.json` that keeps static files from
+  invoking it. Cloudflare's documentation says `_headers` and `_redirects` are
+  not applied to what a Function serves: the kit sends its own headers on every
+  answer, and `_redirects` (whose `404!` rules Cloudflare does not support
+  anyway) cannot touch `api/`. Build it for the root of its own domain: the
+  Function answers `/api/`.
+- **Self-hosted**: `KIT_DATA_DIR=/var/lib/two-kings-chess node server/start.mjs`
+  (one process, as its own user, the data directory outside the web root)
+  listens on 127.0.0.1:8788, and `deploy/nginx.conf`'s `location ^~ /api/`
+  proxies to it. Apache's `.htaccess` cannot proxy (`mod_proxy` is server
+  configuration): in the virtual host, `ProxyPass "/api/" "http://127.0.0.1:8788/api/"`
+  with `mod_proxy` and `mod_proxy_http`. The proxy answers `api/` before
+  `.htaccess` is read (checked on Apache 2.4.58), so none of its headers reach
+  those answers: the kit sends its own, and HSTS there is the virtual host's.
+- **GitHub Pages, Netlify**: no backend runs, so there is no sign-in or shop.
+
+Give the site an origin of its own before switching the shop on: every page on
+the origin can act for the signed-in visitor through `api/`, so on
+`platteration.github.io` (above) every other app the account publishes could.
+
 **Response headers**, the same in `public/_headers`, `public/.htaccess` and
 `deploy/nginx.conf` (`src/__tests__/website.test.ts` fails when they differ;
 `public/_headers` says what each source is for):
 
 | Header | Value |
 | --- | --- |
-| `Content-Security-Policy` | `default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self'; font-src 'self'; media-src 'self'; connect-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'; frame-ancestors 'none'; upgrade-insecure-requests; require-trusted-types-for 'script'; trusted-types 'none'` |
+| `Content-Security-Policy` | `default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self'; font-src 'self'; media-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'; frame-ancestors 'none'; upgrade-insecure-requests; require-trusted-types-for 'script'; trusted-types 'none'` |
 | `X-Content-Type-Options` | `nosniff` |
 | `X-Frame-Options` | `DENY` |
 | `Referrer-Policy` | `strict-origin-when-cross-origin` |
@@ -251,12 +306,15 @@ keys stay prefixed (`twokings.*`) either way.
 | `Cache-Control` | a year, `immutable`, for the bundle and the assets, whose names carry a content hash; `no-cache` for everything else |
 
 The policy was measured rather than copied: the browser suite plays the whole
-game with these headers on every response and fails on any violation. Two
+game with these headers on every response and fails on any violation. Three
 things in it are there because the game needs them: `'unsafe-inline'` in
 `style-src`, because expo-font writes the chess glyphs' `@font-face` into a
-`<style>` element as text at runtime (without it the pieces have no font), and
-`media-src 'self'` for the sounds. That text names the font's address, base path
-and content hash included, so no one hash covers every build.
+`<style>` element as text at runtime (without it the pieces have no font);
+`media-src 'self'` for the sounds; and `connect-src 'self'` for the site's own
+`api/` (sign-in and the shop, whose browser scenario fails with `'none'`; Google's
+sign-in and Stripe's Checkout are top-level navigations, which the policy does
+not govern, and nothing of theirs is loaded). The `@font-face` text names the
+font's address, base path and content hash included, so no one hash covers every build.
 react-native-web's own runtime `<style>` would need only the hash of the empty
 string, since it is filled through `insertRule`, which the policy does not
 govern; the browser suite measures both. Trusted Types are enforced with no
@@ -272,6 +330,7 @@ curl -sI https://SITE/README.md | head -1           # 404
 curl -sI https://SITE/assets/ | head -1             # 404: no folder listing
 curl -s  https://SITE/no-such-page | grep -c 'That page isn'   # 1: the site's own 404 page
 curl -s  https://SITE/.well-known/security.txt      # the contact, and an Expires date in the future
+curl -s  https://SITE/api/config                    # sign-in and the shop: off, or the products the site sells
 ```
 
 Then play a game in the browser and check that its console shows no
@@ -282,7 +341,7 @@ Then play a game in the browser and check that its console shows no
 ```sh
 npm run lint              # eslint . (Expo's preset; warnings are advice, errors fail)
 npm run typecheck
-npm test                  # engine unit tests (perft, two-king rules, setup generator, AI)
+npm test                  # unit tests (engine, game layer, website, shop), then the kit's self-test
 npm run test:conventions  # the repository's shape against CONVENTIONS.md
 npm run check             # the four above: the gate before a push
 npm run test:e2e          # export the web build and drive it in headless Chromium
@@ -293,7 +352,11 @@ The e2e suite (`e2e/run.mjs`) plays real games through the UI: settings,
 hints/undo/resume (across a reload), computer cheating and accusations, player
 cheating, the daily challenge, the ladder, puzzles, the pass-and-play clock,
 review, promotion, comeback drafts, a 320-pixel-wide phone, Pro gating and the
-preview store's wording, and a browser whose storage another app has filled. It plays the
+preview store's wording, a browser whose storage another app has filled, a site
+with no backend (no sign-in drawn), and the website's shop: on a second server
+with the kit behind `api/` and fakes for Google and Stripe, it signs in, buys,
+posts Stripe's signed webhook, sees the cosmetic unlocked, signs out and deletes
+the account, under the same policy. It plays the
 website as it is published: built for the `/chesscheatser/` sub-path and
 served by `e2e/serve.mjs` with the headers
 `public/_headers` writes on every response, and a scenario fails on any policy
@@ -342,6 +405,12 @@ much below half, the draft has stopped doing its job.
   `.well-known/security.txt` and the host configs (`_headers`, `_redirects`,
   `.htaccess`); `deploy/nginx.conf` is nginx's. `scripts/build-web.mjs` builds
   the site, and `app.config.js` hands it the base URL of a sub-path build.
+- `server/`: the website's backend for sign-in and the shop: `server/kit/` (the
+  family's shared kit, copied verbatim, with its own README and self-test),
+  `server/catalogue.js` (what this app sells) and `server/start.mjs` (the Node
+  start script); `functions/api/[[path]].js` is the Cloudflare Pages entry. The
+  page's side is `src/shop.web.ts` (web only; `src/shop.ts` is the phone app's
+  inert twin), `src/account.tsx` and `src/ui/AccountCard.tsx`.
 
 ## License
 

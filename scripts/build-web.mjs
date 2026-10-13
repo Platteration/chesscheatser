@@ -10,7 +10,9 @@
 //             host reads (_headers and _redirects for Netlify and Cloudflare Pages, .htaccess for
 //             Apache, none for nginx, whose config is deploy/nginx.conf, or for GitHub Pages,
 //             which reads none), so the others are not published as files. Without it all
-//             three stay, and each host ignores the others'.
+//             three stay, and each host ignores the others'. A Cloudflare build also gets
+//             _routes.json, which sends the site's api/ (and nothing else) to the Pages Function
+//             in functions/api/ (server/kit: sign-in and the shop).
 //
 // `expo export` copies public/ into the site and fills in public/index.html; this then
 //  - adds the Content-Security-Policy and referrer <meta> tags to every page, from the policy
@@ -20,6 +22,8 @@
 //  - points 404.html's addresses and .htaccess's ErrorDocument lines at the base URL, since a
 //    not-found page is served at whatever depth the missing address had;
 //  - removes metadata.json, which the export writes for EAS Update and no page loads;
+//  - writes _routes.json for Cloudflare Pages (routesJson), so a static file never invokes the
+//    Function and every address under api/ does;
 //  - and refuses a site in which a page names a file the export does not hold.
 //
 // The output folder is emptied before the export writes it (the exporter empties it too), so
@@ -41,7 +45,7 @@ const HOSTS = {
 };
 const CONFIGS = ['_headers', '_redirects', '.htaccess'];
 /** What every published site holds besides the bundle, whichever host it is for. */
-const SITE_FILES = ['index.html', '404.html', 'site.css', 'guard.js', 'favicon.ico', 'robots.txt', '.well-known/security.txt'];
+const SITE_FILES = ['index.html', '404.html', 'site.css', 'guard.js', 'favicon.ico', 'robots.txt', '.well-known/security.txt', 'api/config'];
 /** The folders inside the checkout the site may be written to: .gitignore lists each one. */
 export const OUT_FOLDERS = ['dist-web', 'dist', 'web-build'];
 
@@ -106,6 +110,16 @@ export function withPolicyMeta(html, { csp, referrer }) {
   if (/http-equiv="Content-Security-Policy"/i.test(html)) throw new Error('the page already carries a policy');
   const tags = `<meta http-equiv="Content-Security-Policy" content="${metaPolicy(csp)}" />\n    <meta name="referrer" content="${referrer}" />`;
   return html.replace(charset, (m) => `${m}\n    ${tags}`);
+}
+
+/**
+ * Cloudflare Pages' _routes.json for a site under `base` ('' at the root): the Function runs for
+ * the site's api/ and for nothing else, so every static file is served without invoking it.
+ * public/api/config, the static answer for a host with no backend, is one of the addresses the
+ * Function takes over there.
+ */
+export function routesJson(base) {
+  return `${JSON.stringify({ version: 1, include: [`${base}/api/*`], exclude: [] })}\n`;
 }
 
 /** Every root-absolute href and src in `html` moved under `base` ('' leaves them as they are). */
@@ -179,6 +193,7 @@ function build({ baseUrl, outputDir, host }) {
   if (host !== null) {
     for (const f of CONFIGS) if (!HOSTS[host].includes(f)) fs.rmSync(path.join(out, f), { force: true });
   }
+  if (host === 'cloudflare') fs.writeFileSync(path.join(out, '_routes.json'), routesJson(baseUrl));
 
   const missing = [];
   for (const page of pages) {

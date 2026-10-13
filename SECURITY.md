@@ -39,6 +39,14 @@ header that is wrong or missing, a file the site serves that is not part of it,
 a way to run script or load a resource the Content-Security-Policy should
 refuse, or a way to frame the game.
 
+Also in scope: the website's backend for sign-in and the shop, which runs only
+where its owner sets its keys (`server/`, `functions/`, and the page's side,
+`src/shop.web.ts` and `src/account.tsx`). `server/kit/` is the same files in
+every app of the family and is fixed there, not here, so a report against it is
+welcome in any of them; its README says what it checks (the sign-in state and
+nonce, Google's signature, the Stripe webhook's signature, the origin of every
+change) and what it stores.
+
 Known limits rather than vulnerabilities: on GitHub Pages
 (`<user>.github.io/<repo>/`) only the `<meta>` copy of the policy applies,
 because Pages sends no headers of a site's choosing, and that address's origin is shared
@@ -48,3 +56,12 @@ allowed (PRIVACY.md says so; the README's Deploy section recommends an address
 of the game's own). A record they plant is validated on the way in
 (`src/validate.ts`), and a save they crowd out is said on screen rather than
 lost silently (`src/storage.ts`).
+
+The cosmetics a purchase unlocks are unlocked in the page, so anyone can make
+their own copy of the page show one without paying; that gates a cosmetic, not a
+secret, and nothing of value sits behind it. A purchase is recorded only from
+Stripe's signed webhook, and a sign-in only from Google's verified ID token. On
+an origin shared with other sites, every page on it can act for the signed-in
+visitor through `api/` (read their email, start a checkout, delete the
+account): the backend belongs on an origin of the game's own, which
+`server/kit/README.md` and the README's Deploy section say.

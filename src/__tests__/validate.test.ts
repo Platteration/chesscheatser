@@ -12,7 +12,7 @@ import { MAX_POWER } from '../engine/powers';
 import { PASS_MOVE, type Color } from '../engine/types';
 import type { Setup } from '../engine/setup';
 import { DEFAULT_SETTINGS, type AppSettings } from '../appSettings';
-import { STORAGE_KEYS } from '../storage';
+import { SESSION_KEYS, STORAGE_KEYS } from '../storage';
 import {
   checkSavedGame,
   cleanConfig,
@@ -567,7 +567,9 @@ describe('records the app reads back', () => {
   it('lists every storage key in STORAGE_KEYS, so the error boundary can clear all of them', () => {
     // Keys spelled out beside their own module are exactly how entitlements and
     // appsettings escaped both the key list and the recovery path.
-    const keys = new Set(Object.values(STORAGE_KEYS));
+    // ...or in SESSION_KEYS, beside it: the tab's own sessionStorage, which ends with the tab and
+    // which nothing reads at launch, so recovery has nothing there to clear.
+    const keys = new Set<string>([...Object.values(STORAGE_KEYS), ...Object.values(SESSION_KEYS)]);
     const sources = [app, ...walk(new URL('..', import.meta.url)).map((f) => readFileSync(f, 'utf8'))];
     // Any quote, not just a single one: a key spelled "twokings.foo.v1" is the
     // same escape this guard exists to catch, and nothing here enforces a quote

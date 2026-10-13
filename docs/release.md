@@ -19,6 +19,6 @@ Xcode's UUID dependency is scoped to 11.1.1 to clear its UUID advisory while pre
 
 ## Two Kings Chess checks
 
-The bundled StoreProvider is a local preview, not billing. Do not advertise paid products or account-based restore until an actual store provider and receipt verification are implemented. Inspect promotion choices, compact controls and all five active comeback auras.
+On the phone, the bundled StoreProvider is a local preview, not billing. Do not advertise paid products or account-based restore in the app stores until an actual store provider and receipt verification are implemented. The website's shop (README, "Sign-in and the shop") is a separate thing: Stripe Checkout on the site's own backend, off until its keys are set, and never in the phone app. Inspect promotion choices, compact controls and all five active comeback auras.
 
 No real purchase, native device test, signed EAS build or store submission was performed by this cloud preparation.

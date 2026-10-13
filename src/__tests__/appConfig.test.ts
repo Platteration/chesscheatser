@@ -107,7 +107,26 @@ const manifestsUnder = (dir: string): string[] => {
   return out;
 };
 
-/** The app's own source, joined: src/ without its tests, plus the two root files. */
+/**
+ * The modules Metro bundles for the web build alone, in place of a twin of the same name
+ * (src/shop.web.ts's is src/shop.ts): the website's sign-in and shop, which talk to the site's
+ * own api/. The phone app never contains them, so the scans of what the phone app does leave
+ * them out, and only them; src/__tests__/shop.test.ts holds the twin inert.
+ */
+const WEB_ONLY = /\.web\.tsx?$/;
+const webOnlyModules = (): string[] => {
+  const out: string[] = [];
+  const walk = (dir: string) => {
+    for (const entry of readdirSync(join(root, dir), { withFileTypes: true })) {
+      if (entry.isDirectory()) walk(`${dir}/${entry.name}`);
+      else if (WEB_ONLY.test(entry.name)) out.push(`${dir}/${entry.name}`);
+    }
+  };
+  walk('src');
+  return out.sort();
+};
+
+/** The phone app's own source, joined: src/ without its tests or the web-only modules, plus the two root files. */
 const appSource = (): string => {
   const sources: string[] = [];
   const walk = (dir: string) => {
@@ -115,7 +134,7 @@ const appSource = (): string => {
       const full = join(dir, entry.name);
       if (entry.isDirectory()) {
         if (entry.name !== '__tests__') walk(full);
-      } else if (/\.tsx?$/.test(entry.name)) {
+      } else if (/\.tsx?$/.test(entry.name) && !WEB_ONLY.test(entry.name)) {
         sources.push(readFileSync(full, 'utf8'));
       }
     }
@@ -241,7 +260,7 @@ describe('what Android grants', () => {
     // agree. The value is true because the store is the player's own record —
     // daily streak, ladder, puzzle progress and the Pro entitlement
     // (STORAGE_KEYS and KEPT_ON_CLEAR in src/storage.ts) — and there is no
-    // server copy: PRIVACY.md says the app makes no network requests. Losing
+    // server copy: PRIVACY.md says the phone app makes no network requests. Losing
     // them on a device migration is worse than the privacy gain, and what a
     // restore can plant is bounded by src/validate.ts, which every stored
     // record goes through before it is used.
@@ -333,6 +352,15 @@ describe('what leaves the device', () => {
     // source link the About card hands to the browser.
     expect(appSource()).not.toMatch(/uri:\s*['"`]https?:\/\//);
     expect(appSource().match(/https?:\/\/[^\s'"`]+/g)).toEqual(['https://github.com/Platteration/chesscheatser']);
+  });
+
+  it("leaves out of that scan only the website's own modules, each beside the twin a phone gets", () => {
+    // A module named *.web.ts is in no phone build, which is the only reason the scan above may
+    // skip it: the website's sign-in and shop (src/shop.web.ts), which reach the site's own api/.
+    // A new one is a decision, made here, and it needs a twin, or a phone build would not resolve it.
+    expect(webOnlyModules()).toEqual(['src/shop.web.ts']);
+    for (const file of webOnlyModules()) expect(existsSync(join(root, file.replace('.web.', '.'))), file).toBe(true);
+    expect(readFileSync(join(root, 'src/shop.web.ts'), 'utf8')).toMatch(/fetch\(/); // what the scan would otherwise refuse
   });
 
   it('does not ship network access', () => {

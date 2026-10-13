@@ -17,6 +17,7 @@ import { FRESH, onRenderFailed, recoveryScreen, recoveryStep, SETTLE_MS, type Re
 import { GameScreen } from './src/ui/GameScreen';
 import { HomeScreen } from './src/ui/HomeScreen';
 import { RulesScreen } from './src/ui/RulesScreen';
+import { AccountProvider, useAccount } from './src/account';
 import { EntitlementsProvider, mockStore } from './src/entitlements';
 import { SettingsProvider, useSettings } from './src/settings';
 import { ProScreen } from './src/ui/ProScreen';
@@ -38,14 +39,29 @@ export default function App() {
   return (
     <ErrorBoundary>
       <SettingsProvider>
-        <EntitlementsProvider store={mockStore}>
-          <SafeAreaProvider>
-            <Root />
-          </SafeAreaProvider>
-        </EntitlementsProvider>
+        <AccountProvider>
+          <Store>
+            <SafeAreaProvider>
+              <Root />
+            </SafeAreaProvider>
+          </Store>
+        </AccountProvider>
       </SettingsProvider>
     </ErrorBoundary>
   );
+}
+
+/**
+ * Which store ships is named here, at the mount site: the website's shop when the
+ * site's backend sells something (src/account.tsx, whose record is the server's),
+ * and the local preview mock otherwise, which is every phone and every site with
+ * no backend. While the web build is still asking its site there is none yet:
+ * nothing owned, nothing offered.
+ */
+function Store({ children }: { children: React.ReactNode }) {
+  const account = useAccount();
+  const store = account.status === 'loading' ? null : (account.store ?? mockStore);
+  return <EntitlementsProvider store={store}>{children}</EntitlementsProvider>;
 }
 
 /**

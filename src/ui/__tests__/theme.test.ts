@@ -25,6 +25,8 @@ describe.each(['light', 'dark'] as const)('%s interface text', (scheme) => {
     }
     expect(contrast(theme.accentText, theme.accent)).toBeGreaterThanOrEqual(4.5);
     expect(contrast(theme.onDanger, theme.danger)).toBeGreaterThanOrEqual(4.5);
+    // The outlined danger button's label on a card: Resign, and the website's Delete account.
+    expect(contrast(theme.danger, theme.surface)).toBeGreaterThanOrEqual(4.5);
     expect(contrast(theme.accentInk, theme.surface)).toBeGreaterThanOrEqual(4.5);
     const neon = makeTheme(scheme, 'neon');
     for (const square of [neon.board.light, neon.board.dark]) {

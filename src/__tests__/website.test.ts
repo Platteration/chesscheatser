@@ -14,8 +14,8 @@ import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Linter } from 'eslint';
 import { describe, expect, it } from 'vitest';
-import { metaPolicy, OUT_FOLDERS, pageReferences, sitePolicy, underBase, withPolicyMeta } from '../../scripts/build-web.mjs';
-import { addHeaderScopes, apacheRefuses, netlifyRefuses, nginxRefuses, nginxSiteServer, parseNginx } from '../../e2e/hosts.mjs';
+import { metaPolicy, OUT_FOLDERS, pageReferences, routesJson, sitePolicy, underBase, withPolicyMeta } from '../../scripts/build-web.mjs';
+import { addHeaderScopes, apacheRefuses, netlifyRefuses, nginxProxies, nginxRefuses, nginxSiteServer, parseNginx } from '../../e2e/hosts.mjs';
 import { headersFor, parseHeaders } from '../../e2e/serve.mjs';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
@@ -44,9 +44,12 @@ function fromHtaccess(): Map<string, string> {
   out.delete('cache-control');
   return out;
 }
+/** The ones the site's server block sets for itself, in its own scope (not the API location's). */
 function fromNginx(): Map<string, string> {
   const out = new Map<string, string>();
-  for (const m of NGINX.matchAll(/^\s*add_header ([\w-]+) "([^"]*)" always;/gm)) out.set(m[1]!.toLowerCase(), m[2]!); // both groups are required
+  for (const d of nginxSiteServer(parseNginx(NGINX)).children) {
+    if (d.name === 'add_header' && d.args.length === 3 && d.args[2] === 'always' && d.args[0] !== 'Cache-Control') out.set(d.args[0]!.toLowerCase(), d.args[1]!); // three args, checked
+  }
   return out;
 }
 
@@ -57,6 +60,8 @@ function publicFiles(dir = join(root, 'public')): string[] {
   );
 }
 const CONFIGS = ['_headers', '_redirects', '.htaccess'];
+/** Where the site's API answers on nginx (the location ^~ /api/ proxy), rather than a file of the folder. */
+const API = ['api/config', 'api/me', 'api/auth/google/start', 'api/auth/google/callback', 'api/checkout', 'api/webhooks/stripe', 'api/no-such-route'];
 const HASH = '0123456789abcdef0123456789abcdef';
 /** What the export adds to public/: the bundle and the assets, named by their content. */
 const HASHED = [`_expo/static/js/web/index-${HASH}.js`, `assets/assets/fonts/ChessGlyphs.${HASH}.ttf`, `assets/assets/sounds/move.${HASH}.wav`];
@@ -72,7 +77,7 @@ const ACME = '.well-known/acme-challenge/Xb4_kM-0aZ9';
 const TRACKED = execFileSync('git', ['ls-files'], { cwd: root, encoding: 'utf8' }).split('\n').filter(Boolean);
 const REPOSITORY = [...TRACKED, '.git/config', '.git/HEAD', 'node_modules/expo/package.json', '.expo/settings.json', '.env', '.env.local', '.env.production', '_headers', '_redirects', '.htaccess'];
 /** Addresses that are neither, which nginx and Apache, serving the site's paths alone, refuse too. */
-const ELSEWHERE = ['no-such-page', 'index.htm', 'index_html', 'dist-web/index.html', '.env.staging', '.well-known/', '.well-known/other.txt', 'assets/', 'assets/assets/fonts/ChessGlyphs.ttf', '_expo/static/js/web/', `_expo/static/js/web/index-${HASH}.js.map`];
+const ELSEWHERE = ['no-such-page', 'index.htm', 'index_html', 'dist-web/index.html', '.env.staging', '.well-known/', '.well-known/other.txt', 'assets/', 'assets/assets/fonts/ChessGlyphs.ttf', '_expo/static/js/web/', `_expo/static/js/web/index-${HASH}.js.map`, 'apis/config', '_routes.json'];
 const NGINX_TREE = parseNginx(NGINX);
 
 describe('the policy is the same wherever it is written', () => {
@@ -96,7 +101,10 @@ describe('the policy is the same wherever it is written', () => {
     const directives = policy.csp.split('; ');
     expect(directives[0]).toBe("default-src 'none'");
     expect(directives).toContain("script-src 'self'");
-    expect(directives).toContain("connect-src 'none'");
+    // Its own api/ (whether sign-in and the shop are on, and the account and Checkout calls) and
+    // nothing else: Google and Stripe are top-level navigations, which the policy does not govern.
+    expect(directives.filter((d) => d.startsWith('connect-src'))).toEqual(["connect-src 'self'"]);
+    expect(directives).toContain("form-action 'none'");
     expect(directives).toContain("frame-ancestors 'none'");
     expect(directives).toContain("require-trusted-types-for 'script'");
     // Nothing that runs a string as code, and no host but this one.
@@ -135,7 +143,8 @@ describe('the policy is the same wherever it is written', () => {
       const want = HASHED.includes(path) ? 'public, max-age=31536000, immutable' : 'no-cache';
       expect(headersFor(rules, '/' + path).get('cache-control'), `_headers: /${path}`).toBe(want);
       expect(filesMatch.test(path.split('/').pop()!) ? 'public, max-age=31536000, immutable' : 'no-cache', `.htaccess: /${path}`).toBe(want);
-      expect(nginxMap.find((m) => m.re.test('/' + path))?.value ?? nginxDefault, `nginx: /${path}`).toBe(want);
+      // nginx proxies api/ to the kit, whose answers carry their own Cache-Control (below).
+      if (!nginxProxies(NGINX_TREE, path)) expect(nginxMap.find((m) => m.re.test('/' + path))?.value ?? nginxDefault, `nginx: /${path}`).toBe(want);
     }
   });
 });
@@ -161,6 +170,20 @@ describe('the hosts serve the site and nothing else', () => {
       expect(nginxRefuses(NGINX_TREE, path), `nginx: ${path}`).toBe(false);
       expect(apacheRefuses(HTACCESS, path), `Apache: ${path}`).toBe(false);
     }
+  });
+
+  it("hands the whole of api/ to the site's API on nginx, and only api/", () => {
+    // The kit behind server/start.mjs; ^~ takes the path before every regular expression, so no
+    // allow-list or refusal sees it. A host with no backend serves public/api/config instead.
+    expect(SITE).toContain('api/config');
+    for (const path of API) {
+      expect(nginxProxies(NGINX_TREE, path), `nginx: ${path}`).toBe('http://127.0.0.1:8788');
+      expect(nginxRefuses(NGINX_TREE, path), `nginx: ${path}`).toBe(false);
+    }
+    for (const path of ['', 'apis/config', 'index.html', ...REPOSITORY]) expect(nginxProxies(NGINX_TREE, path), `nginx: ${path}`).toBeNull();
+    // Apache's .htaccess cannot proxy: there the virtual host's ProxyPass answers api/, and
+    // without one the static api/config is the only address under it the folder serves.
+    for (const path of API) expect(apacheRefuses(HTACCESS, path), `Apache: ${path}`).toBe(path !== 'api/config');
   });
 
   it('serves every file of the site, the .well-known folder included', () => {
@@ -211,10 +234,19 @@ describe('the hosts serve the site and nothing else', () => {
 
   it('sets every nginx header at server level, where no location takes them away', () => {
     // nginx drops every server-level add_header from a location that adds one of its own, at
-    // whatever depth inside it, and fromNginx() reads only the ones written with `always`.
+    // whatever depth inside it, and fromNginx() reads only the ones written with `always`. The
+    // one exception is the API's location: the kit sends its own headers, so it adds exactly one,
+    // the server's Strict-Transport-Security line as written there, which keeps the server's
+    // others (a second Referrer-Policy, Cache-Control and policy) from being sent beside the kit's.
     const scopes = addHeaderScopes(NGINX_TREE);
-    expect(scopes.map((s) => s.header.toLowerCase())).toEqual([...fromNginx().keys(), 'cache-control']);
-    for (const { header, scope } of scopes) expect(scope, header).toEqual(['server']);
+    const site = scopes.filter((s) => s.scope.length === 1);
+    expect(site.map((s) => s.header.toLowerCase())).toEqual([...fromNginx().keys(), 'cache-control']);
+    for (const { header, scope } of site) expect(scope, header).toEqual(['server']);
+    const api = nginxSiteServer(NGINX_TREE).children.filter((d) => d.name === 'location' && d.children?.some((c) => c.name === 'add_header'));
+    expect(api.map((d) => d.args)).toEqual([['^~', '/api/']]);
+    const apiHeaders = api[0]!.children!.filter((c) => c.name === 'add_header').map((c) => c.args);
+    expect(apiHeaders).toEqual([['Strict-Transport-Security', fromNginx().get('strict-transport-security'), 'always']]);
+    expect(scopes.filter((s) => s.scope.length > 1)).toEqual([{ header: 'Strict-Transport-Security', scope: ['server', 'location'] }]);
     // The usual snippet for fonts, added to the assets location after its nested types {} block,
     // is caught however it is written.
     for (const snippet of ['add_header Access-Control-Allow-Origin "*";', 'add_header X-Debug yes;']) {
@@ -382,6 +414,14 @@ describe('the build script', () => {
       expect(box.exporterRan()).toEqual([join(box.repo, 'dist-web'), join(box.repo, 'web-build'), join(box.parent, 'site'), join(box.parent, 'site')]);
       expect(existsSync(join(box.parent, 'site', 'stale.txt'))).toBe(false);
       expect(readdirSync(join(box.repo, 'web-build')).filter((f) => CONFIGS.includes(f)).sort()).toEqual(['_headers', '_redirects']);
+      expect(existsSync(join(box.repo, 'web-build', '_routes.json'))).toBe(false);
+      // Cloudflare Pages: _routes.json sends api/, and nothing else, to functions/api/'s Function.
+      expect(box.run('--output-dir', 'dist', '--host', 'cloudflare')).toEqual({ status: 0, stderr: '' });
+      expect(JSON.parse(readFileSync(join(box.repo, 'dist', '_routes.json'), 'utf8'))).toEqual({ version: 1, include: ['/api/*'], exclude: [] });
+      expect(box.run('--output-dir', 'dist', '--host', 'cloudflare', '--base-url', '/chesscheatser')).toEqual({ status: 0, stderr: '' });
+      expect(JSON.parse(readFileSync(join(box.repo, 'dist', '_routes.json'), 'utf8'))).toEqual({ version: 1, include: ['/chesscheatser/api/*'], exclude: [] });
+      expect(routesJson('')).toBe('{"version":1,"include":["/api/*"],"exclude":[]}\n');
+      expect(existsSync(join(root, 'functions/api/[[path]].js'))).toBe(true);
       expect(box.intact()).toBe(true);
     } finally {
       box.remove();

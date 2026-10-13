@@ -12,6 +12,10 @@ import { assert, cellCounts, clickSquares, collectFailures, currentHelper, curre
 import { apacheRefuses, netlifyRefuses, nginxRefuses, parseNginx } from './hosts.mjs';
 import { headersFor, parseHeaders } from './serve.mjs';
 import { metaPolicy, sitePolicy } from '../scripts/build-web.mjs';
+import catalogue from '../server/catalogue.js';
+import { createNodeHandler } from '../server/kit/node.js';
+import { createMemoryStore } from '../server/kit/store.js';
+import { fakeWorld, kitEnv } from './fakes.mjs';
 
 const root = path.resolve(process.env.E2E_ROOT || 'dist-web');
 // Not 4190, which the suite used until it read headers with Node's fetch: that port is on the
@@ -877,6 +881,218 @@ const scenarios = {
     await exact(page, 'Neon').waitFor();
     assert(errors.length === 0, errors.join('\n'));
     await context.close();
+  },
+
+  async 'the website shop: sign in, buy, the signed webhook, sign out and delete, under the policy'(browser) {
+    // The same build, served as a host with the site's backend serves it: api/ answered by the
+    // kit (server/kit, this app's catalogue), every variable set, Google and Stripe the fakes the
+    // kit is handed as its fetch. The browser's trips to Google's sign-in page and Stripe's
+    // Checkout page are answered here, never by the network, the way those pages would answer:
+    // Google with a redirect back to the callback, Stripe by posting its signed webhook and
+    // sending the browser back. Playwright routes no redirect's target, and the kit's start
+    // answers with a redirect to Google, so Google's answer is given where the browser receives
+    // that redirect: the start is fetched from the kit, its Location checked to be Google's
+    // sign-in page, and the browser handed what Google would send it there. Stripe's Checkout is
+    // a navigation of the page's own, which page.route takes as it is.
+    const world = await fakeWorld();
+    const apiPort = port + 1;
+    const site = `http://127.0.0.1:${apiPort}${base}`;
+    const api = createNodeHandler({ catalogue, env: kitEnv(site), store: createMemoryStore(), fetch: world.fetch, log: () => {} });
+    assert(api.features.signIn && api.features.shop, 'the kit has sign-in and the shop on: ' + JSON.stringify(api.features));
+    const server = await serve(root, apiPort, { base, api });
+    const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+    try {
+      await watchPolicy(context);
+      // A preview this browser unlocked before the site had a shop (the Board pack): with the shop
+      // on, the server is the record, and a copy on the device unlocks nothing.
+      const PREVIEWS = JSON.stringify({ owned: ['pack.boards'] });
+      await context.addInitScript((previews) => {
+        try {
+          if (!localStorage.getItem('twokings.appsettings.v1')) {
+            localStorage.setItem('twokings.appsettings.v1', JSON.stringify({ seenIntro: true }));
+            localStorage.setItem('twokings.entitlements.v1', previews);
+          }
+        } catch {}
+      }, PREVIEWS);
+      const left = [];
+      const hooks = [];
+      await context.route(`${site}api/auth/google/start**`, async (route) => {
+        const start = await route.fetch({ maxRedirects: 0 });
+        const google = start.headers()['location'] ?? '';
+        left.push(google);
+        // world.authorize refuses an address that is not Google's sign-in page asking for this client's code.
+        return route.fulfill({ response: start, headers: { ...start.headers(), location: world.authorize(google) } });
+      });
+      await context.route('https://checkout.stripe.com/**', async (route) => {
+        left.push(route.request().url());
+        const session = world.sessions.at(-1);
+        const { body, signature } = world.completed(session);
+        hooks.push((await fetch(`${site}api/webhooks/stripe`, { method: 'POST', headers: { 'stripe-signature': signature, 'content-type': 'application/json' }, body })).status);
+        return route.fulfill({ status: 302, headers: { location: session.get('success_url') } });
+      });
+      const page = await context.newPage();
+      const failures = collectFailures(page, site);
+      const signIn = async () => {
+        await page.getByRole('button', { name: 'Sign in with Google' }).click();
+        await exact(page, 'Signed in as ada@example.com').waitFor({ timeout: 10000 });
+      };
+      const shop = async () => {
+        await exact(page, 'Support the game').click();
+        await page.getByText('Aura pack', { exact: true }).waitFor();
+      };
+      const home = async () => {
+        await exact(page, '‹ Back').click();
+        await exact(page, 'New game with these settings').waitFor();
+      };
+
+      // While the page is still asking its site, nothing is unlocked either: the store is not chosen yet.
+      let answered = false;
+      await context.route(
+        `${site}api/config`,
+        async (route) => {
+          await new Promise((resolve) => setTimeout(resolve, 3000));
+          answered = true;
+          await route.continue();
+        },
+        { times: 1 },
+      );
+      await page.goto(site);
+      await exact(page, 'New game with these settings').waitFor({ timeout: 10000 });
+      assert(!answered && (await exact(page, 'Neon 🔒').count()) === 1, 'before the site answers, a preview on the device unlocks nothing');
+      // Signed out: the Account card offers sign-in, the store sells, and the device's preview unlocks nothing.
+      await page.getByRole('button', { name: 'Sign in with Google' }).waitFor({ timeout: 10000 });
+      assert((await exact(page, 'Neon 🔒').count()) === 1, 'a preview on the device unlocks nothing once the shop is on');
+      assert((await exact(page, 'Embers 🔒').count()) === 1, 'Embers starts locked');
+      assert((await exact(page, 'Preview cosmetics').count()) === 0, 'no preview store beside the real one');
+      await shop();
+      assert((await exact(page, 'Support the game').count()) === 1, 'the store is the real one');
+      assert((await page.getByText('No payment is taken.', { exact: false }).count()) === 0, 'and says nothing of previews');
+      assert((await exact(page, '$4.99').count()) === 1 && (await exact(page, '$1.99').count()) === 3, 'each product shows its price from Stripe');
+      assert((await page.getByRole('button', { name: 'Sign in to buy' }).count()) === 4, 'signed out, Buy is Sign in to buy');
+      // Sign in from the store's own button: through the kit, Google's page and back to the site.
+      await page.getByRole('button', { name: 'Sign in to buy' }).nth(1).click();
+      await exact(page, 'Signed in as ada@example.com').waitFor({ timeout: 10000 });
+      assert((await exact(page, 'Neon 🔒').count()) === 1, 'signed in, the device preview still unlocks nothing');
+
+      // Buy the Aura pack: Checkout, the signed webhook, and back.
+      await shop();
+      assert((await page.getByRole('button', { name: 'Buy', exact: true }).count()) === 4, 'signed in, each product has Buy');
+      await page.getByRole('button', { name: 'Buy', exact: true }).nth(1).click();
+      await exact(page, 'Thank you — Aura pack is unlocked.').waitFor({ timeout: 20000 });
+      assert(JSON.stringify(hooks) === '[200]', 'the kit took the signed webhook: ' + JSON.stringify(hooks));
+      assert(new URL(page.url()).search === '', 'the notice is taken out of the address: ' + page.url());
+      const sold = world.sessions.at(-1);
+      assert(sold.get('metadata[product]') === 'pack-auras' && sold.get('metadata[app]') === 'chesscheatser', 'Checkout sold the Aura pack of this app');
+      assert((await exact(page, 'Embers').count()) === 1 && (await exact(page, 'Embers 🔒').count()) === 0, 'the bought aura is unlocked');
+      assert((await exact(page, 'Neon 🔒').count()) === 1, 'and nothing else is');
+      await shop();
+      assert((await exact(page, 'Owned').count()) === 1, 'the store shows the pack as owned');
+      await home();
+      assert((await page.evaluate(() => localStorage.getItem('twokings.entitlements.v1'))) === PREVIEWS, 'nothing was granted on the device');
+      // Reloaded, the purchase is read from the server again, and the notice is not said twice.
+      await page.reload();
+      await exact(page, 'Signed in as ada@example.com').waitFor({ timeout: 10000 });
+      assert((await exact(page, 'Embers').count()) === 1, 'the purchase survives a reload');
+      assert((await exact(page, 'Thank you — Aura pack is unlocked.').count()) === 0, 'the thank-you is said once');
+
+      // Sign out: the purchase is the account's, not the browser's.
+      await page.getByRole('button', { name: 'Sign out' }).click();
+      await page.getByRole('button', { name: 'Sign in with Google' }).waitFor();
+      assert((await exact(page, 'Embers 🔒').count()) === 1, 'signed out, the aura is locked again');
+
+      // A sign-in that failed says so once, and leaves the address clean; a cancelled checkout says nothing.
+      await page.goto(`${site}?signin=failed`);
+      await exact(page, "Sign-in didn't complete.").waitFor({ timeout: 10000 });
+      assert(new URL(page.url()).search === '', 'the failed sign-in is taken out of the address');
+      await page.goto(`${site}?purchase=cancelled`);
+      await page.getByRole('button', { name: 'Sign in with Google' }).waitFor({ timeout: 10000 });
+      const said = await page.locator('text=/Thank you —|Payment received|Sign-in didn/').count();
+      assert(new URL(page.url()).search === '' && said === 0, 'a cancelled checkout is only taken out of the address');
+
+      // Signed in again, the purchase comes back with the account.
+      await signIn();
+      assert((await exact(page, 'Embers').count()) === 1, 'signed in again, the aura is the account’s');
+
+      // Delete account: confirmed first; then signed out, and the purchase gone with the account.
+      page.once('dialog', (d) => d.dismiss());
+      await page.getByRole('button', { name: 'Delete account' }).click();
+      await page.waitForTimeout(300);
+      assert((await exact(page, 'Signed in as ada@example.com').count()) === 1, 'a dismissed confirmation deletes nothing');
+      let asked = '';
+      page.once('dialog', (d) => {
+        asked = d.message();
+        d.accept();
+      });
+      await page.getByRole('button', { name: 'Delete account' }).click();
+      await page.getByRole('button', { name: 'Sign in with Google' }).waitFor({ timeout: 10000 });
+      assert(/purchases recorded with it are removed/.test(asked), 'the confirmation says the purchases go with it: ' + asked);
+      await signIn();
+      assert((await exact(page, 'Embers 🔒').count()) === 1, 'after deleting, the account owns nothing');
+
+      // Nothing left the site but the three trips to Google and the one to Stripe, each answered here.
+      const google = left.filter((u) => u.startsWith('https://accounts.google.com/o/oauth2/v2/auth?'));
+      const stripe = left.filter((u) => u.startsWith('https://checkout.stripe.com/c/pay/'));
+      assert(google.length === 3 && stripe.length === 1 && left.length === 4, 'the trips outside the site: ' + left.join(', '));
+      assert(world.sessions.length === 1, 'one Checkout session: ' + world.sessions.length);
+      const rest = failures.filter((f) => !left.some((u) => f === `request outside the site: ${u}`));
+      assert(rest.length === 0, rest.join('\n'));
+      assert(world.unexpected.length === 0, 'the kit asked the fakes for: ' + world.unexpected.join(', '));
+      assert(server.outside.length === 0, 'requests outside the site reached the host: ' + server.outside.join(', '));
+    } finally {
+      await context.close();
+      server.close();
+    }
+  },
+
+  async 'a site with no backend draws no sign-in, and keeps the preview store'(browser) {
+    // What every other scenario runs on, as GitHub Pages publishes it: the static public/api/config
+    // says nothing is on. Then a host with no api/config at all, one that answers it with a page,
+    // and one that cannot be reached: each is "no shop", asked once and not again.
+    /** `errors()` is read once the page has done all it will. */
+    const check = async (page, errors, what) => {
+      await exact(page, 'New game with these settings').waitFor({ timeout: 10000 });
+      await page.waitForTimeout(500);
+      assert((await page.getByRole('button', { name: 'Sign in with Google' }).count()) === 0, `${what}: no sign-in`);
+      assert((await exact(page, 'Account').count()) === 0, `${what}: no Account card`);
+      assert((await exact(page, 'Preview cosmetics').count()) === 1, `${what}: the preview store, as before`);
+      assert((await page.locator('body').innerText()).includes('Nothing leaves your device unless you sign in or buy'), `${what}: the About card says what the web build sends`);
+      const asked = await page.evaluate(() => performance.getEntriesByType('resource').map((e) => e.name).filter((n) => n.includes('/api/')));
+      assert(JSON.stringify(asked) === JSON.stringify([`${url}api/config`]), `${what}: api/config asked once and nothing else: ${asked}`);
+      await exact(page, 'Neon 🔒').click();
+      await exact(page, 'Preview everything').click();
+      await exact(page, 'Preview enabled on this device.').waitFor();
+      assert(errors().length === 0, `${what}: ${errors().join('\n')}`);
+    };
+    {
+      const { page, context, errors } = await openApp(browser, url);
+      const config = await (await fetch(`${url}api/config`)).json();
+      assert(JSON.stringify(config) === '{"auth":{"google":false},"shop":{"products":[]}}', 'the static api/config says nothing is on: ' + JSON.stringify(config));
+      await check(page, () => errors, 'the static api/config');
+      await context.close();
+    }
+    const hosts = {
+      'no api/config (404)': (route) => route.fulfill({ status: 404, contentType: 'text/html', body: '<!doctype html><title>Not found</title>' }),
+      'a page where api/config should be': (route) => route.fulfill({ status: 200, contentType: 'text/html', body: '<!doctype html><p>hello</p>' }),
+      'api/config unreachable': (route) => route.abort(),
+    };
+    for (const [what, answer] of Object.entries(hosts)) {
+      const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+      await watchPolicy(context);
+      await context.addInitScript(() => {
+        try {
+          localStorage.setItem('twokings.appsettings.v1', JSON.stringify({ seenIntro: true }));
+        } catch {}
+      });
+      await context.route(`${url}api/config`, answer);
+      const page = await context.newPage();
+      const failures = collectFailures(page, url);
+      await page.goto(url);
+      // The browser logs a failed load itself; that one line is the request this host could not answer.
+      const load = (f) => /^console error: Failed to load resource/.test(f);
+      await check(page, () => failures.filter((f) => !load(f)), what);
+      assert(failures.filter(load).length <= 1, `${what}: ${failures.filter(load).join('\n')}`);
+      await context.close();
+    }
   },
 
   async 'pro gating'(browser) {

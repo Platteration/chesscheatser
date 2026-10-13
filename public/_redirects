@@ -49,12 +49,14 @@
 /e2e/*                    /404.html  404!
 /eas.json                 /404.html  404!
 /eslint.config.js         /404.html  404!
+/functions/*              /404.html  404!
 /index.ts                 /404.html  404!
 /package-lock.json        /404.html  404!
 /package.json             /404.html  404!
 /plugins/*                /404.html  404!
 /public/*                 /404.html  404!
 /scripts/*                /404.html  404!
+/server/*                 /404.html  404!
 /src/*                    /404.html  404!
 /test/*                   /404.html  404!
 /tsconfig.json            /404.html  404!

@@ -8,10 +8,12 @@ import { ARMY_SIZES, type ArmySize, type ClockMinutes, type GameConfig, type Gam
 import { liveStreak, todayKey, type DailyState } from '../game/daily';
 import { ladderParams, type LadderState } from '../game/ladder';
 import { cosmeticsOfKind, describeEarn, earnProgress, unlockedCosmetics, type Cosmetic, type Progress } from '../cosmetics';
+import { useAccount } from '../account';
 import { useEntitlements } from '../entitlements';
-import { APP_NAME, APP_VERSION, CHANGELOG_URL, PRIVACY_SENTENCE, PRIVACY_URL, SOURCE_URL } from '../about';
+import { APP_NAME, APP_VERSION, CHANGELOG_URL, PRIVACY_SENTENCE, PRIVACY_URL, SOURCE_URL, WEB_PRIVACY_SENTENCE } from '../about';
 import { confirmAction } from '../confirm';
 import { useSettings, type BoardTheme, type ColorSchemeSetting, type PieceStyle, type ReduceMotionSetting } from '../settings';
+import { AccountCard } from './AccountCard';
 import { Button, Card, Label, Link, Segmented, SwitchRow } from './components';
 import { BOARD_THEMES } from './theme';
 import { CHESS_FONT } from './PieceGlyph';
@@ -70,6 +72,7 @@ export function HomeScreen({ config, onChange, onStart, onDaily, daily, onRanked
       onConfirm: reset,
     });
   const { owned, preview } = useEntitlements();
+  const { notice } = useAccount();
   const progress: Progress = useMemo(
     () => ({ stats, daily, ladder, puzzlesSolved }),
     [stats, daily, ladder, puzzlesSolved],
@@ -102,6 +105,13 @@ export function HomeScreen({ config, onChange, onStart, onDaily, daily, onRanked
           Two kings a side, random armies, and the losing side's pieces grow stronger the further behind it falls.
         </Text>
       </View>
+
+      {/* What came of a sign-in or a purchase on the website, said once (src/account.tsx). */}
+      {!!notice && (
+        <Text style={styles.notice} accessibilityRole="alert">
+          {notice}
+        </Text>
+      )}
 
       {onResume && <Button title="Resume game" onPress={onResume} style={styles.resume} />}
       {/* A saved game that was dropped or clipped says so here, rather than just not being on the menu. */}
@@ -296,13 +306,16 @@ export function HomeScreen({ config, onChange, onStart, onDaily, daily, onRanked
         <Button title="Reset to defaults" variant="ghost" small onPress={onReset} style={styles.reset} />
       </Card>
 
+      <AccountCard />
+
       <Card>
         <Text style={styles.cardTitle}>About</Text>
         <Text style={styles.aboutName}>
           {APP_NAME} {APP_VERSION}
         </Text>
         <Text style={styles.aboutText}>
-          Two kings a side, random armies, and comeback powers for whichever side is losing. Nothing leaves your device: {PRIVACY_SENTENCE.toLowerCase()}
+          Two kings a side, random armies, and comeback powers for whichever side is losing.{' '}
+          {Platform.OS === 'web' ? WEB_PRIVACY_SENTENCE : `Nothing leaves your device: ${PRIVACY_SENTENCE.toLowerCase()}`}
         </Text>
         <View style={styles.links}>
           <Link label="MIT licence · source" url={SOURCE_URL} />
@@ -406,6 +419,7 @@ const useStyles = themedStyles((theme) => ({
   resume: { marginBottom: 4 },
   summary: { color: theme.textMuted, fontSize: 12, textAlign: 'center', marginTop: -4 },
   resumeNote: { color: theme.textMuted, fontSize: 12, textAlign: 'center', marginTop: -4 },
+  notice: { color: theme.text, fontSize: 14, fontWeight: '700', textAlign: 'center' },
   cardTitle: { color: theme.text, fontSize: 16, fontWeight: '800' },
   reset: { marginTop: 14, alignSelf: 'flex-start' },
   aboutName: { color: theme.text, fontWeight: '700', fontSize: 14, marginTop: 10 },

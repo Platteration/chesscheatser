@@ -33,7 +33,7 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "test": "vitest run",
+    "test": "vitest run && node --test server/kit/selftest.mjs",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test:conventions": "node --test test/conventions.mjs",

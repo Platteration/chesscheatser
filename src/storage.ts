@@ -12,6 +12,16 @@ export const STORAGE_KEYS = {
   entitlements: 'twokings.entitlements.v1',
 } as const;
 
+/**
+ * What the website keeps in `sessionStorage`, the tab's own, which ends with the tab: not
+ * records the app reads at launch, so not in STORAGE_KEYS and not for clearAll. `checkout` is
+ * the product the tab sent to Stripe's Checkout (src/shop.web.ts), read once on the way back
+ * through `productOf`, to name it in the thank-you.
+ */
+export const SESSION_KEYS = {
+  checkout: 'twokings.checkout.pending',
+} as const;
+
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 

@@ -80,3 +80,8 @@
   as soon as a save gets through again. On the GitHub Pages address every app
   the account publishes shares one storage allowance, so another of them can
   fill it.
+- Ready for sign-in with Google and a real shop on the website, off until the
+  site's owner sets the keys: the four cosmetic purchases sold through Stripe
+  Checkout and granted only by Stripe's signed webhook, kept with the Google
+  account, with an Account card (sign in, sign out, delete account). A site
+  with no backend, and the phone app, are unchanged.

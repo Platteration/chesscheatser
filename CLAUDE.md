@@ -10,7 +10,8 @@ an optional cheating computer opponent.
 
 - `npm install`
 - `npm start` — Expo dev server (Expo Go on a phone, or `npm run web`)
-- `npm test` — Vitest suite for the engine and game layer
+- `npm test` — Vitest suite for the engine and game layer, then
+  `node --test server/kit/selftest.mjs`, the shared kit's own self-test
 - `npm run lint` — `eslint .` (ESLint 9 flat config, Expo's preset; warnings are
   advice, errors fail)
 - `npm run typecheck` — `tsc --noEmit`
@@ -74,10 +75,22 @@ an optional cheating computer opponent.
 - `src/settings.tsx` (appearance/feedback settings), `src/cosmetics.ts` (the
   catalogue plus `unlockedCosmetics`, which decides what is available from
   progression or purchases) and `src/entitlements.tsx` (purchases behind a
-  `StoreProvider`; bundled provider is a local mock).
+  `StoreProvider`: the bundled local mock on the phone and on a site with no
+  backend, the website's shop where the site sells, chosen in `App.tsx`).
 - Monetization rule: only cosmetics are sold, and each one is also earnable by
   playing. Never gate a utility (hints, undo, review) — this is a game about
   being behind, so paywalling help contradicts it.
+- The website's sign-in and shop (see "Sign-in and the shop" below):
+  `server/kit/` is the family's shared kit, copied verbatim from the canonical
+  copy and never edited here (a change goes to the canonical copy; `diff -r`
+  against it is empty); `server/catalogue.js` sells the four existing purchases,
+  one Stripe product each; `server/start.mjs` is the Node start script;
+  `server/package.json` only makes `server/` ES modules (as the kit's own does),
+  so Node loads the catalogue without reparsing it; `functions/api/[[path]].js`
+  is the Cloudflare Pages entry. The page's side: `src/shop.web.ts` (the client,
+  web only), `src/shop.ts` (its inert twin for every other platform),
+  `src/shopTypes.ts` (types and the shared words), `src/account.tsx` (the
+  provider) and `src/ui/AccountCard.tsx`.
 - `scripts/mine-puzzles.ts` regenerates `assets/puzzles.json`
   (`npx tsx scripts/mine-puzzles.ts 25 1000 12`).
 - `scripts/simulate.ts` is the balance harness: computer vs computer with
@@ -119,7 +132,7 @@ an optional cheating computer opponent.
 
 ## Native configuration
 
-`app.json` states the app's native posture explicitly, and `src/__tests__/appConfig.test.ts` pins it by running `expo config --type introspect` (the merged prebuild result, not the file) and by scanning every AndroidManifest.xml under node_modules: the splash is configured through the `expo-splash-screen` plugin (SDK 57 ignores a top-level `splash` block, and the plugin no-ops without props), `expo-system-ui` is installed because `userInterfaceStyle: "automatic"` does nothing on Android without it, `allowBackup` is true on purpose (the store is the player's own record with no server copy; `validate.ts` bounds what a restore can plant), and INTERNET, the storage/media permissions and the template's SYSTEM_ALERT_WINDOW overlay are blocked because the app has no network code (`Share.share` hands text to the OS) and a game has no reason to draw over other apps; only VIBRATE survives in the merged main manifest. "No network code" is checked against the source as a list of names (`fetch(`, the two socket APIs, `expo-updates`, `expo-network`, `react-native-webview`, an in-app browser) *and* as an address count: the tree holds one URL, the source link, so a remote `<Image>` `uri`, a web font or an endpoint fails that test rather than failing silently on a device with the permission blocked. A dev client still needs INTERNET to fetch its bundle, so `plugins/withDebugInternet.js` (a verbatim copy of drawdraw's) adds it back to `android/app/src/debug/AndroidManifest.xml` alone at prebuild. Adding a native module means checking that test: a module manifest that brings a new permission fails it until the permission is either blocked or listed as used. The former `src/ui/__tests__/appearance.test.ts` lives inside this file now.
+`app.json` states the app's native posture explicitly, and `src/__tests__/appConfig.test.ts` pins it by running `expo config --type introspect` (the merged prebuild result, not the file) and by scanning every AndroidManifest.xml under node_modules: the splash is configured through the `expo-splash-screen` plugin (SDK 57 ignores a top-level `splash` block, and the plugin no-ops without props), `expo-system-ui` is installed because `userInterfaceStyle: "automatic"` does nothing on Android without it, `allowBackup` is true on purpose (the store is the player's own record with no server copy; `validate.ts` bounds what a restore can plant), and INTERNET, the storage/media permissions and the template's SYSTEM_ALERT_WINDOW overlay are blocked because the app has no network code (`Share.share` hands text to the OS) and a game has no reason to draw over other apps; only VIBRATE survives in the merged main manifest. "No network code" is checked against the source as a list of names (`fetch(`, the two socket APIs, `expo-updates`, `expo-network`, `react-native-webview`, an in-app browser) *and* as an address count: the tree holds one URL, the source link, so a remote `<Image>` `uri`, a web font or an endpoint fails that test rather than failing silently on a device with the permission blocked. A dev client still needs INTERNET to fetch its bundle, so `plugins/withDebugInternet.js` (a verbatim copy of drawdraw's) adds it back to `android/app/src/debug/AndroidManifest.xml` alone at prebuild. Adding a native module means checking that test: a module manifest that brings a new permission fails it until the permission is either blocked or listed as used. The former `src/ui/__tests__/appearance.test.ts` lives inside this file now. The no-network scan reads the phone app's source: it leaves out exactly the `*.web.ts(x)` modules (today `src/shop.web.ts` alone, pinned), which Metro bundles for the web build in place of a twin of the same name, and `server/` and `functions/`, which are not app source; `src/__tests__/shop.test.ts` holds the twin (`src/shop.ts`) inert and the web module reached only by its bare name, since importing `./shop.web` anywhere would put it in the phone app.
 
 ## Settings
 
@@ -142,7 +155,9 @@ module-level flag (`src/sounds.ts`, `src/haptics.ts`). Reset to defaults goes th
 `src/confirm.ts` (`window.confirm` on the web, where react-native-web's `Alert.alert` is
 an empty method; `Alert.alert` elsewhere), rewrites this one record and keeps
 `seenIntro`. The About card's version is `expo-constants`' `expoConfig.version`, i.e.
-app.json's, through `src/about.ts`, which also quotes PRIVACY.md's sentence and links
+app.json's, through `src/about.ts`, which also quotes PRIVACY.md's two sentences (the
+phone app's, and on the web the browser build's, which says what leaves the device if
+the visitor signs in or buys), and links
 `PRIVACY.md` and `CHANGELOG.md` at `blob/HEAD/` on the source host; the contract test
 holds app.json's version and package.json's equal, since nothing else makes one follow
 the other.
@@ -160,6 +175,45 @@ null rule, what Reset touches, what starting a game asks, the About text and its
 web anchor, and the accessibility floor (every `Pressable` has a role; the shared
 `Button` and `Segmented` are where most get it).
 
+## Sign-in and the shop
+
+The website can sign people in with Google and sell the four existing purchases
+(`supporter`, `pack.auras`, `pack.boards`, `pack.pieces`) through Stripe Checkout,
+backed by the shared kit on the site's own origin under `api/`. It is off until the
+owner sets the kit's variables (`server/kit/README.md`): with none, and on GitHub
+Pages, the page draws no sign-in and no Buy, and the local preview store is what it
+was. The kit allows no dot in an id, so the catalogue's `pack-auras` is the app's
+`pack.auras`: `SERVER_ID` in `src/shop.web.ts` is the one table between them, typed
+by `ProductId`, and the shop test holds the catalogue's names and descriptions equal
+to `CATALOGUE` in `src/entitlements.tsx`. Prices are `STRIPE_PRICE_SUPPORTER`,
+`STRIPE_PRICE_PACK_AURAS`, `STRIPE_PRICE_PACK_BOARDS`, `STRIPE_PRICE_PACK_PIECES`.
+
+- The page asks `api/config` once at launch (`src/account.tsx`, web only:
+  `SHOP_POSSIBLE` is false in the twin, so a phone is `off` from the first frame). A
+  host with no backend answers it from `public/api/config`, a static file saying
+  nothing is on, rather than a 404 that every visitor's console would show red; a
+  404, a network error, a body that is not JSON or sign-in off are all "no shop".
+  While the web build is asking, `EntitlementsProvider` has no store (`null`):
+  nothing owned, nothing offered.
+- With the shop on, the store `App.tsx` mounts is the server's (`owned` set on the
+  `StoreProvider`): what `api/me` reports is what is owned, the device's entitlements
+  record (local previews) unlocks nothing and is never written, and Buy leaves for
+  Stripe's Checkout (only an `https://checkout.stripe.com/` address is followed).
+  Only Stripe's signed webhook grants. With sign-in on and the shop off, the Account
+  card is drawn and the local preview store stays.
+- The Account card (`src/ui/AccountCard.tsx`, on the home screen beside the settings
+  and About) and the store screen use the family's words (`SHOP_WORDS`, pinned);
+  Delete account is confirmed through `src/confirm.ts`. What the address says on the
+  way back (`?signin=failed`, `?purchase=success|cancelled`) is read once and taken
+  out with `history.replaceState`; after a paid checkout `api/me` is asked five
+  times over fifteen seconds. The product sent to Checkout is kept in
+  `sessionStorage` (`SESSION_KEYS.checkout` in `src/storage.ts`, the tab's own,
+  read once through `productOf`) to name it in the thank-you; nothing reads it at
+  launch, so it is named beside `STORAGE_KEYS` rather than in it, and recovery
+  has nothing there to clear.
+- No subscription is sold, so there is no Manage subscription, and the kit's
+  `subscription_active` refusal of Delete account cannot arise here.
+
 ## Website
 
 The browser build is also a website, on the art app's model: the game stays in the
@@ -174,8 +228,13 @@ the page newer than IE 9 has, which the website test parses; it notes a styleshe
 or bundle that fails to load, or a bundle that throws or rejects before `#root` has
 children, and stays silent once the app has drawn, where `src/recovery.ts` takes
 over: the browser suite holds both halves, a sound that fails after a move included),
-`site.css`, `404.html`, `robots.txt`, `.well-known/security.txt` and the host
-configs `_headers`, `_redirects`, `.htaccess`; `deploy/nginx.conf` is nginx's.
+`site.css`, `404.html`, `robots.txt`, `.well-known/security.txt`, `api/config` (the
+static "nothing is on" a host with no backend answers; with one, the backend answers
+it) and the host configs `_headers`, `_redirects`, `.htaccess`; `deploy/nginx.conf`
+is nginx's. A `--host cloudflare` build also gets `_routes.json` (`routesJson`),
+sending `api/` and nothing else to the Pages Function; Cloudflare's own documentation
+says `_headers` and `_redirects` are not applied to what a Function serves, which is
+why the kit sets its own headers.
 `scripts/build-web.mjs` runs the export and then writes the CSP and referrer
 `<meta>` tags into every page from `public/_headers`. They are not in
 `public/index.html` because that is also the dev server's page, whose live reload a
@@ -195,8 +254,11 @@ The policy is one set of values in four places (`_headers`, `.htaccess`,
 `nginx.conf`, the `<meta>`, which drops only `frame-ancestors`), and
 `src/__tests__/website.test.ts` reads it back out of each and fails when they
 differ, along with the cache lifetimes, where nginx sets its headers (at server level
-only: a location with an `add_header` of its own, at any depth, drops them all) and
-what each host serves. nginx and Apache serve the site's own paths and answer 404 for
+only: a location with an `add_header` of its own, at any depth, drops them all; the
+one exception is `location ^~ /api/`, the proxy to the site's API, which adds exactly
+the server's Strict-Transport-Security line so that the kit's own headers go out
+alone, and the test pins that and reads the server block's headers from its own
+scope) and what each host serves, `api/` proxied on nginx. nginx and Apache serve the site's own paths and answer 404 for
 everything else; Netlify cannot, so `_redirects` refuses the repository's entries by
 name; the test runs every file `git ls-files` lists through all three, read the way
 each host reads its config (`e2e/hosts.mjs`), and the browser suite runs every file of
@@ -206,15 +268,24 @@ locations and cache map all start at `/`. It was measured: `style-src` has
 `<style>` as text, and that text holds the base path and the font's content hash, so
 no fixed hash covers every build; react-native-web's own `<style>` would need only the
 hash of the empty string, since it fills it through `insertRule`. The browser suite
-measures both, and fails once nothing needs `'unsafe-inline'`. Trusted Types are
-enforced with `trusted-types 'none'`. The browser suite serves every scenario through
+measures both, and fails once nothing needs `'unsafe-inline'`. `connect-src 'self'`
+is the site's own `api/` and nothing else (Google and Stripe are top-level
+navigations, which the policy does not govern); the shop scenario fails with
+`'none'`. Trusted Types are enforced with `trusted-types 'none'`. The browser suite serves every scenario through
 `e2e/serve.mjs`, which sends `_headers` as written under the sub-path, answers
 `404.html` for anything missing, refuses dotfiles and the host configs, and records
 requests outside the site; `openApp` fails a scenario on any violation, any console
 line about the policy, the permissions policy or Trusted Types, and any request
 outside the site. So a change that loads something new (a font, an image, a fetch)
 fails there until the policy allows it in every place at once. Not 4190 for the
-suite's port: Node's `fetch` refuses it as a bad port.
+suite's port: Node's `fetch` refuses it as a bad port. The shop scenario serves the same
+build on the next port with the kit behind `api/` (`serve(..., { api })`, as a Pages
+Function or nginx's proxy would: none of `_headers`' headers on its answers) and
+Google and Stripe as fakes handed to the kit as its `fetch` (`e2e/fakes.mjs`, shared
+with the unit test). Playwright routes no redirect's target, and the kit's sign-in
+start answers with a redirect to Google, so the scenario takes that redirect where the
+browser receives it and answers as Google would; Stripe's Checkout is a navigation of
+the page's own, which `page.route` takes as it is.
 
 What the browser cannot do degrades visibly: the Vibration switch shows off and is
 disabled on the web, with a hint saying why (`src/haptics.ts` plays nothing there; the

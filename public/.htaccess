@@ -28,12 +28,14 @@ ErrorDocument 403 /404.html
   # address answers 404: the repository's own files, .git, node_modules and any .env among them,
   # and every folder, so none is listed. The bundle and the assets are matched by the content
   # hash in their names. .well-known/ holds security.txt and the certificate checks a webroot
-  # ACME client writes.
-  RewriteRule !^(index\.html|404\.html|site\.css|guard\.js|favicon\.ico|robots\.txt|\.well-known/security\.txt|\.well-known/acme-challenge/[A-Za-z0-9_-]+|_expo/static/js/web/[A-Za-z0-9_-]+-[0-9a-f]{32}\.js|assets/([A-Za-z0-9_-]+/)+[A-Za-z0-9_-]+\.[0-9a-f]{32}\.[a-z0-9]+)?$ - [R=404,L]
+  # ACME client writes. api/config is the static answer for a site with no backend; with one,
+  # the virtual host's ProxyPass for /api/ (mod_proxy is server configuration, which this file
+  # cannot hold: README, "Sign-in and the shop") answers the whole of api/ before this file is read.
+  RewriteRule !^(index\.html|404\.html|site\.css|guard\.js|favicon\.ico|robots\.txt|api/config|\.well-known/security\.txt|\.well-known/acme-challenge/[A-Za-z0-9_-]+|_expo/static/js/web/[A-Za-z0-9_-]+-[0-9a-f]{32}\.js|assets/([A-Za-z0-9_-]+/)+[A-Za-z0-9_-]+\.[0-9a-f]{32}\.[a-z0-9]+)?$ - [R=404,L]
 </IfModule>
 
 <IfModule mod_headers.c>
-  Header always set Content-Security-Policy "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self'; font-src 'self'; media-src 'self'; connect-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'; frame-ancestors 'none'; upgrade-insecure-requests; require-trusted-types-for 'script'; trusted-types 'none'"
+  Header always set Content-Security-Policy "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self'; font-src 'self'; media-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'; frame-ancestors 'none'; upgrade-insecure-requests; require-trusted-types-for 'script'; trusted-types 'none'"
   Header always set X-Content-Type-Options "nosniff"
   Header always set X-Frame-Options "DENY"
   Header always set Referrer-Policy "strict-origin-when-cross-origin"

@@ -4,7 +4,8 @@
 //
 //  - nginx (deploy/nginx.conf): a location is chosen the way nginx chooses one (an exact match,
 //    else the longest prefix if it is `^~`, else the first regular expression that matches, else
-//    the longest prefix), and a path is refused when that location answers `return 404`.
+//    the longest prefix), and a path is refused when that location answers `return 404`, and
+//    proxied (the site's api/) when it has a `proxy_pass`.
 //  - Apache (public/.htaccess): a `RewriteRule <pattern> - [R=404,L]` with no RewriteCond above
 //    it refuses what its pattern matches, or with `!` what it does not; per-directory patterns
 //    see the path without its leading slash.
@@ -138,6 +139,18 @@ export function nginxLocation(tree, uri) {
 export function nginxRefuses(tree, path) {
   const location = nginxLocation(tree, '/' + path);
   return !location?.children || location.children.some((d) => d.name === 'return' && d.args[0] === '404');
+}
+
+/**
+ * Where nginx proxies the site path `path`: the `proxy_pass` of the location it answers it
+ * from, or null when that location serves the folder or refuses (the site's api/ goes to the
+ * kit behind server/start.mjs).
+ * @param {NginxDirective[]} tree
+ * @param {string} path
+ */
+export function nginxProxies(tree, path) {
+  const location = nginxLocation(tree, '/' + path);
+  return location?.children?.find((d) => d.name === 'proxy_pass')?.args[0] ?? null;
 }
 
 /**

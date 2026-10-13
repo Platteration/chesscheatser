@@ -2,7 +2,9 @@ import React, { useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COSMETICS, describeEarn, earnProgress, type ProductId, type Progress } from '../cosmetics';
+import { useAccount } from '../account';
 import { SUPPORTER_FEATURES, useEntitlements } from '../entitlements';
+import { SHOP_WORDS } from '../shopTypes';
 import { Button, Card } from './components';
 import { themedStyles, useTheme } from './theme';
 
@@ -14,13 +16,30 @@ interface Props {
 /**
  * The store. Everything here is cosmetic and everything here can also be earned
  * by playing, so each pack lists what you would have to do instead of paying.
+ * On a website whose shop is on (`server`), buying needs the visitor signed in,
+ * and Buy leaves for Stripe's Checkout page: nothing is unlocked here until the
+ * site reports it, after Stripe's signed webhook.
  */
 export function ProScreen({ progress, onBack }: Props) {
   const styles = useStyles();
   const theme = useTheme();
   const insets = useSafeAreaInsets();
-  const { preview, owned, isSupporter, products, purchasing, buy, restore } = useEntitlements();
+  const { preview, server, owned, isSupporter, products, purchasing, buy, restore } = useEntitlements();
+  const account = useAccount();
   const [message, setMessage] = useState<string | null>(null);
+  const signedOut = server && !account.user;
+
+  // The website's shop: the price on a line of its own, and Buy, which signed out is the way to
+  // sign in and signed in leaves for Stripe's Checkout page.
+  const serverTitle = purchasing ? 'Purchasing…' : signedOut ? SHOP_WORDS.signInToBuy : SHOP_WORDS.buy;
+  const serverBuy = async (id: ProductId) => {
+    if (signedOut) {
+      account.signIn();
+      return;
+    }
+    setMessage(null);
+    if (!(await buy(id))) setMessage('Purchase did not complete.');
+  };
 
   const supporter = products.find((p) => p.id === 'supporter');
   const packs = products.filter((p) => p.id !== 'supporter');
@@ -53,12 +72,24 @@ export function ProScreen({ progress, onBack }: Props) {
               ✓ {f}
             </Text>
           ))}
+          {server && !!supporter?.price && <Text style={styles.price}>{supporter.price}</Text>}
           {isSupporter ? (
-            <Text style={[styles.status, { color: theme.success }]}>{preview ? 'Preview enabled on this device.' : 'You have it. Thank you.'}</Text>
+            <Text style={[styles.status, { color: theme.success }]}>{preview ? 'Preview enabled on this device.' : server ? SHOP_WORDS.owned : 'You have it. Thank you.'}</Text>
           ) : (
             <Button
-              title={purchasing ? (preview ? 'Enabling preview…' : 'Purchasing…') : preview ? 'Preview everything' : `Unlock everything · ${supporter?.price ?? '…'}`}
+              title={
+                server
+                  ? serverTitle
+                  : purchasing
+                    ? preview
+                      ? 'Enabling preview…'
+                      : 'Purchasing…'
+                    : preview
+                      ? 'Preview everything'
+                      : `Unlock everything · ${supporter?.price ?? '…'}`
+              }
               onPress={async () => {
+                if (server) return serverBuy('supporter');
                 const ok = await buy('supporter');
                 setMessage(ok ? (preview ? 'Local preview unlocked.' : 'Thank you.') : preview ? 'Preview did not complete.' : 'Purchase did not complete.');
               }}
@@ -80,13 +111,15 @@ export function ProScreen({ progress, onBack }: Props) {
                     or {line}
                   </Text>
                 ))}
+                {server && !!p.price && !have && <Text style={styles.price}>{p.price}</Text>}
                 {have ? (
-                  <Text style={[styles.status, { color: theme.success }]}>{preview ? 'Preview enabled' : 'Owned'}</Text>
+                  <Text style={[styles.status, { color: theme.success }]}>{preview ? 'Preview enabled' : SHOP_WORDS.owned}</Text>
                 ) : (
                   <Button
-                    title={purchasing ? (preview ? 'Enabling preview…' : 'Purchasing…') : preview ? `Preview ${p.title}` : `Buy · ${p.price}`}
+                    title={server ? serverTitle : purchasing ? (preview ? 'Enabling preview…' : 'Purchasing…') : preview ? `Preview ${p.title}` : `Buy · ${p.price}`}
                     variant="secondary"
                     onPress={async () => {
+                      if (server) return serverBuy(p.id);
                       const ok = await buy(p.id);
                       setMessage(ok ? `${p.title} ${preview ? 'preview enabled.' : 'unlocked.'}` : preview ? 'Preview did not complete.' : 'Purchase did not complete.');
                     }}
@@ -123,6 +156,7 @@ const useStyles = themedStyles((theme) => ({
   cardTitle: { color: theme.text, fontSize: 17, fontWeight: '800', marginBottom: 6 },
   feature: { color: theme.text, fontSize: 14, lineHeight: 22 },
   earn: { color: theme.textMuted, fontSize: 12, lineHeight: 19 },
+  price: { color: theme.text, fontSize: 15, fontWeight: '700', marginTop: 8 },
   status: { color: theme.text, textAlign: 'center', fontWeight: '700', marginTop: 10 },
   buy: { marginTop: 12 },
   note: { color: theme.textMuted, fontSize: 12, textAlign: 'center', lineHeight: 18 },

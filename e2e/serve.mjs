@@ -9,6 +9,11 @@
 // and anything missing is 404.html with status 404. So a policy that blocks something the
 // app really loads, a file the page names that the export does not hold, and a request that
 // leaves the site all show up in the browser suite rather than on the host.
+//
+// Given `api`, a node:http listener (the kit's, server/kit/node.js), it also answers the site's
+// api/ with it, the way a Cloudflare Pages Function or nginx's `location ^~ /api/` would: every
+// method, none of _headers' headers (Cloudflare does not apply _headers to a Function's answers,
+// and nginx's API location sends the kit's own), and the static public/api/config never seen.
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -108,12 +113,16 @@ export function resolveRequest(root, base, target) {
  * Serves the export at `root` under `base` on `port`, loopback only (nothing on the network
  * sees it). `server.outside` lists every request that arrived for a path outside the site.
  */
-export function serve(root, port, { base = '/' } = {}) {
+export function serve(root, port, { base = '/', api = null } = {}) {
   const site = path.resolve(root);
   const headersFile = path.join(site, '_headers');
   const rules = fs.existsSync(headersFile) ? parseHeaders(fs.readFileSync(headersFile, 'utf8')) : [];
   const outside = [];
   const server = http.createServer((req, res) => {
+    if (api && (req.url || '').startsWith(`${base}api/`)) {
+      api(req, res);
+      return;
+    }
     if (req.method !== 'GET' && req.method !== 'HEAD') {
       res.writeHead(405, { Allow: 'GET, HEAD' });
       res.end();
