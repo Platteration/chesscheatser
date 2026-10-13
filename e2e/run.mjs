@@ -669,9 +669,52 @@ const scenarios = {
     // On the GitHub Pages address every app the account publishes shares one origin, so one
     // localStorage allowance. Another app filling it used to leave this game playing on with
     // nothing stored and nothing said, and a reload found no game to resume.
+    //
+    // What this checks is a game in progress, and a finished game is not saved at all (the game
+    // removes its record when it ends), so the game is pinned rather than dealt. Dealt, it was a
+    // new game against the computer, and in 6 of 36 runs the computer had mated White before the
+    // scenario was done: the armies came from a random seed, White's moves from a random target
+    // and Black's replies from a search with a deadline and noise, and a move that opens a line
+    // onto a king boxed in on its back rank is often mate in one. Mated after the first
+    // exchange, the result sheet covered the board and the next move waited out its 30 s (2 runs);
+    // mated after the move made once there was room, there was no game left to save (4 runs, and
+    // CI's failure). So: seed 1's fair armies, pass and play (no computer), comeback powers off (no
+    // draft), no clock, and three pawn pushes, none of which gives check. Nothing in it is random,
+    // and every step checks it did what it says. The planted record is also why the end checks the
+    // moves and not only that a game is stored: the planted game, with none, is stored throughout.
+    const pinned = {
+      seed: 1,
+      humanColor: 'w',
+      config: { mode: 'local', difficulty: 'medium', material: 'fair', playAs: 'w', armySize: 'any', cheating: 'off', comeback: false, doubleCheck: 'answer' },
+      events: [],
+    };
     const { page, context, errors } = await openApp(browser, url);
+    // Planted once, rather than through openApp's `storage`, whose script would plant it again at
+    // the reload at the end and answer for the game this scenario stores.
+    await page.evaluate((game) => localStorage.setItem('twokings.game.v1', game), JSON.stringify(pinned));
+    await page.reload();
+    await exact(page, 'Resume game').waitFor({ timeout: 10000 });
     const note = page.getByTestId('storage-note');
     assert((await note.count()) === 0, 'no note while saving works');
+    const storedMoves = async () => {
+      const game = JSON.parse((await page.evaluate(() => localStorage.getItem('twokings.game.v1'))) || 'null');
+      const name = (s) => 'abcdefgh'[s & 7] + ((s >> 3) + 1);
+      return game && game.events.filter((e) => e.type === 'move').map((e) => `${name(e.move.from)}-${name(e.move.to)}`);
+    };
+    // One pawn push, read back off the board: the pawn moved, and the game goes on with no king in check.
+    const push = async (from, to, mover, next) => {
+      await waitHuman(page);
+      const before = await readBoard(page);
+      assert(before[from]?.type === 'pawn' && before[from].color === mover && before[to] === null, `${from}-${to} is a ${mover} pawn push on seed 1: ${JSON.stringify([before[from], before[to]])}`);
+      await clickSquares(page, from, to);
+      await page.getByRole('button', { name: `${to}, ${mover} pawn`, exact: true }).waitFor({ timeout: 5000 });
+      const after = await readBoard(page);
+      assert(after[from] === null && after[to]?.type === 'pawn' && after[to].color === mover, `${from}-${to} was played: ${JSON.stringify([after[from], after[to]])}`);
+      // The status reads "<side> to move — check!" when the side to move is in check, and the line
+      // under it says "<side> left a king in check" when the mover is.
+      const status = (await exact(page, `${next} to move`).count()) === 1 && (await page.locator('text=/left a king in check/').count()) === 0;
+      assert(status, `the game goes on after ${from}-${to}, with no king in check: ${await describeApp(page)}`);
+    };
     const cotenant = await page.evaluate(() => {
       // Another app on the same origin takes whatever room is left.
       let n = 0;
@@ -693,11 +736,13 @@ const scenarios = {
     await note.waitFor({ timeout: 5000 });
     assert((await note.innerText()).startsWith('This browser is not saving the game'), 'the note says what is wrong: ' + (await note.innerText()));
     await exact(page, 'Never').click();
-    await exact(page, 'New game with these settings').click();
-    assert(await makeAnyMove(page), 'the game plays on while nothing is saved');
-    await waitHuman(page);
+    await exact(page, 'Resume game').click();
+    assert((await text(page, '/· seed 1$/')) !== null, 'the pinned armies are on the board');
+    await push('d2', 'd3', 'white', 'Black');
+    await push('b7', 'b6', 'black', 'White');
     assert(await note.isVisible(), 'the note stays over the game while nothing is saved');
-    assert((await page.evaluate(() => localStorage.getItem('twokings.game.v1'))) === null, 'and nothing was saved');
+    const unsaved = await storedMoves();
+    assert(unsaved && unsaved.length === 0, 'and nothing was saved: the stored game is still the one planted: ' + JSON.stringify(unsaved));
     // The board is sized from the window, so it has to leave the note its room: in landscape
     // the note was drawn over the bottom rank.
     for (const viewport of [{ width: 844, height: 390 }, { width: 390, height: 844 }]) {
@@ -714,12 +759,13 @@ const scenarios = {
     await page.evaluate(() => {
       for (const key of Object.keys(localStorage)) if (key.startsWith('another-app.')) localStorage.removeItem(key);
     });
-    assert(await makeAnyMove(page), 'a move once there is room');
+    await push('f2', 'f3', 'white', 'Black');
     await note.waitFor({ state: 'detached', timeout: 10000 });
-    const stored = await page.evaluate(() => [localStorage.getItem('twokings.settings.v1'), localStorage.getItem('twokings.game.v1')]);
-    const config = JSON.parse(stored[0] || '{}');
-    assert(config.playAs === 'w' && config.cheating === 'off', 'the settings chosen while nothing was saved were written once there was room: ' + stored[0]);
-    assert(stored[1] !== null, 'the game is saved');
+    const stored = await page.evaluate(() => localStorage.getItem('twokings.settings.v1'));
+    const config = JSON.parse(stored || '{}');
+    assert(config.playAs === 'w' && config.cheating === 'off', 'the settings chosen while nothing was saved were written once there was room: ' + stored);
+    const saved = await storedMoves();
+    assert(saved && saved.join(' ') === 'd2-d3 b7-b6 f2-f3', 'the game is saved, with the moves played while nothing was: ' + JSON.stringify(saved));
     await page.reload();
     await exact(page, 'Resume game').waitFor({ timeout: 10000 });
     assert(errors.length === 0, errors.join('\n'));
