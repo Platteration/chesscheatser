@@ -1,6 +1,6 @@
-import { useMemo } from 'react';
+import { createContext, useContext, useMemo } from 'react';
 import { StyleSheet, useColorScheme } from 'react-native';
-import { resolveScheme } from '../appSettings';
+import { drawnCosmetics, resolveScheme, type CosmeticChoice } from '../appSettings';
 import { AURAS, DEFAULT_AURA } from '../cosmetics';
 import { useSettings, type BoardTheme } from '../settings';
 
@@ -112,11 +112,28 @@ export function makeTheme(scheme: 'dark' | 'light', boardTheme: BoardTheme, aura
 /** The static dark theme, for code that runs before providers are mounted. */
 export const theme: Theme = makeTheme('dark', 'wood');
 
+/**
+ * The cosmetics the game may draw: null where every choice is drawn as stored (the local store),
+ * else what is earned or bought (src/appSettings.ts, `drawnCosmetics`). App.tsx's Root provides
+ * it, from the progress it loads and the store's record; the default, null, is what everything
+ * outside Root sees, and Root itself draws no board, piece or aura.
+ */
+export const UnlockedCosmetics = createContext<ReadonlySet<string> | null>(null);
+
+/** The board, pieces and aura to draw: the player's choices, each while it is unlocked. */
+export function useDrawnCosmetics(): CosmeticChoice {
+  const { settings } = useSettings();
+  const unlocked = useContext(UnlockedCosmetics);
+  const { boardTheme, pieceStyle, aura } = drawnCosmetics(settings, unlocked);
+  return useMemo(() => ({ boardTheme, pieceStyle, aura }), [boardTheme, pieceStyle, aura]);
+}
+
 export function useTheme(): Theme {
   const { settings } = useSettings();
+  const { boardTheme, aura } = useDrawnCosmetics();
   const system = useColorScheme();
   const scheme = resolveScheme(settings.colorScheme, system);
-  return useMemo(() => makeTheme(scheme, settings.boardTheme, settings.aura), [scheme, settings.boardTheme, settings.aura]);
+  return useMemo(() => makeTheme(scheme, boardTheme, aura), [scheme, boardTheme, aura]);
 }
 
 /**

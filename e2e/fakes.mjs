@@ -9,8 +9,9 @@
 // to: it remembers the request and answers with the callback address and a code, which the token
 // endpoint then exchanges (checking the PKCE verifier against the challenge). Stripe: prices, and
 // Checkout sessions it records; `completed()` is the signed `checkout.session.completed` Stripe
-// would post for one of them, signed with node:crypto, apart from the kit's own HMAC. Every
-// address the fakes do not serve is recorded in `unexpected` and refused.
+// would post for one of them, and `refunded()` its `charge.refunded` for the whole payment, each
+// signed with node:crypto, apart from the kit's own HMAC. Every address the fakes do not serve
+// is recorded in `unexpected` and refused.
 import { Buffer } from 'node:buffer';
 import { createHash, createHmac, webcrypto } from 'node:crypto';
 
@@ -128,11 +129,27 @@ export async function fakeWorld({ sub = '1001', email = 'ada@example.com' } = {}
           },
         },
       };
-      const body = JSON.stringify(event);
-      const v1 = createHmac('sha256', WEBHOOK_SECRET).update(`${at}.${body}`).digest('hex');
-      return { body, signature: `t=${at},v1=${v1}` };
+      return signed(event, at);
+    },
+    /**
+     * Stripe's `charge.refunded` for the whole of a payment `completed()` reported (its `body`),
+     * with the `Stripe-Signature` Stripe would send: `{ body, signature }`.
+     */
+    refunded(completedBody) {
+      const paid = JSON.parse(completedBody).data.object;
+      const at = Math.floor(Date.now() / 1000);
+      const id = `${++serial}`;
+      const charge = { id: `ch_fake${id}`, object: 'charge', payment_intent: paid.payment_intent, amount: 199, amount_refunded: 199, refunded: true };
+      return signed({ id: `evt_fake${id}`, object: 'event', type: 'charge.refunded', livemode: false, created: at, data: { object: charge } }, at);
     },
   };
+
+  /** An event's body and the `Stripe-Signature` Stripe sends with it, made at `at`. */
+  function signed(event, at) {
+    const body = JSON.stringify(event);
+    const v1 = createHmac('sha256', WEBHOOK_SECRET).update(`${at}.${body}`).digest('hex');
+    return { body, signature: `t=${at},v1=${v1}` };
+  }
 
   async function token(form) {
     const grant = codes.get(form.get('code') ?? '');

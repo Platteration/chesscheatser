@@ -14,7 +14,7 @@ import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Linter } from 'eslint';
 import { describe, expect, it } from 'vitest';
-import { metaPolicy, OUT_FOLDERS, pageReferences, routesJson, sitePolicy, underBase, withPolicyMeta } from '../../scripts/build-web.mjs';
+import { cloudflareEntry, metaPolicy, OUT_FOLDERS, pageReferences, routesJson, sitePolicy, underBase, withPolicyMeta } from '../../scripts/build-web.mjs';
 import { addHeaderScopes, apacheRefuses, netlifyRefuses, nginxProxies, nginxRefuses, nginxSiteServer, parseNginx } from '../../e2e/hosts.mjs';
 import { headersFor, parseHeaders } from '../../e2e/serve.mjs';
 
@@ -184,6 +184,30 @@ describe('the hosts serve the site and nothing else', () => {
     // Apache's .htaccess cannot proxy: there the virtual host's ProxyPass answers api/, and
     // without one the static api/config is the only address under it the folder serves.
     for (const path of API) expect(apacheRefuses(HTACCESS, path), `Apache: ${path}`).toBe(path !== 'api/config');
+  });
+
+  it('serves the site, api/config included, on nginx with the API location deleted as README says', () => {
+    // Without the API, api/config is the folder's static "nothing is on"; refused, it was a red
+    // 404 in every visitor's console. The rest of api/ is still refused.
+    const server = nginxSiteServer(NGINX_TREE);
+    const withoutApi = NGINX_TREE.map((d) => (d === server ? { ...server, children: server.children.filter((c) => !(c.name === 'location' && c.args.join(' ') === '^~ /api/')) } : d));
+    expect(nginxSiteServer(withoutApi).children.length).toBe(server.children.length - 1);
+    for (const path of SITE) {
+      expect(nginxProxies(withoutApi, path), `nginx: ${path}`).toBeNull();
+      expect(nginxRefuses(withoutApi, path), `nginx without the API: ${path}`).toBe(false);
+    }
+    for (const path of [...API.filter((p) => p !== 'api/config'), ...REPOSITORY, ...ELSEWHERE]) expect(nginxRefuses(withoutApi, path), `nginx without the API: ${path}`).toBe(true);
+  });
+
+  it('loads on nginx 1.24, the one Ubuntu 24.04 and GitHub’s runner ship', () => {
+    // `http2 on;` is nginx 1.25.1 and later: 1.24 stops at it ("unknown directive") and serves
+    // nothing. HTTP/2 is asked for on the HTTPS listen lines instead, the form 1.24 knows.
+    const directives = (tree: ReturnType<typeof parseNginx>): ReturnType<typeof parseNginx> => tree.flatMap((d) => [d, ...(d.children ? directives(d.children) : [])]);
+    expect(directives(NGINX_TREE).filter((d) => d.name === 'http2')).toEqual([]);
+    expect(nginxSiteServer(NGINX_TREE).children.filter((d) => d.name === 'listen').map((d) => d.args)).toEqual([
+      ['443', 'ssl', 'http2'],
+      ['[::]:443', 'ssl', 'http2'],
+    ]);
   });
 
   it('serves every file of the site, the .well-known folder included', () => {
@@ -366,6 +390,7 @@ describe('the build script', () => {
     mkdirSync(join(repo, 'scripts'), { recursive: true });
     cpSync(join(root, 'scripts', 'build-web.mjs'), join(repo, 'scripts', 'build-web.mjs'));
     cpSync(join(root, 'public'), join(repo, 'public'), { recursive: true });
+    cpSync(join(root, 'functions'), join(repo, 'functions'), { recursive: true });
     writeFileSync(join(repo, 'package.json'), '{"name":"sandbox","private":true}');
     writeFileSync(join(repo, 'unpushed.txt'), 'work');
     mkdirSync(join(parent, 'sibling'));
@@ -418,10 +443,40 @@ describe('the build script', () => {
       // Cloudflare Pages: _routes.json sends api/, and nothing else, to functions/api/'s Function.
       expect(box.run('--output-dir', 'dist', '--host', 'cloudflare')).toEqual({ status: 0, stderr: '' });
       expect(JSON.parse(readFileSync(join(box.repo, 'dist', '_routes.json'), 'utf8'))).toEqual({ version: 1, include: ['/api/*'], exclude: [] });
+      expect(routesJson('')).toBe('{"version":1,"include":["/api/*"],"exclude":[]}\n');
+      expect(cloudflareEntry('')).toBe('functions/api/[[path]].js');
+      expect(existsSync(join(root, cloudflareEntry('')))).toBe(true);
+      expect(box.intact()).toBe(true);
+    } finally {
+      box.remove();
+    }
+  });
+
+  it('builds for Cloudflare under a sub-path only where the Function has been moved there', () => {
+    // Pages routes a Function by its file's path, so functions/api/ answers /api/ and nothing
+    // else: under /chesscheatser/ the page asks /chesscheatser/api/, which only an entry at
+    // functions/chesscheatser/api/ answers (server/kit/README.md). Without one, a _routes.json
+    // naming /chesscheatser/api/* sends the shop nowhere, so the build is refused, before the
+    // output folder is emptied or the export runs.
+    const box = sandbox();
+    try {
+      expect(box.run('--output-dir', 'dist', '--host', 'cloudflare')).toEqual({ status: 0, stderr: '' });
+      const refused = box.run('--output-dir', 'dist', '--host', 'cloudflare', '--base-url', '/chesscheatser');
+      expect(refused.status).toBe(1);
+      expect(refused.stderr).toMatch(/^build-web: --host cloudflare: .* functions\/chesscheatser\/api\/\[\[path\]\]\.js, which this checkout does not have\. Build for the root/);
+      expect(box.exporterRan()).toEqual([join(box.repo, 'dist')]);
+      expect(JSON.parse(readFileSync(join(box.repo, 'dist', '_routes.json'), 'utf8'))).toEqual({ version: 1, include: ['/api/*'], exclude: [] });
+      // Every other host builds under a sub-path as before.
+      expect(box.run('--output-dir', 'dist', '--host', 'netlify', '--base-url', '/chesscheatser')).toEqual({ status: 0, stderr: '' });
+      // With the entry moved, as the kit's README describes, the route follows it.
+      expect(cloudflareEntry('/chesscheatser')).toBe('functions/chesscheatser/api/[[path]].js');
+      mkdirSync(join(box.repo, 'functions', 'chesscheatser'));
+      cpSync(join(box.repo, 'functions', 'api'), join(box.repo, 'functions', 'chesscheatser', 'api'), { recursive: true });
       expect(box.run('--output-dir', 'dist', '--host', 'cloudflare', '--base-url', '/chesscheatser')).toEqual({ status: 0, stderr: '' });
       expect(JSON.parse(readFileSync(join(box.repo, 'dist', '_routes.json'), 'utf8'))).toEqual({ version: 1, include: ['/chesscheatser/api/*'], exclude: [] });
-      expect(routesJson('')).toBe('{"version":1,"include":["/api/*"],"exclude":[]}\n');
-      expect(existsSync(join(root, 'functions/api/[[path]].js'))).toBe(true);
+      // ...and a root build with no entry at all is refused the same way.
+      rmSync(join(box.repo, 'functions', 'api'), { recursive: true });
+      expect(box.run('--output-dir', 'dist', '--host', 'cloudflare').stderr).toMatch(/^build-web: --host cloudflare: .* functions\/api\/\[\[path\]\]\.js, which this checkout does not have/);
       expect(box.intact()).toBe(true);
     } finally {
       box.remove();

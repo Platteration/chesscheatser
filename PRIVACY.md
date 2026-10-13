@@ -2,7 +2,8 @@
 
 Two Kings Chess does not sell any personal data. The phone app collects and
 transmits none. The website collects some only if you sign in or buy on a
-site where its owner has switched sign-in and the shop on, as described below.
+site whose owner has switched sign-in on (with the shop or without it), as
+described below.
 
 - Everything the app stores (settings, the game in progress, your record,
   ladder rank, daily results and puzzle progress) is saved on your device,
@@ -24,8 +25,11 @@ site where its owner has switched sign-in and the shop on, as described below.
   `api/config`, which says whether sign-in and the shop are switched on there;
   on GitHub Pages they are not, and the next point does not apply), and the
   site's security policy refuses every other address.
-- Sign-in and the shop, on a website whose owner has switched them on: Nothing leaves your device unless you sign in or buy: then Google tells this site an account id and your email address, and Stripe handles the payment.
-  The site keeps your Google account id, what you bought and Stripe's customer
+- Sign-in and the shop, on a website whose owner has switched sign-in on (the
+  shop needs sign-in; sign-in can be on without the shop). Nothing leaves your
+  device unless you sign in or buy: then Google tells this site an account id
+  and your email address, and Stripe handles the payment. The site keeps your
+  Google account id, what you bought (if the shop is on) and Stripe's customer
   id for you; your email address is kept only with your signed-in session, to
   show you which account is signed in. Signing in sets one cookie while you sign
   in and one while you stay signed in (30 days), each for that alone. Google and

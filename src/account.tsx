@@ -108,7 +108,12 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
     };
   }, [state, apply]);
 
-  const signedOut = useCallback(() => setState((s) => (s.status === 'on' ? { ...s, user: null, owned: [] } : s)), []);
+  // Signed out or deleted: nothing is owned any more, and what was said about the account (a
+  // thank-you for what it bought, which went with it) is not left on the screen beside it.
+  const signedOut = useCallback(() => {
+    setState((s) => (s.status === 'on' ? { ...s, user: null, owned: [] } : s));
+    setNotice(null);
+  }, []);
 
   const value = useMemo<AccountValue>(() => {
     if (state.status !== 'on') return { ...OFF, status: state.status };

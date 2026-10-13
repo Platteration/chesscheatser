@@ -1,6 +1,6 @@
 import { useFonts } from 'expo-font';
 import { StatusBar } from 'expo-status-bar';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, BackHandler, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { DEFAULT_CONFIG, EMPTY_STATS, type GameConfig, type SavedGame, type Stats } from './src/game/config';
@@ -18,12 +18,13 @@ import { GameScreen } from './src/ui/GameScreen';
 import { HomeScreen } from './src/ui/HomeScreen';
 import { RulesScreen } from './src/ui/RulesScreen';
 import { AccountProvider, useAccount } from './src/account';
-import { EntitlementsProvider, mockStore } from './src/entitlements';
+import { unlockedCosmetics } from './src/cosmetics';
+import { EntitlementsProvider, mockStore, useEntitlements } from './src/entitlements';
 import { SettingsProvider, useSettings } from './src/settings';
 import { ProScreen } from './src/ui/ProScreen';
 import { StorageNote } from './src/ui/components';
 import { StatsScreen } from './src/ui/StatsScreen';
-import { theme as staticTheme, useTheme } from './src/ui/theme';
+import { theme as staticTheme, UnlockedCosmetics, useTheme } from './src/ui/theme';
 
 type Screen =
   | { name: 'home' }
@@ -168,6 +169,16 @@ function Root() {
   const [screen, setScreen] = useState<Screen>({ name: 'home' });
   /** Why the saved game is missing or shorter than it was, shown where Resume is. */
   const [resumeNote, setResumeNote] = useState<string | null>(null);
+  // What the board, the pieces and the aura may be drawn in. Where the store keeps its record on
+  // the device, whatever the player chose; where it does not (the website's shop, and before the
+  // website has said whether it has one), only what is earned or what the server reports bought:
+  // a cosmetic refunded, signed out of or deleted with the account, or previewed on the device
+  // before the shop was on, is drawn as the default, and the choice is kept for when it is back.
+  const { owned, local } = useEntitlements();
+  const unlocked = useMemo(
+    () => (local ? null : unlockedCosmetics({ stats, daily, ladder, puzzlesSolved: puzzleProgress.solved.length }, owned)),
+    [local, stats, daily, ladder, puzzleProgress.solved.length, owned],
+  );
 
   useEffect(() => {
     (async () => {
@@ -365,11 +376,13 @@ function Root() {
   }
 
   return (
-    <View style={[styles.root, { backgroundColor: theme.bg }]}>
-      {content}
-      <StorageNote />
-      <StatusBar style={theme.scheme === 'dark' ? 'light' : 'dark'} />
-    </View>
+    <UnlockedCosmetics.Provider value={unlocked}>
+      <View style={[styles.root, { backgroundColor: theme.bg }]}>
+        {content}
+        <StorageNote />
+        <StatusBar style={theme.scheme === 'dark' ? 'light' : 'dark'} />
+      </View>
+    </UnlockedCosmetics.Provider>
   );
 }
 

@@ -450,6 +450,31 @@ describe('the web client (src/shop.web.ts)', () => {
     expect(unnamed.result.me?.owned).toEqual(['pack.boards']);
   });
 
+  it('says the visitor is signed out, or the account deleted, only when the site did it', async () => {
+    // A refusal is not a sign-out: an APP_URL whose origin is not the page's has the kit refuse
+    // every POST and DELETE (403), and with the session still live there the card must not say
+    // otherwise. Only the kit's 204 is done.
+    const answers: [string, () => Response][] = [
+      ['204', () => new Response(null, { status: 204 })],
+      ['403', () => Response.json({ error: 'forbidden' }, { status: 403 })],
+      ['500', () => Response.json({ error: 'server' }, { status: 500 })],
+      ['200', () => Response.json({})],
+      ['no answer', () => {
+        throw new TypeError('Failed to fetch');
+      }],
+    ];
+    for (const [what, answer] of answers) {
+      const page = scripted((path) => (path === '/api/config' ? ok(CONFIG) : answer()));
+      const client = (await web.connectShop(page.env)) as ShopClient;
+      expect(await client.signOut(), `sign out, ${what}`).toBe(what === '204');
+      expect(await client.deleteAccount(), `delete, ${what}`).toBe(what === '204');
+      expect(page.calls.slice(1).map((c) => [c.path, c.init.method])).toEqual([
+        ['/api/auth/logout', 'POST'],
+        ['/api/me', 'DELETE'],
+      ]);
+    }
+  });
+
   it('signs in through the site, coming back to the page it left', async () => {
     const page = scripted(() => ok(CONFIG), 'https://example.com/chesscheatser/?board=1');
     const client = (await web.connectShop(page.env)) as ShopClient;

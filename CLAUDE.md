@@ -201,16 +201,33 @@ to `CATALOGUE` in `src/entitlements.tsx`. Prices are `STRIPE_PRICE_SUPPORTER`,
   Stripe's Checkout (only an `https://checkout.stripe.com/` address is followed).
   Only Stripe's signed webhook grants. With sign-in on and the shop off, the Account
   card is drawn and the local preview store stays.
+- What is drawn follows the same record. The board, the piece set and the aura are
+  drawn from `useDrawnCosmetics()` (`src/ui/theme.ts`; `PieceGlyph` and `useTheme`
+  read it), which passes the settings record through `drawnCosmetics`
+  (`src/appSettings.ts`) with the unlocked set `App.tsx`'s Root provides
+  (`UnlockedCosmetics`): null, every choice as stored, where the store keeps its
+  record on the device (`local` in `EntitlementsProvider`: the mock, so every phone
+  and a site with no backend); otherwise `unlockedCosmetics(progress, owned)`, so
+  with the shop on, and while the site is still being asked, a choice that is
+  neither earned nor reported bought (refunded, signed out of, deleted with the
+  account, a preview chosen before the shop was on) is drawn as its default. The
+  record is never rewritten for it. Only the home screen's pickers read
+  `settings.boardTheme`, `pieceStyle` or `aura` directly, and
+  `src/__tests__/cosmetics.test.ts` holds that; the shop scenario reads the board,
+  the pieces and the aura off a game on the screen.
 - The Account card (`src/ui/AccountCard.tsx`, on the home screen beside the settings
   and About) and the store screen use the family's words (`SHOP_WORDS`, pinned);
   Delete account is confirmed through `src/confirm.ts`. What the address says on the
   way back (`?signin=failed`, `?purchase=success|cancelled`) is read once and taken
   out with `history.replaceState`; after a paid checkout `api/me` is asked five
-  times over fifteen seconds. The product sent to Checkout is kept in
-  `sessionStorage` (`SESSION_KEYS.checkout` in `src/storage.ts`, the tab's own,
-  read once through `productOf`) to name it in the thank-you; nothing reads it at
-  launch, so it is named beside `STORAGE_KEYS` rather than in it, and recovery
-  has nothing there to clear.
+  times over fifteen seconds. What it said (the thank-you) is cleared on sign-out
+  and on Delete account, which take the purchase with them; a sign-out or delete
+  the site refuses (anything but its 204) changes nothing and says so on the card.
+  The product sent to Checkout is kept in `sessionStorage`
+  (`SESSION_KEYS.checkout` in `src/storage.ts`, the tab's own, read once through
+  `productOf`) to name it in the thank-you; nothing reads it at launch, so it is
+  named beside `STORAGE_KEYS` rather than in it, and recovery has nothing there to
+  clear.
 - No subscription is sold, so there is no Manage subscription, and the kit's
   `subscription_active` refusal of Delete account cannot arise here.
 
@@ -234,7 +251,10 @@ it) and the host configs `_headers`, `_redirects`, `.htaccess`; `deploy/nginx.co
 is nginx's. A `--host cloudflare` build also gets `_routes.json` (`routesJson`),
 sending `api/` and nothing else to the Pages Function; Cloudflare's own documentation
 says `_headers` and `_redirects` are not applied to what a Function serves, which is
-why the kit sets its own headers.
+why the kit sets its own headers. Pages routes a Function by its file's path, so a
+`--host cloudflare` build is refused unless `cloudflareEntry(base)` exists
+(`functions/api/[[path]].js` at the root, `functions/<path>/api/` under
+`--base-url`, which `server/kit/README.md` describes moving it to).
 `scripts/build-web.mjs` runs the export and then writes the CSP and referrer
 `<meta>` tags into every page from `public/_headers`. They are not in
 `public/index.html` because that is also the dev server's page, whose live reload a
@@ -263,9 +283,13 @@ everything else; Netlify cannot, so `_redirects` refuses the repository's entrie
 name; the test runs every file `git ls-files` lists through all three, read the way
 each host reads its config (`e2e/hosts.mjs`), and the browser suite runs every file of
 a real build through them. `nginx.conf` is for a site at the root of its domain: its
-locations and cache map all start at `/`. It was measured: `style-src` has
-`'unsafe-inline'` because expo-font writes the glyph font's `@font-face` into a
-`<style>` as text, and that text holds the base path and the font's content hash, so
+locations and cache map all start at `/`. It asks for HTTP/2 on its `listen` lines,
+never with `http2 on;` (nginx 1.25.1 and later; the 1.24 of Ubuntu 24.04 and GitHub's
+runner refuses the whole file over it, checked with `nginx -t`), and its allow-list
+holds `api/config`, so a server whose `location ^~ /api/` was deleted, as the file
+says to do without an API, still answers it; the website test pins both. It was
+measured: `style-src` has `'unsafe-inline'` because expo-font writes the glyph
+font's `@font-face` into a `<style>` as text, and that text holds the base path and the font's content hash, so
 no fixed hash covers every build; react-native-web's own `<style>` would need only the
 hash of the empty string, since it fills it through `insertRule`. The browser suite
 measures both, and fails once nothing needs `'unsafe-inline'`. `connect-src 'self'`

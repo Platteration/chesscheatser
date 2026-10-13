@@ -53,6 +53,25 @@ export function resolveScheme(setting: ColorSchemeSetting, system: 'light' | 'da
   return setting === 'system' ? (system === 'light' ? 'light' : 'dark') : setting;
 }
 
+/** The three cosmetic choices of the record: the board, the piece set and the comeback aura. */
+export type CosmeticChoice = Pick<AppSettings, 'boardTheme' | 'pieceStyle' | 'aura'>;
+
+/**
+ * The board, pieces and aura the game draws for the player's choices. `unlocked` is null where
+ * the device keeps the record of what was bought (the local store: every phone, a website with
+ * no backend), and every choice is drawn as it stands. Where it does not (the website's shop,
+ * whose record is the server's, and the moment before the website has said whether it has one),
+ * `unlocked` is what is earned or reported bought (`unlockedCosmetics`), and a choice it does not
+ * hold is drawn as its default: a purchase refunded, signed out of or deleted with the account,
+ * and a preview chosen on the device before the shop was switched on, stop being drawn. The
+ * record itself is left as it is, so the choice comes back with the purchase, and a slow or
+ * failed answer from the site never rewrites what the player picked. Every default is free.
+ */
+export function drawnCosmetics(choice: CosmeticChoice, unlocked: ReadonlySet<string> | null): CosmeticChoice {
+  const keep = <K extends keyof CosmeticChoice>(key: K): CosmeticChoice[K] => (!unlocked || unlocked.has(choice[key]) ? choice[key] : DEFAULT_SETTINGS[key]);
+  return { boardTheme: keep('boardTheme'), pieceStyle: keep('pieceStyle'), aura: keep('aura') };
+}
+
 /**
  * Reset to defaults keeps what the player has already *seen*: `seenIntro`
  * records that the first-game explanation was dismissed, not a preference,

@@ -83,5 +83,11 @@
 - Ready for sign-in with Google and a real shop on the website, off until the
   site's owner sets the keys: the four cosmetic purchases sold through Stripe
   Checkout and granted only by Stripe's signed webhook, kept with the Google
-  account, with an Account card (sign in, sign out, delete account). A site
-  with no backend, and the phone app, are unchanged.
+  account, with an Account card (sign in, sign out, delete account). With the
+  shop on, the board, pieces and aura drawn are the ones earned or reported
+  bought: one refunded, signed out of or deleted with the account is drawn as
+  the default again, and the choice comes back with the purchase. The phone app
+  is unchanged. A site with no backend (GitHub Pages included) now asks its own
+  `api/config` once at launch, a file there that says nothing is switched on,
+  and shows local previews once it has answered; its About card now says what
+  would leave the device if you signed in or bought.

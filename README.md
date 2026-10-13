@@ -145,7 +145,10 @@ for real: sign in with Google, then Buy opens Stripe's Checkout page, and only
 Stripe's signed webhook grants the purchase, to the Google account. The store is
 then the site's record (`api/me`), not the browser's: a local preview unlocks
 nothing while the shop is on, and a purchase follows the account to another
-browser. Unlocking a cosmetic happens in the page, so anyone can make their own
+browser. What the game draws follows the same record: a board, piece set or
+aura that is neither earned nor reported bought (refunded, signed out of,
+deleted with the account, or chosen as a preview before the shop was on) is
+drawn as the default, and the choice is kept for when it is back. Unlocking a cosmetic happens in the page, so anyone can make their own
 copy of the page show one; that gates a cosmetic, not a secret, and nothing of
 value is behind it. The phone app has no shop of its own (the App Store and
 Google Play want theirs) and no network code.
@@ -230,10 +233,12 @@ sign-in and the shop are off, which a host with the backend answers itself.
   `mod_headers` and `mod_mime`): `--host apache`.
 - **nginx**: `deploy/nginx.conf`, included from the `http {}` block, serving the
   folder `--host nginx` writes at the root of its domain. It is not written for
-  a sub-path: its locations and cache rules all start at `/`. Its
-  `location ^~ /api/` proxies the site's API to `server/start.mjs` (below); with
-  no API running there nginx answers `api/` with 502 and the page draws no
-  sign-in or shop, so delete that block to serve the site without one.
+  a sub-path: its locations and cache rules all start at `/`. It asks for
+  HTTP/2 on its `listen` lines, which nginx 1.24 (Ubuntu 24.04) loads; `http2
+  on;` would need 1.25.1. Its `location ^~ /api/` proxies the site's API to
+  `server/start.mjs` (below); with no API running there nginx answers `api/`
+  with 502 and the page draws no sign-in or shop, so delete that block to serve
+  the site without one, and the folder's `api/config` then says nothing is on.
 
 Apache and nginx serve the site's own paths and answer 404 for every other
 address, so a checkout published by mistake gives away none of the
@@ -274,7 +279,10 @@ and Stripe set-up. This app's Stripe prices are `STRIPE_PRICE_SUPPORTER`,
   not applied to what a Function serves: the kit sends its own headers on every
   answer, and `_redirects` (whose `404!` rules Cloudflare does not support
   anyway) cannot touch `api/`. Build it for the root of its own domain: the
-  Function answers `/api/`.
+  Function answers `/api/`. A `--host cloudflare --base-url /<path>` build is
+  refused unless the entry has been moved to `functions/<path>/api/`
+  (`server/kit/README.md`), since its `_routes.json` would name a Function that
+  is not there.
 - **Self-hosted**: `KIT_DATA_DIR=/var/lib/two-kings-chess node server/start.mjs`
   (one process, as its own user, the data directory outside the web root)
   listens on 127.0.0.1:8788, and `deploy/nginx.conf`'s `location ^~ /api/`
@@ -355,8 +363,10 @@ review, promotion, comeback drafts, a 320-pixel-wide phone, Pro gating and the
 preview store's wording, a browser whose storage another app has filled, a site
 with no backend (no sign-in drawn), and the website's shop: on a second server
 with the kit behind `api/` and fakes for Google and Stripe, it signs in, buys,
-posts Stripe's signed webhook, sees the cosmetic unlocked, signs out and deletes
-the account, under the same policy. It plays the
+posts Stripe's signed webhook, sees the cosmetic unlocked and drawn, signs out
+and deletes the account (and has the site refuse each once), buys again and
+posts Stripe's signed refund, reading the board, pieces and aura off a game on
+the screen each time, under the same policy. It plays the
 website as it is published: built for the `/chesscheatser/` sub-path and
 served by `e2e/serve.mjs` with the headers
 `public/_headers` writes on every response, and a scenario fails on any policy

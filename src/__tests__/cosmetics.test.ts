@@ -1,4 +1,8 @@
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { DEFAULT_SETTINGS, drawnCosmetics, type CosmeticChoice } from '../appSettings';
 import {
   AURAS,
   COSMETICS,
@@ -91,5 +95,53 @@ describe('cosmetics catalogue', () => {
     const far: Progress = { ...blank, stats: { ...EMPTY_STATS, wins: 99 } };
     const { have, need } = earnProgress(c.earn!, far);
     expect(have).toBeGreaterThanOrEqual(need);
+  });
+});
+
+describe('what is drawn', () => {
+  const chosen: CosmeticChoice = { boardTheme: 'neon', pieceStyle: 'classic', aura: 'aura.embers' };
+  const defaults: CosmeticChoice = { boardTheme: DEFAULT_SETTINGS.boardTheme, pieceStyle: DEFAULT_SETTINGS.pieceStyle, aura: DEFAULT_SETTINGS.aura };
+
+  it('is every choice as it stands where the store keeps its record on the device', () => {
+    // The local store, every phone and a site with no backend: the record of what was bought is
+    // the device's, and nothing between the choice and the board second-guesses it.
+    expect(drawnCosmetics(chosen, null)).toEqual(chosen);
+  });
+
+  it("is each choice while it is unlocked, and that choice's default once it is not", () => {
+    // The website's shop: a purchase refunded, signed out of or deleted with the account, or a
+    // preview chosen on the device before the shop was on, is no longer drawn.
+    expect(drawnCosmetics(chosen, unlockedCosmetics(blank, []))).toEqual(defaults);
+    expect(drawnCosmetics(chosen, unlockedCosmetics(blank, ['pack.boards']))).toEqual({ ...defaults, boardTheme: 'neon' });
+    expect(drawnCosmetics(chosen, unlockedCosmetics(blank, ['pack.pieces']))).toEqual({ ...defaults, pieceStyle: 'classic' });
+    expect(drawnCosmetics(chosen, unlockedCosmetics(blank, ['pack.auras']))).toEqual({ ...defaults, aura: 'aura.embers' });
+    expect(drawnCosmetics(chosen, unlockedCosmetics(blank, ['supporter']))).toEqual(chosen);
+    // Earned by playing counts as much as bought.
+    const earned: Progress = { ...blank, stats: { ...EMPTY_STATS, comebackWins: 1 }, ladder: { rank: 6, best: 6, games: 20 } };
+    expect(drawnCosmetics(chosen, unlockedCosmetics(earned, []))).toEqual({ ...defaults, boardTheme: 'neon', aura: 'aura.embers' });
+    // Each free choice is drawn whatever is owned, and every default is one of them.
+    const free = { boardTheme: 'marble', pieceStyle: 'solid', aura: 'aura.violet' } as const;
+    expect(drawnCosmetics(free, unlockedCosmetics(blank, []))).toEqual(free);
+    for (const id of Object.values(defaults)) expect(COSMETICS.find((c) => c.id === id)?.free, id).toBe(true);
+  });
+
+  it('is what the board, the pieces and the aura are drawn from, never the stored record', () => {
+    // theme.ts reads the drawn choice for the board and the aura, and PieceGlyph for the pieces;
+    // only the home screen's pickers, which show and change the choice, read the record's.
+    const root = fileURLToPath(new URL('../../', import.meta.url));
+    const sources: string[] = ['App.tsx'];
+    const walk = (dir: string) => {
+      for (const entry of readdirSync(join(root, dir), { withFileTypes: true })) {
+        const path = `${dir}/${entry.name}`;
+        if (entry.isDirectory()) {
+          if (entry.name !== '__tests__') walk(path);
+        } else if (/\.tsx?$/.test(entry.name)) sources.push(path);
+      }
+    };
+    walk('src');
+    const readers = sources.filter((f) => /settings\.(boardTheme|pieceStyle|aura)\b/.test(readFileSync(join(root, f), 'utf8')));
+    expect(readers.sort()).toEqual(['src/ui/HomeScreen.tsx']);
+    expect(readFileSync(join(root, 'src/ui/theme.ts'), 'utf8')).toMatch(/drawnCosmetics\(settings, unlocked\)/);
+    expect(readFileSync(join(root, 'src/ui/PieceGlyph.tsx'), 'utf8')).toMatch(/= useDrawnCosmetics\(\)/);
   });
 });

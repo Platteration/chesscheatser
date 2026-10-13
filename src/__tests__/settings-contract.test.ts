@@ -150,8 +150,14 @@ describe('about', () => {
     // The privacy sentences are quoted from the statement itself, so they cannot drift from it:
     // the phone app's, and the browser build's, which asks its own site whether sign-in and the
     // shop are on and sends anything only when the visitor signs in or buys.
-    expect(read('../../PRIVACY.md')).toContain(about.PRIVACY_SENTENCE);
-    expect(read('../../PRIVACY.md')).toContain(about.WEB_PRIVACY_SENTENCE);
+    // Each within one list item, read as the Markdown reads it: a line break and the item's
+    // two-space indent are one space, and nothing else is joined (a blank line or a new item
+    // ends the sentence's item, so a sentence split across two items does not match).
+    const privacy = read('../../PRIVACY.md').replace(/\n {2}(?=\S)/g, ' ');
+    for (const sentence of [about.PRIVACY_SENTENCE, about.WEB_PRIVACY_SENTENCE]) {
+      expect(sentence).not.toMatch(/\s{2}|\n/);
+      expect(privacy).toContain(sentence);
+    }
     expect(read('../ui/HomeScreen.tsx')).toMatch(/Platform\.OS === 'web' \? WEB_PRIVACY_SENTENCE : `Nothing leaves your device: \$\{PRIVACY_SENTENCE\.toLowerCase\(\)\}`/);
     expect(read('../../CHANGELOG.md').length).toBeGreaterThan(0);
   });

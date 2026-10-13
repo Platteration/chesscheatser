@@ -39,7 +39,10 @@ export interface StoreProvider {
    * entitlements record holds (local previews) then unlocks nothing and is not
    * written, and a purchase grants nothing here: `purchase` hands the page to
    * Stripe's, and the site grants only on Stripe's signed webhook. Nothing in the
-   * page unlocks what the server has not reported. Absent, the device keeps the
+   * page unlocks what the server has not reported, and nothing it has not
+   * reported is drawn: a board, piece set or aura chosen while it was owned is
+   * drawn as the default once it is not (App.tsx's Root, `drawnCosmetics`), and
+   * the choice itself is kept. Absent, the device keeps the
    * record (the local mock; a native store would cache its receipts the same way).
    */
   owned?: readonly ProductId[];
@@ -97,6 +100,13 @@ interface EntitlementsValue {
   preview: boolean;
   /** The store is the website's shop, which keeps the record of what was bought. */
   server: boolean;
+  /**
+   * The store keeps its record on this device (the local mock: every phone, a site with no
+   * backend), where every cosmetic the player chose is drawn as chosen. False for the website's
+   * shop and while no store is chosen yet: then only what is earned or `owned` is drawn
+   * (`drawnCosmetics` in src/appSettings.ts, through App.tsx's Root).
+   */
+  local: boolean;
   /** Products this device has bought. */
   owned: ProductId[];
   /** The one-time tip; also unlocks every cosmetic at once. */
@@ -110,6 +120,7 @@ interface EntitlementsValue {
 const Ctx = createContext<EntitlementsValue>({
   preview: true,
   server: false,
+  local: true,
   owned: [],
   isSupporter: false,
   products: [],
@@ -193,9 +204,10 @@ export function EntitlementsProvider({ children, store }: { children: React.Reac
 
   const preview = store ? !!store.preview : true;
   const server = !!serverOwned;
+  const local = !!store && !serverOwned;
   const value = useMemo<EntitlementsValue>(
-    () => ({ preview, server, owned, isSupporter: owned.includes('supporter'), products, purchasing, buy, restore }),
-    [preview, server, owned, products, purchasing, buy, restore],
+    () => ({ preview, server, local, owned, isSupporter: owned.includes('supporter'), products, purchasing, buy, restore }),
+    [preview, server, local, owned, products, purchasing, buy, restore],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

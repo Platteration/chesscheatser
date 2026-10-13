@@ -12,7 +12,10 @@
 //             which reads none), so the others are not published as files. Without it all
 //             three stay, and each host ignores the others'. A Cloudflare build also gets
 //             _routes.json, which sends the site's api/ (and nothing else) to the Pages Function
-//             in functions/api/ (server/kit: sign-in and the shop).
+//             in functions/api/ (server/kit: sign-in and the shop). Cloudflare routes a Function
+//             by where its file is, so a build under --base-url /x needs the entry moved to
+//             functions/x/api/ (server/kit/README.md); without it the build is refused, since
+//             its _routes.json would name a Function that does not exist.
 //
 // `expo export` copies public/ into the site and fills in public/index.html; this then
 //  - adds the Content-Security-Policy and referrer <meta> tags to every page, from the policy
@@ -122,6 +125,15 @@ export function routesJson(base) {
   return `${JSON.stringify({ version: 1, include: [`${base}/api/*`], exclude: [] })}\n`;
 }
 
+/**
+ * Where Cloudflare Pages looks for the Function that answers `base`'s api/ (`base` '' at the
+ * root), relative to the checkout: Pages routes a Function by the path of its file under
+ * functions/, so the entry under a sub-path is functions/<path>/api/, as server/kit/README.md says.
+ */
+export function cloudflareEntry(base) {
+  return `functions${base}/api/[[path]].js`;
+}
+
 /** Every root-absolute href and src in `html` moved under `base` ('' leaves them as they are). */
 export function underBase(html, base) {
   return base ? html.replace(/\b(href|src)="\/(?!\/)/g, `$1="${base}/`) : html;
@@ -165,6 +177,13 @@ function build({ baseUrl, outputDir, host }) {
   const out = path.resolve(ROOT, outputDir);
   const refusal = outputRefusal(ROOT, out);
   if (refusal) throw new Error(`--output-dir: ${refusal}`);
+  // Before anything is emptied: a _routes.json for a Function that is not there sends api/ nowhere.
+  if (host === 'cloudflare' && !fs.existsSync(path.join(ROOT, cloudflareEntry(baseUrl)))) {
+    throw new Error(
+      `--host cloudflare: the site's api/ under ${baseUrl || 'the root'} is answered by ${cloudflareEntry(baseUrl)}, which this checkout does not have. ` +
+        (baseUrl ? 'Build for the root of the domain (no --base-url), where functions/api/ answers /api/, or move the entry as server/kit/README.md describes.' : 'Restore functions/api/[[path]].js.'),
+    );
+  }
   fs.rmSync(out, { recursive: true, force: true });
   const run = spawnSync(process.execPath, [path.join(ROOT, 'node_modules/expo/bin/cli'), 'export', '--platform', 'web', '--output-dir', out], {
     cwd: ROOT,

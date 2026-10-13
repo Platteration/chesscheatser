@@ -53,6 +53,17 @@ const PINNED_GAME = {
   events: [],
 };
 
+/**
+ * A game that opens on White's comeback draft before the first move: seed 2's chaos armies, with
+ * comeback powers on, pass and play, no clock (the comeback scenario says why it always does).
+ */
+const DRAFT_GAME = {
+  seed: 2,
+  humanColor: 'w',
+  config: { mode: 'local', difficulty: 'medium', material: 'chaos', playAs: 'w', armySize: 'any', cheating: 'off', comeback: true, doubleCheck: 'answer' },
+  events: [],
+};
+
 /** A name a build gives a new value when the content changes: index-<hash>.js, <name>.<hash>.<ext>. */
 const HASHED = /[.-][0-9a-f]{32}\.[a-z0-9]+$/;
 
@@ -919,19 +930,27 @@ const scenarios = {
     const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
     try {
       await watchPolicy(context);
-      // A preview this browser unlocked before the site had a shop (the Board pack): with the shop
-      // on, the server is the record, and a copy on the device unlocks nothing.
+      // A preview this browser unlocked before the site had a shop (the Board pack), with its Neon
+      // board chosen, and a piece set chosen that was never unlocked at all: with the shop on, the
+      // server is the record, and a copy on the device unlocks nothing and draws nothing. The
+      // dark scheme, so that each colour read below has one value.
       const PREVIEWS = JSON.stringify({ owned: ['pack.boards'] });
-      await context.addInitScript((previews) => {
-        try {
-          if (!localStorage.getItem('twokings.appsettings.v1')) {
-            localStorage.setItem('twokings.appsettings.v1', JSON.stringify({ seenIntro: true }));
-            localStorage.setItem('twokings.entitlements.v1', previews);
-          }
-        } catch {}
-      }, PREVIEWS);
+      await context.addInitScript(
+        ({ previews, game }) => {
+          try {
+            if (!localStorage.getItem('twokings.appsettings.v1')) {
+              localStorage.setItem('twokings.appsettings.v1', JSON.stringify({ seenIntro: true, colorScheme: 'dark', boardTheme: 'neon', pieceStyle: 'classic' }));
+              localStorage.setItem('twokings.entitlements.v1', previews);
+              localStorage.setItem('twokings.game.v1', game);
+            }
+          } catch {}
+        },
+        { previews: PREVIEWS, game: JSON.stringify(DRAFT_GAME) },
+      );
       const left = [];
       const hooks = [];
+      /** The `checkout.session.completed` bodies Stripe posted, for the refund of one. */
+      const paid = [];
       await context.route(`${site}api/auth/google/start**`, async (route) => {
         const start = await route.fetch({ maxRedirects: 0 });
         const google = start.headers()['location'] ?? '';
@@ -943,6 +962,7 @@ const scenarios = {
         left.push(route.request().url());
         const session = world.sessions.at(-1);
         const { body, signature } = world.completed(session);
+        paid.push(body);
         hooks.push((await fetch(`${site}api/webhooks/stripe`, { method: 'POST', headers: { 'stripe-signature': signature, 'content-type': 'application/json' }, body })).status);
         return route.fulfill({ status: 302, headers: { location: session.get('success_url') } });
       });
@@ -960,13 +980,57 @@ const scenarios = {
         await exact(page, '‹ Back').click();
         await exact(page, 'New game with these settings').waitFor();
       };
+      const choice = async () => JSON.parse((await page.evaluate(() => localStorage.getItem('twokings.appsettings.v1'))) ?? '{}');
+      /**
+       * What the game draws, read off a game on the screen rather than the labels: the a1 square
+       * (a dark square), the white pieces (filled glyphs in the solid set, outlines in classic
+       * print) and the comeback aura, the colour of the draft's title. The game is DRAFT_GAME,
+       * which opens on White's draft.
+       */
+      const readLook = async () => {
+        await exact(page, 'Resume game').click();
+        await page.getByTestId('power-draft').waitFor({ timeout: 10000 });
+        return page.evaluate(() => {
+          const a1 = document.querySelector('[aria-label="a1"], [aria-label^="a1,"]');
+          const pieces = [...document.querySelectorAll('[aria-label*=", white "]')].map((e) => e.textContent).join('');
+          const title = [...document.querySelectorAll('[data-testid="power-draft"] *')].find((e) => e.childElementCount === 0 && e.textContent === 'White fell behind');
+          return {
+            a1: a1 ? getComputedStyle(a1).backgroundColor : null,
+            filled: (pieces.match(/[♚♛♜♝♞♟]/gu) ?? []).length,
+            outlined: (pieces.match(/[♔♕♖♗♘♙]/gu) ?? []).length,
+            aura: title ? getComputedStyle(title).color : null,
+          };
+        });
+      };
+      /**
+       * The same, with the game planted afresh and loaded once the site has said who is signed
+       * in, so the store is the one being checked; then back to the menu.
+       */
+      const drawn = async (signedIn) => {
+        await page.evaluate((game) => localStorage.setItem('twokings.game.v1', game), JSON.stringify(DRAFT_GAME));
+        await page.goto(site);
+        if (signedIn) await exact(page, 'Signed in as ada@example.com').waitFor({ timeout: 10000 });
+        else await page.getByRole('button', { name: 'Sign in with Google' }).waitFor({ timeout: 10000 });
+        const look = await readLook();
+        await page.goto(site);
+        await exact(page, 'New game with these settings').waitFor({ timeout: 10000 });
+        return look;
+      };
+      /** The dark scheme's Wood and Neon dark squares, and its Violet and Embers auras (src/ui/theme.ts, src/cosmetics.ts). */
+      const WOOD = 'rgb(181, 136, 99)';
+      const VIOLET = 'rgb(192, 123, 232)';
+      const EMBERS = 'rgb(255, 138, 76)';
+      const isDefault = (look) => look.a1 === WOOD && look.aura === VIOLET && look.filled > 0 && look.outlined === 0;
 
-      // While the page is still asking its site, nothing is unlocked either: the store is not chosen yet.
+      // While the page is still asking its site, nothing is unlocked either, and nothing is drawn:
+      // the store is not chosen yet. The site's answer is held until the page has been looked at.
       let answered = false;
+      let release = () => {};
+      const held = new Promise((resolve) => (release = resolve));
       await context.route(
         `${site}api/config`,
         async (route) => {
-          await new Promise((resolve) => setTimeout(resolve, 3000));
+          await held;
           answered = true;
           await route.continue();
         },
@@ -975,11 +1039,23 @@ const scenarios = {
       await page.goto(site);
       await exact(page, 'New game with these settings').waitFor({ timeout: 10000 });
       assert(!answered && (await exact(page, 'Neon 🔒').count()) === 1, 'before the site answers, a preview on the device unlocks nothing');
+      let look = await readLook();
+      assert(!answered && isDefault(look), 'before the site answers, a preview on the device is not drawn either: ' + JSON.stringify(look));
+      const configured = page.waitForResponse(`${site}api/config`);
+      release();
+      await configured;
+      await page.goto(site);
       // Signed out: the Account card offers sign-in, the store sells, and the device's preview unlocks nothing.
       await page.getByRole('button', { name: 'Sign in with Google' }).waitFor({ timeout: 10000 });
       assert((await exact(page, 'Neon 🔒').count()) === 1, 'a preview on the device unlocks nothing once the shop is on');
       assert((await exact(page, 'Embers 🔒').count()) === 1, 'Embers starts locked');
       assert((await exact(page, 'Preview cosmetics').count()) === 0, 'no preview store beside the real one');
+      // ...and draws nothing: the board chosen as a preview, and the pieces never unlocked, are
+      // drawn as their defaults, and the choices are kept.
+      look = await drawn(false);
+      assert(isDefault(look), 'a preview on the device is not drawn once the shop is on: ' + JSON.stringify(look));
+      const kept = await choice();
+      assert(kept.boardTheme === 'neon' && kept.pieceStyle === 'classic', 'the choices are kept: ' + JSON.stringify(kept));
       await shop();
       assert((await exact(page, 'Support the game').count()) === 1, 'the store is the real one');
       assert((await page.getByText('No payment is taken.', { exact: false }).count()) === 0, 'and says nothing of previews');
@@ -1005,6 +1081,17 @@ const scenarios = {
       assert((await exact(page, 'Owned').count()) === 1, 'the store shows the pack as owned');
       await home();
       assert((await page.evaluate(() => localStorage.getItem('twokings.entitlements.v1'))) === PREVIEWS, 'nothing was granted on the device');
+      // Choose the aura bought, then sign out with no reload between: the thank-you is not left
+      // beside the locked aura it named, and the purchase goes with the account.
+      await exact(page, 'Embers').click();
+      await page.getByRole('button', { name: 'Sign out' }).click();
+      await page.getByRole('button', { name: 'Sign in with Google' }).waitFor();
+      assert((await exact(page, 'Thank you — Aura pack is unlocked.').count()) === 0, 'signed out, the thank-you is gone');
+      assert((await exact(page, 'Embers 🔒').count()) === 1, 'signed out at once, the aura is locked');
+      await signIn();
+      assert((await exact(page, 'Embers').count()) === 1, 'signed in again, the aura is unlocked');
+      look = await drawn(true);
+      assert(look.aura === EMBERS && look.a1 === WOOD && look.outlined === 0, 'the aura bought and chosen is drawn, and nothing else: ' + JSON.stringify(look));
       // Reloaded, the purchase is read from the server again, and the notice is not said twice.
       await page.reload();
       await exact(page, 'Signed in as ada@example.com').waitFor({ timeout: 10000 });
@@ -1015,6 +1102,9 @@ const scenarios = {
       await page.getByRole('button', { name: 'Sign out' }).click();
       await page.getByRole('button', { name: 'Sign in with Google' }).waitFor();
       assert((await exact(page, 'Embers 🔒').count()) === 1, 'signed out, the aura is locked again');
+      look = await drawn(false);
+      assert(isDefault(look), 'signed out, the aura is not drawn either: ' + JSON.stringify(look));
+      assert((await choice()).aura === 'aura.embers', 'and the choice is kept for when it is back');
 
       // A sign-in that failed says so once, and leaves the address clean; a cancelled checkout says nothing.
       await page.goto(`${site}?signin=failed`);
@@ -1028,6 +1118,20 @@ const scenarios = {
       // Signed in again, the purchase comes back with the account.
       await signIn();
       assert((await exact(page, 'Embers').count()) === 1, 'signed in again, the aura is the account’s');
+
+      // A sign-out or a delete the site refuses (the kit answers 403 to every POST and DELETE when
+      // APP_URL's origin is not the page's) is not done: the visitor stays signed in, and is told.
+      await context.route(`${site}api/auth/logout`, (route) => route.fulfill({ status: 403, contentType: 'application/json', body: '{"error":"forbidden"}' }), { times: 1 });
+      await page.getByRole('button', { name: 'Sign out' }).click();
+      await exact(page, 'Sign-out did not complete. Try again in a moment.').waitFor({ timeout: 10000 });
+      assert((await exact(page, 'Signed in as ada@example.com').count()) === 1 && (await exact(page, 'Embers').count()) === 1, 'a refused sign-out leaves the visitor signed in');
+      const refuseDelete = (route) => (route.request().method() === 'DELETE' ? route.fulfill({ status: 500, contentType: 'application/json', body: '{"error":"server"}' }) : route.fallback());
+      await context.route(`${site}api/me`, refuseDelete);
+      page.once('dialog', (d) => d.accept());
+      await page.getByRole('button', { name: 'Delete account' }).click();
+      await exact(page, 'The account was not deleted. Try again in a moment.').waitFor({ timeout: 10000 });
+      await context.unroute(`${site}api/me`, refuseDelete);
+      assert((await exact(page, 'Signed in as ada@example.com').count()) === 1 && (await exact(page, 'Embers').count()) === 1, 'a refused delete leaves the account as it was');
 
       // Delete account: confirmed first; then signed out, and the purchase gone with the account.
       page.once('dialog', (d) => d.dismiss());
@@ -1044,13 +1148,33 @@ const scenarios = {
       assert(/purchases recorded with it are removed/.test(asked), 'the confirmation says the purchases go with it: ' + asked);
       await signIn();
       assert((await exact(page, 'Embers 🔒').count()) === 1, 'after deleting, the account owns nothing');
+      look = await drawn(true);
+      assert(isDefault(look), 'after deleting, the aura is not drawn: ' + JSON.stringify(look));
 
-      // Nothing left the site but the three trips to Google and the one to Stripe, each answered here.
+      // Bought again (the choice was kept, so it is drawn again at once), then refunded in full:
+      // Stripe's signed charge.refunded takes it back, and it is not drawn after that.
+      await shop();
+      await page.getByRole('button', { name: 'Buy', exact: true }).nth(1).click();
+      await exact(page, 'Thank you — Aura pack is unlocked.').waitFor({ timeout: 20000 });
+      look = await drawn(true);
+      assert(look.aura === EMBERS, 'bought again, the aura chosen before is drawn: ' + JSON.stringify(look));
+      const refund = world.refunded(paid.at(-1));
+      const refunded = await fetch(`${site}api/webhooks/stripe`, { method: 'POST', headers: { 'stripe-signature': refund.signature, 'content-type': 'application/json' }, body: refund.body });
+      assert(refunded.status === 200, 'the kit took the signed refund: ' + refunded.status);
+      look = await drawn(true);
+      assert(isDefault(look) && (await exact(page, 'Embers 🔒').count()) === 1, 'refunded, the aura is locked and not drawn: ' + JSON.stringify(look));
+      assert((await choice()).aura === 'aura.embers', 'and the choice is still kept');
+
+      // Nothing left the site but the four trips to Google and the two to Stripe, each answered here.
       const google = left.filter((u) => u.startsWith('https://accounts.google.com/o/oauth2/v2/auth?'));
       const stripe = left.filter((u) => u.startsWith('https://checkout.stripe.com/c/pay/'));
-      assert(google.length === 3 && stripe.length === 1 && left.length === 4, 'the trips outside the site: ' + left.join(', '));
-      assert(world.sessions.length === 1, 'one Checkout session: ' + world.sessions.length);
-      const rest = failures.filter((f) => !left.some((u) => f === `request outside the site: ${u}`));
+      assert(google.length === 4 && stripe.length === 2 && left.length === 6, 'the trips outside the site: ' + left.join(', '));
+      assert(world.sessions.length === 2, 'two Checkout sessions: ' + world.sessions.length);
+      assert(JSON.stringify(hooks) === '[200,200]', 'the kit took both signed webhooks: ' + JSON.stringify(hooks));
+      // The browser logs the two refusals staged above itself, once each.
+      const refusals = ['console error: Failed to load resource: the server responded with a status of 403 (Forbidden)', 'console error: Failed to load resource: the server responded with a status of 500 (Internal Server Error)'];
+      for (const line of refusals) assert(failures.filter((f) => f === line).length === 1, `${line}: ${failures.filter((f) => f === line).length} times`);
+      const rest = failures.filter((f) => !left.some((u) => f === `request outside the site: ${u}`) && !refusals.includes(f));
       assert(rest.length === 0, rest.join('\n'));
       assert(world.unexpected.length === 0, 'the kit asked the fakes for: ' + world.unexpected.join(', '));
       assert(server.outside.length === 0, 'requests outside the site reached the host: ' + server.outside.join(', '));

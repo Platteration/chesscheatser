@@ -1,8 +1,8 @@
 import React from 'react';
 import { Platform, StyleSheet, Text } from 'react-native';
 import type { Piece, PieceType } from '../engine/types';
-import { useSettings } from '../settings';
 import { pieceHalo, pieceInk } from './pieceHalo';
+import { useDrawnCosmetics } from './theme';
 
 /** Filled glyphs for both colours; colour comes from the text style. */
 export const GLYPH: Record<PieceType, string> = {
@@ -30,10 +30,11 @@ interface Props {
 }
 
 export const PieceGlyph = React.memo(function PieceGlyph({ piece, size }: Props) {
-  const { settings } = useSettings();
+  // What is drawn, not what is stored: a piece set or board the store no longer reports is not.
+  const { pieceStyle, boardTheme } = useDrawnCosmetics();
   const white = piece.color === 'w';
-  const classic = settings.pieceStyle === 'classic';
-  const neon = settings.boardTheme === 'neon';
+  const classic = pieceStyle === 'classic';
+  const neon = boardTheme === 'neon';
   const glyph = classic && white ? OUTLINE_GLYPH[piece.type] : GLYPH[piece.type];
   return (
     <Text
