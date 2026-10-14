@@ -91,3 +91,14 @@
   `api/config` once at launch, a file there that says nothing is switched on,
   and shows local previews once it has answered; its About card now says what
   would leave the device if you signed in or bought.
+- Pressing Buy again for a product before its payment shows (another tab, a
+  reload, the page back from Checkout) opens the same Stripe Checkout page
+  rather than a second one, and once that one is paid Buy starts no new payment
+  until the purchase is recorded. The About card and PRIVACY.md now say that
+  Stripe is told the site's account id with a payment.
+- Hosting: nginx answers an API that is not running with the site's not-found
+  page and every header, and names no version on its plain-HTTP redirect either;
+  Apache's `.htaccess` no longer skips its rules without a word where
+  `mod_rewrite` or `mod_headers` is missing (it is a 500 and a log line there),
+  and sends HSTS behind a proxy that ends TLS; `security.txt` also lists the
+  issues page, for a report while private reporting is off.

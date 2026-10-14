@@ -8,10 +8,13 @@
 // `authorize(url)` is what Google's sign-in page does with the address the kit sends the browser
 // to: it remembers the request and answers with the callback address and a code, which the token
 // endpoint then exchanges (checking the PKCE verifier against the challenge). Stripe: prices, and
-// Checkout sessions it records; `completed()` is the signed `checkout.session.completed` Stripe
-// would post for one of them, and `refunded()` its `charge.refunded` for the whole payment, each
-// signed with node:crypto, apart from the kit's own HMAC. Every address the fakes do not serve
-// is recorded in `unexpected` and refused.
+// Checkout sessions it records and answers a lookup of (`GET /v1/checkout/sessions/<id>`, which
+// the kit asks when the visitor presses Buy again for a product: open, then complete once paid);
+// a request sent again under an Idempotency-Key it has answered is given that first answer, as
+// Stripe gives it. `pay()` is the visitor paying on Checkout's page, `completed()` the signed
+// `checkout.session.completed` Stripe then posts for that session, and `refunded()` its
+// `charge.refunded` for the whole payment, each signed with node:crypto, apart from the kit's own
+// HMAC. Every address the fakes do not serve is recorded in `unexpected` and refused.
 import { Buffer } from 'node:buffer';
 import { createHash, createHmac, webcrypto } from 'node:crypto';
 
@@ -60,6 +63,25 @@ export async function fakeWorld({ sub = '1001', email = 'ada@example.com' } = {}
   const jwk = { kty: 'RSA', n, e, alg: 'RS256', use: 'sig', kid: 'fake-key' };
   const codes = new Map();
   let serial = 0;
+  /** Each Checkout session's id, status and payment, by the form `sessions` holds for it. */
+  const checkouts = new Map();
+  /** The first answer to each Idempotency-Key, given again to a request sent again under it. */
+  const answered = new Map();
+  /** The session `form` describes, which the kit created. */
+  const checkoutOf = (form) => {
+    const checkout = checkouts.get(form);
+    if (!checkout) throw new Error('not a Checkout session the kit created');
+    return checkout;
+  };
+  /** Stripe's Checkout session object for a session, as a lookup of it returns it. */
+  const sessionObject = ({ id, status, paymentIntent }) => ({
+    id,
+    object: 'checkout.session',
+    status,
+    url: status === 'open' ? `https://checkout.stripe.com/c/pay/${id}` : null,
+    payment_intent: paymentIntent,
+    subscription: null,
+  });
 
   const world = {
     /** The Checkout sessions created, as the form Stripe received. */
@@ -95,19 +117,45 @@ export async function fakeWorld({ sub = '1001', email = 'ada@example.com' } = {}
           if (price) return json({ id: price.id, object: 'price', active: true, currency: 'usd', unit_amount: price.unit_amount, recurring: null, type: 'one_time' });
         }
         if (method === 'POST' && path === '/checkout/sessions') {
-          world.sessions.push(new URLSearchParams(body));
-          const id = `cs_test_${world.sessions.length}`;
-          return json({ id, object: 'checkout.session', url: `https://checkout.stripe.com/c/pay/${id}` });
+          const key = headers.get('idempotency-key');
+          if (key && answered.has(key)) return json(answered.get(key));
+          const form = new URLSearchParams(body);
+          world.sessions.push(form);
+          const checkout = { id: `cs_test_${world.sessions.length}`, status: 'open', paymentIntent: null };
+          checkouts.set(form, checkout);
+          const created = sessionObject(checkout);
+          if (key) answered.set(key, created);
+          return json(created);
+        }
+        if (method === 'GET' && path.startsWith('/checkout/sessions/')) {
+          const id = decodeURIComponent(path.slice('/checkout/sessions/'.length));
+          const checkout = [...checkouts.values()].find((c) => c.id === id);
+          if (checkout) return json(sessionObject(checkout));
+          // Stripe's answer for a session it does not have; the kit made every one there is.
+          world.unexpected.push(`${method} ${address}`);
+          return json({ error: { type: 'invalid_request_error', code: 'resource_missing' } }, { status: 404 });
         }
       }
       world.unexpected.push(`${method} ${address}`);
       throw new TypeError(`an address the fakes do not serve: ${address}`);
     },
     /**
+     * The visitor pays on Checkout's page for a session the kit created (the last one by
+     * default): from now on Stripe reports it complete, with the payment it made, whether or not
+     * its webhook has been posted.
+     */
+    pay(session = world.sessions.at(-1)) {
+      const checkout = checkoutOf(session);
+      if (checkout.status !== 'complete') Object.assign(checkout, { status: 'complete', paymentIntent: `pi_fake${++serial}` });
+      return checkout.paymentIntent;
+    },
+    /**
      * Stripe's `checkout.session.completed` for a session the kit created (the last one by
-     * default), paid, with the `Stripe-Signature` Stripe would send: `{ body, signature }`.
+     * default), paid (by `pay()`, if it was not yet), with the `Stripe-Signature` Stripe would
+     * send: `{ body, signature }`. The event names the session and its payment, as Stripe's does.
      */
     completed(session = world.sessions.at(-1)) {
+      const paymentIntent = world.pay(session);
       const at = Math.floor(Date.now() / 1000);
       const id = `${++serial}`;
       const event = {
@@ -118,13 +166,13 @@ export async function fakeWorld({ sub = '1001', email = 'ada@example.com' } = {}
         created: at,
         data: {
           object: {
-            id: `cs_test_paid${id}`,
+            id: checkoutOf(session).id,
             object: 'checkout.session',
             mode: session.get('mode'),
             payment_status: 'paid',
             client_reference_id: session.get('client_reference_id'),
             metadata: { app: session.get('metadata[app]'), user: session.get('metadata[user]'), product: session.get('metadata[product]') },
-            payment_intent: `pi_fake${id}`,
+            payment_intent: paymentIntent,
             customer: 'cus_fake1',
           },
         },

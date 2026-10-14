@@ -24,6 +24,10 @@ an optional cheating computer opponent.
 - `npm run build:web -- --host <host> [--base-url /<path>]` — the website
   (`scripts/build-web.mjs`; see Website below)
 - `CI=1 npx expo export --platform web|android --output-dir <dir>` — Metro bundle check
+- `node .github/audit/npm-audit.mjs` — CI's audit job: `npm audit --omit=dev` against
+  the lockfile, red on every high or critical advisory `.github/audit/accepted.json`
+  does not accept (the shared gate, pinned by the conventions test; each entry names
+  every route it arrives by and expires within 90 days)
 
 ## Layout
 
@@ -81,10 +85,11 @@ an optional cheating computer opponent.
   playing. Never gate a utility (hints, undo, review) — this is a game about
   being behind, so paywalling help contradicts it.
 - The website's sign-in and shop (see "Sign-in and the shop" below):
-  `server/kit/` is the family's shared kit, copied verbatim from the canonical
-  copy and never edited here (a change goes to the canonical copy; `diff -r`
-  against it is empty); `server/catalogue.js` sells the four existing purchases,
-  one Stripe product each; `server/start.mjs` is the Node start script;
+  `server/kit/` is the family's shared kit, copied verbatim and whole from the
+  canonical copy, its `.d.ts` files included, and never edited here (a change goes
+  to the canonical copy; `diff -r` against it is empty, and the conventions test
+  holds it to the canonical copy's hash, `KIT_SHA`); `server/catalogue.js` sells
+  the four existing purchases, one Stripe product each; `server/start.mjs` is the Node start script;
   `server/package.json` only makes `server/` ES modules (as the kit's own does),
   so Node loads the catalogue without reparsing it; `functions/api/[[path]].js`
   is the Cloudflare Pages entry. The page's side: `src/shop.web.ts` (the client,
@@ -228,6 +233,20 @@ to `CATALOGUE` in `src/entitlements.tsx`. Prices are `STRIPE_PRICE_SUPPORTER`,
   `productOf`) to name it in the thank-you; nothing reads it at launch, so it is
   named beside `STORAGE_KEYS` rather than in it, and recovery has nothing there to
   clear.
+- The kit gives a visitor one Checkout session per product: a second Buy before
+  Stripe's webhook (another tab, a reload, the page back from Checkout) is given the
+  session the first was, which it remembers for 30 days and asks Stripe about, and
+  once that one is paid it makes no new one but answers 409 `payment_pending` until
+  the webhook is recorded. The client reads every 409 as owned (it asks `api/me`
+  again and leaves for nowhere), and a 502 (Stripe failed, or a press that met
+  another still making its session) as "Purchase did not complete.", which can be
+  pressed again; the store screen keeps Buy disabled while a press is out
+  (`purchasing`). `e2e/fakes.mjs` answers as Stripe does: it serves
+  `GET /v1/checkout/sessions/<id>` (open, then complete with its payment once
+  `pay()` or `completed()` has paid it), gives a request sent again under an
+  Idempotency-Key it has answered the first answer, and its `completed()` names the
+  session it completes. The shop test presses Buy twice, and twice at once, for one
+  product, before and after it is paid.
 - No subscription is sold, so there is no Manage subscription, and the kit's
   `subscription_active` refusal of Delete account cannot arise here.
 
@@ -287,7 +306,21 @@ locations and cache map all start at `/`. It asks for HTTP/2 on its `listen` lin
 never with `http2 on;` (nginx 1.25.1 and later; the 1.24 of Ubuntu 24.04 and GitHub's
 runner refuses the whole file over it, checked with `nginx -t`), and its allow-list
 holds `api/config`, so a server whose `location ^~ /api/` was deleted, as the file
-says to do without an API, still answers it; the website test pins both. It was
+says to do without an API, still answers it; the website test pins both. That
+location's `error_page 502 504 /404.html` answers an API that is not running with the
+site's not-found page and every header (status kept) where nginx's own page went out
+with HSTS alone, and both server blocks, the port-80 redirect's too, set
+`server_tokens off`. `.htaccess` wraps nothing in `<IfModule>` (on a stock Debian or
+Ubuntu Apache, with `mod_rewrite` and `mod_headers` off, a wrapped rule was skipped
+without a word and the folder went out with no headers and no refusals; unwrapped, it
+is a 500 and a log line) and sends Strict-Transport-Security unconditionally
+(`env=HTTPS` is mod_ssl's alone, so behind a proxy that ends TLS it was never sent);
+the conventions test holds both files to that, and the website test holds README to
+what the server configuration must give Apache (`AllowOverride All`, `a2enmod rewrite
+headers`, `ServerTokens Prod`, and the API's `ProxyPass` with its `ErrorDocument 502`,
+`503` and `504` lines). `.well-known/security.txt` lists the private advisory form and
+then the issues page (SECURITY.md says to ask there for a private channel while
+private reporting is off), and its `Policy` is SECURITY.md on `main`. It was
 measured: `style-src` has `'unsafe-inline'` because expo-font writes the glyph
 font's `@font-face` into a `<style>` as text, and that text holds the base path and the font's content hash, so
 no fixed hash covers every build; react-native-web's own `<style>` would need only the

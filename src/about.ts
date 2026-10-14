@@ -20,4 +20,4 @@ export const PRIVACY_SENTENCE = 'The phone app makes no network requests of its 
  * PRIVACY.md like the other, and shown in place of it on the web.
  */
 export const WEB_PRIVACY_SENTENCE =
-  'Nothing leaves your device unless you sign in or buy: then Google tells this site an account id and your email address, and Stripe handles the payment.';
+  'Nothing leaves your device unless you sign in or buy: then Google tells this site an account id and your email address, and Stripe handles the payment and is told that account id with it.';

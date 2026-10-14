@@ -6,7 +6,10 @@ Please report security issues privately rather than opening a public issue.
 
 Use GitHub's private vulnerability reporting on this repository:
 **Security → Report a vulnerability**. That opens a private advisory visible
-only to the maintainers.
+only to the maintainers. Private reporting is a setting the repository's owner
+switches on; while it is off that button is not there, so open an issue that
+says only that you have a security report and how to reach you, with no details
+in it, and a private channel will be arranged.
 
 Include what you need to make the problem reproducible: the affected version
 or commit, the steps or input that trigger it, and what you observed. A proof
@@ -29,8 +32,9 @@ demonstrated impact.
 ## The website
 
 The browser build is published as a static website, and
-`/.well-known/security.txt` on it points to the same private reporting route;
-its `Expires` date is renewed each year.
+`/.well-known/security.txt` on it points to the same private reporting route,
+then to the issues page for the case above; its `Expires` date is renewed each
+year.
 
 Also in scope there: the hosting configuration (`public/_headers`,
 `public/_redirects`, `public/.htaccess`, `deploy/nginx.conf`, and the `<meta>`

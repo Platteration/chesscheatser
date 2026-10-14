@@ -194,6 +194,11 @@ describe('the API through the Node adapter (server/start.mjs)', () => {
     const session = world.sessions[0]!;
     expect([session.get('mode'), session.get('metadata[app]'), session.get('metadata[product]'), session.get('line_items[0][price]')]).toEqual(['payment', 'chesscheatser', 'pack-auras', PRICES['pack-auras'].id]);
     expect(session.get('success_url')).toBe(`${appUrl}?purchase=success`);
+    // Stripe is told the account id with the payment, as PRIVACY.md says, and nothing else of the
+    // visitor's: not the email address Google gave the site.
+    expect(session.get('client_reference_id')).toMatch(/^\S+$/);
+    expect(session.get('metadata[user]')).toBe(session.get('client_reference_id'));
+    expect([...session.values()].some((value) => value.includes('ada@example.com'))).toBe(false);
     // Nothing is owned until Stripe's signed webhook says it was paid.
     expect((await client.me())?.owned).toEqual([]);
     const forged = world.completed();
@@ -231,6 +236,56 @@ describe('the API through the Node adapter (server/start.mjs)', () => {
     client.startSignIn();
     await visitor.navigate(visitor.went.at(-1)!);
     expect(await client.me()).toEqual({ user: { email: 'ada@example.com' }, owned: [] });
+    expect(world.unexpected).toEqual([]);
+  });
+
+  it('gives a second Buy the Checkout session the first was given, and sells nothing twice before the webhook', async () => {
+    // The kit remembers the Checkout session it gave the visitor for each product. Pressed again
+    // before Stripe's webhook (another tab, a reload, the page back from Checkout), Buy reaches
+    // that session while it is open (Stripe is asked for it: e2e/fakes.mjs answers as Stripe
+    // does), and once it is paid the kit makes no new one but answers 409 payment_pending, which
+    // the client reads as it reads every 409, asking api/me again and leaving for nowhere.
+    const world = await fakeWorld();
+    const port = await freePort();
+    const appUrl = `http://127.0.0.1:${port}/chesscheatser/`;
+    await start(kitEnv(appUrl), world, port);
+    const visitor = page(appUrl, world);
+    const client = (await web.connectShop(visitor.env)) as ShopClient;
+    client.startSignIn();
+    await visitor.navigate(visitor.went.at(-1)!);
+    expect((await client.me())?.user).toEqual({ email: 'ada@example.com' });
+    const left = () => visitor.went.filter((url) => url.startsWith('https://checkout.stripe.com/'));
+
+    expect(await client.checkout('pack.boards')).toBe('leaving');
+    expect(await client.checkout('pack.boards')).toBe('leaving');
+    expect(left()).toEqual(['https://checkout.stripe.com/c/pay/cs_test_1', 'https://checkout.stripe.com/c/pay/cs_test_1']);
+    expect(world.sessions).toHaveLength(1);
+    // Two presses at once (a double click the page let through) are given one session too.
+    expect(await Promise.all([client.checkout('pack.pieces'), client.checkout('pack.pieces')])).toEqual(['leaving', 'leaving']);
+    expect(left().slice(2)).toEqual(['https://checkout.stripe.com/c/pay/cs_test_2', 'https://checkout.stripe.com/c/pay/cs_test_2']);
+    expect(world.sessions).toHaveLength(2);
+
+    // Paid on Checkout's page, its webhook not posted yet: refused, with no new session, and
+    // nothing owned until the webhook says so.
+    const boards = world.sessions[0]!;
+    world.pay(boards);
+    const buy = () => visitor.env.fetch(`${appUrl}api/checkout`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ product: 'pack-boards' }) });
+    const pending = await buy();
+    expect([pending.status, await pending.json()]).toEqual([409, { error: 'payment_pending' }]);
+    expect(await client.checkout('pack.boards')).toBe('owned');
+    expect(left()).toHaveLength(4);
+    expect(world.sessions).toHaveLength(2);
+    expect((await client.me())?.owned).toEqual([]);
+
+    // The webhook lands: owned, and Buy says so, still with no new session.
+    const paid = world.completed(boards);
+    const hook = await fetch(`${appUrl}api/webhooks/stripe`, { method: 'POST', headers: { 'stripe-signature': paid.signature, 'content-type': 'application/json' }, body: paid.body });
+    expect(hook.status).toBe(200);
+    expect((await client.me())?.owned).toEqual(['pack.boards']);
+    const owned = await buy();
+    expect([owned.status, await owned.json()]).toEqual([409, { error: 'already_owned' }]);
+    expect(await client.checkout('pack.boards')).toBe('owned');
+    expect(world.sessions).toHaveLength(2);
     expect(world.unexpected).toEqual([]);
   });
 });

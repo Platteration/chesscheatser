@@ -181,8 +181,17 @@ describe('the hosts serve the site and nothing else', () => {
       expect(nginxRefuses(NGINX_TREE, path), `nginx: ${path}`).toBe(false);
     }
     for (const path of ['', 'apis/config', 'index.html', ...REPOSITORY]) expect(nginxProxies(NGINX_TREE, path), `nginx: ${path}`).toBeNull();
-    // Apache's .htaccess cannot proxy: there the virtual host's ProxyPass answers api/, and
-    // without one the static api/config is the only address under it the folder serves.
+    // With the API not running, nginx's own 502 (504 when it does not answer in time) would go
+    // out with the location's one header: the location answers with the site's not-found page,
+    // its status kept, which the site serves with every header of the server block. Nothing
+    // intercepts the kit's own answers.
+    const api = nginxSiteServer(NGINX_TREE).children.find((d) => d.name === 'location' && d.args.join(' ') === '^~ /api/');
+    expect(api?.children?.filter((c) => c.name === 'error_page').map((c) => c.args)).toEqual([['502', '504', '/404.html']]);
+    expect(api?.children?.some((c) => c.name === 'proxy_intercept_errors')).toBe(false);
+    expect(nginxRefuses(NGINX_TREE, '404.html')).toBe(false);
+    // ProxyPass is server configuration, which an .htaccess cannot hold: there the virtual host's
+    // ProxyPass answers api/, and without one the static api/config is the only address under it
+    // the folder serves.
     for (const path of API) expect(apacheRefuses(HTACCESS, path), `Apache: ${path}`).toBe(path !== 'api/config');
   });
 
@@ -208,6 +217,17 @@ describe('the hosts serve the site and nothing else', () => {
       ['443', 'ssl', 'http2'],
       ['[::]:443', 'ssl', 'http2'],
     ]);
+  });
+
+  it('says in README what the server configuration must give Apache, which no .htaccess can set', () => {
+    // The folder's overrides, the two modules a stock Debian or Ubuntu Apache does not load (the
+    // file wraps nothing in <IfModule>, so without them it is a 500), the version kept out of the
+    // Server header, and the API's proxy with the error pages that answer for it when it is down.
+    const readme = read('README.md').replace(/\s*\n\s*/g, ' ');
+    for (const line of ['AllowOverride All', 'a2enmod rewrite headers', 'ServerTokens Prod', 'ProxyPass "/api/" "http://127.0.0.1:8788/api/"', 'ErrorDocument 502 /404.html', 'ErrorDocument 503 /404.html', 'ErrorDocument 504 /404.html']) {
+      expect(readme, line).toContain(line);
+    }
+    expect(HTACCESS).toMatch(/a2enmod rewrite headers/);
   });
 
   it('serves every file of the site, the .well-known folder included', () => {
@@ -542,7 +562,12 @@ describe('/.well-known/security.txt', () => {
 
   it("points at this repository's private reporting and its policy", () => {
     expect(field('Contact')).toBe(`${SOURCE_URL}/security/advisories/new`);
-    expect(field('Policy')).toBe(`${SOURCE_URL}/blob/HEAD/SECURITY.md`);
+    // ...and, last, the issues page, where SECURITY.md says to ask for a private channel while
+    // private reporting is switched off on the repository.
+    expect([...text.matchAll(/^Contact: (.+)$/gm)].map((m) => m[1])).toEqual([`${SOURCE_URL}/security/advisories/new`, `${SOURCE_URL}/issues`]);
+    // SECURITY.md on main, the branch the site is published from: blob/HEAD follows the default
+    // branch, which may not carry it.
+    expect(field('Policy')).toBe(`${SOURCE_URL}/blob/main/SECURITY.md`);
     expect(field('Preferred-Languages')).toBe('en');
   });
 

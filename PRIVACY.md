@@ -28,10 +28,13 @@ described below.
 - Sign-in and the shop, on a website whose owner has switched sign-in on (the
   shop needs sign-in; sign-in can be on without the shop). Nothing leaves your
   device unless you sign in or buy: then Google tells this site an account id
-  and your email address, and Stripe handles the payment. The site keeps your
-  Google account id, what you bought (if the shop is on) and Stripe's customer
-  id for you; your email address is kept only with your signed-in session, to
-  show you which account is signed in. Signing in sets one cookie while you sign
+  and your email address, and Stripe handles the payment and is told that
+  account id with it. The site keeps your Google account id, what you bought (if
+  the shop is on) and Stripe's customer id for you, and for 30 days after you
+  press Buy, which Stripe Checkout page it gave you for that product, so that
+  pressing Buy again opens the same one rather than a second payment; your
+  email address is kept only with your signed-in session, to show you which
+  account is signed in. Signing in sets one cookie while you sign
   in and one while you stay signed in (30 days), each for that alone. Google and
   Stripe handle what they receive under their own terms; the site never sees
   your card. Delete account (in the Account card) removes what the site holds

@@ -229,16 +229,26 @@ sign-in and the shop are off, which a host with the backend answers itself.
   `--host cloudflare`. A Cloudflare build also gets `_routes.json`, which sends
   the site's `api/` (and nothing else) to the Pages Function in
   `functions/api/`.
-- **Apache** reads `.htaccess` (`AllowOverride All`, with `mod_rewrite`,
-  `mod_headers` and `mod_mime`): `--host apache`.
+- **Apache** reads `.htaccess` (`--host apache`) only where the server
+  configuration gives the folder `AllowOverride All`. The file needs
+  `mod_rewrite` and `mod_headers` (and `mod_mime`), and a stock Debian or Ubuntu
+  Apache loads neither of the first two: `a2enmod rewrite headers`. Nothing in
+  it is wrapped in `<IfModule>`, so without them every request is a 500 and a
+  line in the error log, never the folder served with no headers and no
+  refusals. It sends `Strict-Transport-Security` on every answer, so behind a
+  proxy that ends TLS too. The version in Apache's `Server` header is the server
+  configuration's to turn off, with `ServerTokens Prod`: `.htaccess` cannot.
 - **nginx**: `deploy/nginx.conf`, included from the `http {}` block, serving the
   folder `--host nginx` writes at the root of its domain. It is not written for
   a sub-path: its locations and cache rules all start at `/`. It asks for
   HTTP/2 on its `listen` lines, which nginx 1.24 (Ubuntu 24.04) loads; `http2
-  on;` would need 1.25.1. Its `location ^~ /api/` proxies the site's API to
-  `server/start.mjs` (below); with no API running there nginx answers `api/`
-  with 502 and the page draws no sign-in or shop, so delete that block to serve
-  the site without one, and the folder's `api/config` then says nothing is on.
+  on;` would need 1.25.1. Both of its servers, the plain-HTTP redirect's too,
+  name no version (`server_tokens off`). Its `location ^~ /api/` proxies the
+  site's API to `server/start.mjs` (below); with no API running there nginx
+  answers `api/` with its 502 status and the site's not-found page, with every
+  header of the site, and the page draws no sign-in or shop, so delete that
+  block to serve the site without one, and the folder's `api/config` then says
+  nothing is on.
 
 Apache and nginx serve the site's own paths and answer 404 for every other
 address, so a checkout published by mistake gives away none of the
@@ -286,11 +296,16 @@ and Stripe set-up. This app's Stripe prices are `STRIPE_PRICE_SUPPORTER`,
 - **Self-hosted**: `KIT_DATA_DIR=/var/lib/two-kings-chess node server/start.mjs`
   (one process, as its own user, the data directory outside the web root)
   listens on 127.0.0.1:8788, and `deploy/nginx.conf`'s `location ^~ /api/`
-  proxies to it. Apache's `.htaccess` cannot proxy (`mod_proxy` is server
-  configuration): in the virtual host, `ProxyPass "/api/" "http://127.0.0.1:8788/api/"`
-  with `mod_proxy` and `mod_proxy_http`. The proxy answers `api/` before
-  `.htaccess` is read (checked on Apache 2.4.58), so none of its headers reach
-  those answers: the kit sends its own, and HSTS there is the virtual host's.
+  proxies to it. On Apache the proxy goes in the virtual host, since `ProxyPass`
+  is server configuration, which an `.htaccess` cannot hold:
+  `ProxyPass "/api/" "http://127.0.0.1:8788/api/"` with `mod_proxy` and
+  `mod_proxy_http`, and beside it `ErrorDocument 502 /404.html`,
+  `ErrorDocument 503 /404.html` and `ErrorDocument 504 /404.html`, so that with
+  the API not running Apache answers with the site's not-found page, its status
+  kept, rather than its own 503 page with none of the site's headers. The proxy
+  answers `api/` before `.htaccess` is read (checked on Apache 2.4.58), so none
+  of its headers reach those answers: the kit sends its own, and HSTS there is
+  the virtual host's.
 - **GitHub Pages, Netlify**: no backend runs, so there is no sign-in or shop.
 
 Give the site an origin of its own before switching the shop on: every page on
@@ -382,8 +397,12 @@ waited on and why), the helper it was in and the app's state
 
 CI (`.github/workflows/ci.yml`) runs the lint, the type check, the unit tests,
 the conventions test, a Metro bundle for Android and web, and the end-to-end
-suite on every push; a separate job runs
-`npm audit --omit=dev --audit-level=high` against the lockfile.
+suite on every push; a separate job runs `node .github/audit/npm-audit.mjs`, the
+shared audit gate: `npm audit --omit=dev` against the lockfile, failing on every
+high or critical advisory but those `.github/audit/accepted.json` accepts
+(braces and node-forge, which arrive only through build and development tooling,
+are in neither the app bundle nor the website, and have no release to take; each
+entry names every route it arrives by and expires within 90 days).
 
 ### Balance harness
 
