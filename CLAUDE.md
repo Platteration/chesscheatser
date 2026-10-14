@@ -89,13 +89,13 @@ an optional cheating computer opponent.
   canonical copy, its `.d.ts` files included, and never edited here (a change goes
   to the canonical copy; `diff -r` against it is empty, and the conventions test
   holds it to the canonical copy's hash, `KIT_SHA`); `server/catalogue.js` sells
-  the four existing purchases, one Stripe product each; `server/start.mjs` is the Node start script;
-  `server/package.json` only makes `server/` ES modules (as the kit's own does),
-  so Node loads the catalogue without reparsing it; `functions/api/[[path]].js`
-  is the Cloudflare Pages entry. The page's side: `src/shop.web.ts` (the client,
-  web only), `src/shop.ts` (its inert twin for every other platform),
-  `src/shopTypes.ts` (types and the shared words), `src/account.tsx` (the
-  provider) and `src/ui/AccountCard.tsx`.
+  the four existing purchases, one Stripe product each; `server/start.mjs` is the
+  Node start script; `server/package.json` only makes `server/` ES modules (as the
+  kit's own does), so Node loads the catalogue without reparsing it;
+  `functions/api/[[path]].js` is the Cloudflare Pages entry. The page's side:
+  `src/shop.web.ts` (the client, web only), `src/shop.ts` (its inert twin for
+  every other platform), `src/shopTypes.ts` (types and the shared words),
+  `src/account.tsx` (the provider) and `src/ui/AccountCard.tsx`.
 - `scripts/mine-puzzles.ts` regenerates `assets/puzzles.json`
   (`npx tsx scripts/mine-puzzles.ts 25 1000 12`).
 - `scripts/simulate.ts` is the balance harness: computer vs computer with

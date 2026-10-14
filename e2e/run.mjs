@@ -8,7 +8,7 @@
 import fs from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
-import { assert, cellCounts, clickSquares, collectFailures, currentHelper, currentPage, describeApp, draftCount, exact, gameOver, launch, makeAnyMove, openApp, readBoard, resetDraftCount, serve, sq, text, unlockPro, waitHuman, walkPawnToLastRank, watchPolicy } from './lib.mjs';
+import { assert, cellCounts, clickSquares, collectFailures, currentHelper, currentPage, describeApp, draftCount, exact, gameOver, launch, makeAnyMove, openApp, readBoard, resetDraftCount, serve, sq, text, unlockPro, waitHuman, watchPolicy } from './lib.mjs';
 import { apacheRefuses, netlifyRefuses, nginxRefuses, parseNginx } from './hosts.mjs';
 import { headersFor, parseHeaders } from './serve.mjs';
 import { metaPolicy, sitePolicy } from '../scripts/build-web.mjs';
@@ -62,6 +62,38 @@ const DRAFT_GAME = {
   humanColor: 'w',
   config: { mode: 'local', difficulty: 'medium', material: 'chaos', playAs: 'w', armySize: 'any', cheating: 'off', comeback: true, doubleCheck: 'answer' },
   events: [],
+};
+
+/** Square `name`'s index on the engine's board: a1 is 0, h1 7, a8 56. */
+const at = (name) => name.charCodeAt(0) - 97 + 8 * (Number(name[1]) - 1);
+/** A move event as the game stores it. */
+const moved = (from, to, piece, extra = {}) => ({ type: 'move', move: { from: at(from), to: at(to), piece, ...extra } });
+
+/**
+ * A game one push from a promotion, for the promotion picker: seed 12's small fair armies, pass
+ * and play (no computer), comeback powers off (no draft), no clock, and ten moves that walk
+ * White's e-pawn to e7 while Black answers with h-pawn pushes and king moves (none a capture, none
+ * giving check), so e7-e8 is White's to play and opens the picker. Found with the app's own engine
+ * (src/engine): the moves replay onto seed 12's armies with the game still on and e7-e8 a legal
+ * promotion. Walked up the board from dealt armies instead, the scenario failed 2 of 36 runs: six
+ * armies with no clear file, and a push that mated Black and left a board it could not click.
+ */
+const PROMOTION_GAME = {
+  seed: 12,
+  humanColor: 'w',
+  config: { mode: 'local', difficulty: 'medium', material: 'fair', playAs: 'w', armySize: 'small', cheating: 'off', comeback: false, doubleCheck: 'answer' },
+  events: [
+    moved('e2', 'e3', 'p'),
+    moved('h7', 'h5', 'p', { doublePush: true }),
+    moved('e3', 'e4', 'p'),
+    moved('h5', 'h4', 'p'),
+    moved('e4', 'e5', 'p'),
+    moved('h4', 'h3', 'p'),
+    moved('e5', 'e6', 'p'),
+    moved('b8', 'a7', 'k'),
+    moved('e6', 'e7', 'p'),
+    moved('a7', 'a6', 'k'),
+  ],
 };
 
 /** A name a build gives a new value when the content changes: index-<hash>.js, <name>.<hash>.<ext>. */
@@ -583,22 +615,19 @@ const scenarios = {
     // Nothing drove the picker before, so neither its dismissal nor the way it
     // stacks on the web had ever been exercised: a sheet covered by its own
     // backdrop would cancel every promotion and the suite would not notice.
-    // Reduce motion planted rather than clicked: the glide redraws squares, and
-    // this scenario reads legal moves from how many children a square has.
+    // The game is planted one push from a promotion (PROMOTION_GAME says why it
+    // is not dealt), and reduce motion with it: the glide redraws squares while
+    // the board is read back.
     const { page, context, errors } = await openApp(browser, url, undefined, {
-      storage: { 'twokings.appsettings.v1': JSON.stringify({ seenIntro: true, reduceMotion: 'on' }) },
+      storage: { 'twokings.appsettings.v1': JSON.stringify({ seenIntro: true, reduceMotion: 'on' }), 'twokings.game.v1': JSON.stringify(PROMOTION_GAME) },
     });
-    await exact(page, 'Pass & play').click(); // both sides are the tester, so a pawn can be walked up the board
-    await exact(page, 'Off').first().click(); // comeback powers off: no power moves among the pawn's targets
-    await exact(page, 'Small').click(); // fewer pieces, so a file is more likely to be clear
-    let promoting = null;
-    for (let armies = 0; armies < 6 && !promoting; armies++) {
-      if (armies === 0) await exact(page, 'New game with these settings').click();
-      else await exact(page, 'New armies').click();
-      await page.waitForTimeout(600);
-      promoting = await walkPawnToLastRank(page);
-    }
-    assert(promoting, 'a pawn reached the last rank within six armies');
+    await exact(page, 'Resume game').click();
+    assert((await text(page, '/· seed 12$/')) !== null, 'the pinned armies are on the board');
+    await waitHuman(page);
+    const promoting = { from: 'e7', to: 'e8' };
+    const ready = await readBoard(page);
+    assert(ready.e7?.type === 'pawn' && ready.e7.color === 'white' && ready.e8 === null, 'a white pawn stands on e7 with e8 free: ' + JSON.stringify([ready.e7, ready.e8]));
+    assert((await exact(page, 'White to move').count()) === 1, 'White is to move, with no king in check: ' + (await describeApp(page)));
 
     // The modal fades in and out, so the picker is waited for rather than
     // sampled after a fixed pause: a cancel that has been accepted but is still
