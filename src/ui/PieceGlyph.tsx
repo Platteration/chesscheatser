@@ -44,8 +44,10 @@ export const PieceGlyph = React.memo(function PieceGlyph({ piece, size }: Props)
         {
           fontSize: size * 0.78,
           lineHeight: size,
-          color: pieceInk(classic, white, neon),
-          ...pieceHalo(classic, white, neon),
+          color: classic ? '#141414' : white ? '#fff5df' : '#24333e',
+          textShadowColor: classic ? 'rgba(255,255,255,0.6)' : white ? 'rgba(0,0,0,0.9)' : 'rgba(255,255,255,0.45)',
+          textShadowRadius: classic ? 1 : 0,
+          textShadowOffset: { width: 0, height: classic ? 0 : 2 },
         },
       ]}
     >
