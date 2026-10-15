@@ -1,0 +1,568 @@
+{
+  "style": "arcade",
+  "name": "Arcade Pop",
+  "description": "Bold colours, faceted chess pieces and simple enamel tokens.",
+  "generator": "Blender 4.3.2",
+  "renderEngine": "Cycles CPU",
+  "source": "source/arcade.blend",
+  "sprites": [
+    {
+      "id": "chess-white-pawn",
+      "family": "chess",
+      "file": "arcade/sprites/chess-white-pawn.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "03d0e73ee9006e51a6d26ca446484f9a8778aae748358712f4d75d1d3cdf5289",
+      "visibleBounds": {
+        "x": 80,
+        "y": 86,
+        "width": 96,
+        "height": 153
+      }
+    },
+    {
+      "id": "chess-white-knight",
+      "family": "chess",
+      "file": "arcade/sprites/chess-white-knight.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "f1dc39669bb669ee86a494f54c1c777b4e99c93959f5bda0d5186577c387899e",
+      "visibleBounds": {
+        "x": 80,
+        "y": 46,
+        "width": 100,
+        "height": 193
+      }
+    },
+    {
+      "id": "chess-white-bishop",
+      "family": "chess",
+      "file": "arcade/sprites/chess-white-bishop.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "5b439a4f19ba1c695cb1ebeb4c5e7c5610f5ad93f2ce3b4c5fb9c0d1f4ffa9ff",
+      "visibleBounds": {
+        "x": 80,
+        "y": 53,
+        "width": 96,
+        "height": 186
+      }
+    },
+    {
+      "id": "chess-white-rook",
+      "family": "chess",
+      "file": "arcade/sprites/chess-white-rook.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "4a974eefdcf34cd0e7a8f22e4f0ea39d6a21cc06e8c40a2b3163d63e51f3fef3",
+      "visibleBounds": {
+        "x": 80,
+        "y": 39,
+        "width": 96,
+        "height": 200
+      }
+    },
+    {
+      "id": "chess-white-queen",
+      "family": "chess",
+      "file": "arcade/sprites/chess-white-queen.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "f19eecb1d65948d82ce021c44b31b2442a7e591d68251aa87931a17975582c0a",
+      "visibleBounds": {
+        "x": 80,
+        "y": 39,
+        "width": 96,
+        "height": 200
+      }
+    },
+    {
+      "id": "chess-white-king",
+      "family": "chess",
+      "file": "arcade/sprites/chess-white-king.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "ed7c40b5210757062acc3fd40273a5d934e54b83259b972090334882b0f6c6b0",
+      "visibleBounds": {
+        "x": 80,
+        "y": 19,
+        "width": 96,
+        "height": 220
+      }
+    },
+    {
+      "id": "chess-black-pawn",
+      "family": "chess",
+      "file": "arcade/sprites/chess-black-pawn.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "acd5ae1fe2036bee3d4db1933f47e972b6209a160e66eef3b8d5669f868074b7",
+      "visibleBounds": {
+        "x": 80,
+        "y": 86,
+        "width": 96,
+        "height": 153
+      }
+    },
+    {
+      "id": "chess-black-knight",
+      "family": "chess",
+      "file": "arcade/sprites/chess-black-knight.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "dc3ce9559fe1fbc0692106c75d217da51d7cdd4d3df508ff043d0903296cf4f4",
+      "visibleBounds": {
+        "x": 80,
+        "y": 46,
+        "width": 100,
+        "height": 193
+      }
+    },
+    {
+      "id": "chess-black-bishop",
+      "family": "chess",
+      "file": "arcade/sprites/chess-black-bishop.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "3db96c5bc226c6c57c2682f83fabbd18fc4366b2bf8a4d35bba94aaa01caf2e7",
+      "visibleBounds": {
+        "x": 80,
+        "y": 53,
+        "width": 96,
+        "height": 186
+      }
+    },
+    {
+      "id": "chess-black-rook",
+      "family": "chess",
+      "file": "arcade/sprites/chess-black-rook.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "c6ad13bd638c502f9948145966a57bb767df8aa8ae72046c25bc353d0f3d10e7",
+      "visibleBounds": {
+        "x": 80,
+        "y": 39,
+        "width": 96,
+        "height": 200
+      }
+    },
+    {
+      "id": "chess-black-queen",
+      "family": "chess",
+      "file": "arcade/sprites/chess-black-queen.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "7bd73b61a4f486a02015a29cecaee8bd5e9751fe551140d2b98b9eab9f8bd173",
+      "visibleBounds": {
+        "x": 80,
+        "y": 39,
+        "width": 96,
+        "height": 200
+      }
+    },
+    {
+      "id": "chess-black-king",
+      "family": "chess",
+      "file": "arcade/sprites/chess-black-king.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "355bca3e47b06db5aea8ff7025ee6667fab429c8ce6b9fdb361e4274692d0473",
+      "visibleBounds": {
+        "x": 80,
+        "y": 19,
+        "width": 96,
+        "height": 220
+      }
+    },
+    {
+      "id": "checkers-red-man",
+      "family": "checkers",
+      "file": "arcade/sprites/checkers-red-man.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "c1c97c5518851d97191de57115a8715d3ebc611280918e18c360e98b84100eeb",
+      "visibleBounds": {
+        "x": 34,
+        "y": 41,
+        "width": 189,
+        "height": 180
+      }
+    },
+    {
+      "id": "checkers-red-king",
+      "family": "checkers",
+      "file": "arcade/sprites/checkers-red-king.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "70670f5fb1dcd0f7fde14cfd1d454319a02f2322836758274500e5cd012fc742",
+      "visibleBounds": {
+        "x": 34,
+        "y": 41,
+        "width": 189,
+        "height": 180
+      }
+    },
+    {
+      "id": "checkers-black-man",
+      "family": "checkers",
+      "file": "arcade/sprites/checkers-black-man.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "7ff8c041baf678d0f9d635c057b093b0011968b27243814b9ced1f514d7dc89a",
+      "visibleBounds": {
+        "x": 34,
+        "y": 41,
+        "width": 189,
+        "height": 180
+      }
+    },
+    {
+      "id": "checkers-black-king",
+      "family": "checkers",
+      "file": "arcade/sprites/checkers-black-king.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "e15b0d7d6c9180affecde55e0123a41d6012173d0dd9eabdb21a48756f8375bb",
+      "visibleBounds": {
+        "x": 34,
+        "y": 41,
+        "width": 189,
+        "height": 180
+      }
+    },
+    {
+      "id": "connect4-red-disc",
+      "family": "connect4",
+      "file": "arcade/sprites/connect4-red-disc.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "ff210042546a59a7a4c8d4c93dfb2fc47832dc8f4a599595ec3b4eb256a6779f",
+      "visibleBounds": {
+        "x": 34,
+        "y": 41,
+        "width": 189,
+        "height": 180
+      }
+    },
+    {
+      "id": "connect4-yellow-disc",
+      "family": "connect4",
+      "file": "arcade/sprites/connect4-yellow-disc.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "2e1452652c02b6674babf26ac2cf3775613d5c95c1d168be8614906f6f597641",
+      "visibleBounds": {
+        "x": 34,
+        "y": 41,
+        "width": 189,
+        "height": 180
+      }
+    },
+    {
+      "id": "sudoku-digit-1",
+      "family": "sudoku",
+      "file": "arcade/sprites/sudoku-digit-1.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "483e8ceea342f3cd1ac74b36e0d0c67f82d6cce3cb76ad901a19e02e912e0ca4",
+      "visibleBounds": {
+        "x": 25,
+        "y": 25,
+        "width": 206,
+        "height": 206
+      }
+    },
+    {
+      "id": "sudoku-digit-2",
+      "family": "sudoku",
+      "file": "arcade/sprites/sudoku-digit-2.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "cb27c516812a8b753c193b6d06262b7dafcf2d599d8beb22467824bc9c10d7ea",
+      "visibleBounds": {
+        "x": 25,
+        "y": 25,
+        "width": 206,
+        "height": 206
+      }
+    },
+    {
+      "id": "sudoku-digit-3",
+      "family": "sudoku",
+      "file": "arcade/sprites/sudoku-digit-3.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "7414497e3ae5cb56f9faea2f6fea9a02a311168515dbfd738517134b5951ec88",
+      "visibleBounds": {
+        "x": 25,
+        "y": 25,
+        "width": 206,
+        "height": 206
+      }
+    },
+    {
+      "id": "sudoku-digit-4",
+      "family": "sudoku",
+      "file": "arcade/sprites/sudoku-digit-4.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "cf4daee7cfb6eecd91bb57da0320b1aa827d105d32338cea530a2d1ad3d9c689",
+      "visibleBounds": {
+        "x": 25,
+        "y": 25,
+        "width": 206,
+        "height": 206
+      }
+    },
+    {
+      "id": "sudoku-digit-5",
+      "family": "sudoku",
+      "file": "arcade/sprites/sudoku-digit-5.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "33f4ad572ebdfa289d5f1b9e2ccec7f5d2207003ede4fadace4448ce04f1ffe3",
+      "visibleBounds": {
+        "x": 25,
+        "y": 25,
+        "width": 206,
+        "height": 206
+      }
+    },
+    {
+      "id": "sudoku-digit-6",
+      "family": "sudoku",
+      "file": "arcade/sprites/sudoku-digit-6.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "222190c7a42ab8360cef7237fac2cfdb8a24d0b6ebbe7abbe95f974922c7e43f",
+      "visibleBounds": {
+        "x": 25,
+        "y": 25,
+        "width": 206,
+        "height": 206
+      }
+    },
+    {
+      "id": "sudoku-digit-7",
+      "family": "sudoku",
+      "file": "arcade/sprites/sudoku-digit-7.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "3aeac7a634f580155ada43eb850929f8068d66169361a310a45728d6c8f84a39",
+      "visibleBounds": {
+        "x": 25,
+        "y": 25,
+        "width": 206,
+        "height": 206
+      }
+    },
+    {
+      "id": "sudoku-digit-8",
+      "family": "sudoku",
+      "file": "arcade/sprites/sudoku-digit-8.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "deff8a656e8bdba508aac93bd30d07e3f514031d90f17b8c64e1e62f60f46387",
+      "visibleBounds": {
+        "x": 25,
+        "y": 25,
+        "width": 206,
+        "height": 206
+      }
+    },
+    {
+      "id": "sudoku-digit-9",
+      "family": "sudoku",
+      "file": "arcade/sprites/sudoku-digit-9.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "801d503c147202718cb9fa1c6a7382e7c0d6e8ce42c81a2e977172adcf2155e7",
+      "visibleBounds": {
+        "x": 25,
+        "y": 25,
+        "width": 206,
+        "height": 206
+      }
+    },
+    {
+      "id": "sudoku-blank",
+      "family": "sudoku",
+      "file": "arcade/sprites/sudoku-blank.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "73dede5e5c09037144fde475ce38947f5dfa7188d69319b770c6e7f0f9b43df3",
+      "visibleBounds": {
+        "x": 25,
+        "y": 25,
+        "width": 206,
+        "height": 206
+      }
+    },
+    {
+      "id": "sudoku-selected",
+      "family": "sudoku",
+      "file": "arcade/sprites/sudoku-selected.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "276a9a29a1df38b1167e63bf899d67a664edf54c425b57a99452300e67676ab6",
+      "visibleBounds": {
+        "x": 25,
+        "y": 25,
+        "width": 206,
+        "height": 206
+      }
+    },
+    {
+      "id": "sudoku-notes",
+      "family": "sudoku",
+      "file": "arcade/sprites/sudoku-notes.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "cbe09c23256bdc1f13d627da07617f9fe9b869ccc5bf3a688e5ceeccbc0560ca",
+      "visibleBounds": {
+        "x": 25,
+        "y": 25,
+        "width": 206,
+        "height": 206
+      }
+    },
+    {
+      "id": "sudoku-error",
+      "family": "sudoku",
+      "file": "arcade/sprites/sudoku-error.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "e8bacd366c4729185a3803fe968e2b765e51a331abda1fbd2d3019ca27e00e03",
+      "visibleBounds": {
+        "x": 25,
+        "y": 25,
+        "width": 206,
+        "height": 206
+      }
+    },
+    {
+      "id": "fx-selection-ring",
+      "family": "effects",
+      "file": "arcade/sprites/fx-selection-ring.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "03bdaa979ab39654eb7fa464172658f0ff790e98c8b016bb7ca3f6e48d80aaab",
+      "visibleBounds": {
+        "x": 10,
+        "y": 25,
+        "width": 236,
+        "height": 217
+      }
+    },
+    {
+      "id": "fx-timeline-portal",
+      "family": "effects",
+      "file": "arcade/sprites/fx-timeline-portal.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "eaa0117122957f439195e95578f5c4e4a2378f5a89a8a07644fcbbb798994327",
+      "visibleBounds": {
+        "x": 22,
+        "y": 37,
+        "width": 212,
+        "height": 194
+      }
+    },
+    {
+      "id": "fx-shift-arrows",
+      "family": "effects",
+      "file": "arcade/sprites/fx-shift-arrows.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "50e1bc09a5acb0181e3faf074bf9c1733383dd74fe3ecd964fecb3849ae3e00d",
+      "visibleBounds": {
+        "x": 26,
+        "y": 48,
+        "width": 204,
+        "height": 172
+      }
+    },
+    {
+      "id": "fx-crown-badge",
+      "family": "effects",
+      "file": "arcade/sprites/fx-crown-badge.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "a47ba316c1fd4e8a38351de75cb628e6672ea7fe50adddf9f2ee16503607691b",
+      "visibleBounds": {
+        "x": 27,
+        "y": 40,
+        "width": 202,
+        "height": 187
+      }
+    }
+  ],
+  "boards": [
+    {
+      "game": "chess",
+      "file": "arcade/boards/chess.png",
+      "width": 1024,
+      "height": 1024,
+      "position": "Mirror armies, full size, two kings per side, seed 1; initial state.",
+      "kind": "Concept render",
+      "sha256": "b566f95a16ff44a569fd56151f6748b08d9ab127692bd50c974cd779d80c790a"
+    },
+    {
+      "game": "checkers",
+      "file": "arcade/boards/checkers.png",
+      "width": 1024,
+      "height": 1024,
+      "position": "After b3-a4, g6-h5, d3-c4, e6-f5; turn 4.",
+      "kind": "Concept render",
+      "sha256": "a192ed6472ab683cd7a4902b11ae355d21a9336e17248e1373ad869fde97b01e"
+    },
+    {
+      "game": "connect4",
+      "file": "arcade/boards/connect4.png",
+      "width": 1024,
+      "height": 1024,
+      "position": "After drops into columns 1, 7, 2, 7; turn 4.",
+      "kind": "Concept render",
+      "sha256": "bb45e3c5ba7df65461d79da8df6903534d33ea71369b0b5de18a7ff60442686a"
+    },
+    {
+      "game": "sudoku",
+      "file": "arcade/boards/sudoku.png",
+      "width": 1024,
+      "height": 1024,
+      "position": "Seed 20261011; selected cell has pencil notes 1, 3, 7.",
+      "kind": "Concept render",
+      "sha256": "d44d72ce88f4ad226f21c728bbc608bc54db97c2efb573c4ba585a40ef52eab9"
+    }
+  ],
+  "palette": {
+    "name": "Arcade Pop",
+    "description": "Bold colours, faceted chess pieces and simple enamel tokens.",
+    "background": "#f4efdf",
+    "frame": "#223859",
+    "light": "#f4e4bf",
+    "dark": "#40729e",
+    "white": "#fff3d8",
+    "black": "#19364e",
+    "whiteEdge": "#dbab52",
+    "blackEdge": "#7de1c8",
+    "red": "#f24f57",
+    "yellow": "#ffd452",
+    "accent": "#33c8b1",
+    "secondary": "#8059bf",
+    "ink": "#192e45",
+    "surface": "#fff8e6",
+    "muted": "#56656b",
+    "blue": "#3a73c9",
+    "selected": "#8ce4d0",
+    "error": "#d53250",
+    "roughness": 0.7,
+    "metallic": 0.0,
+    "coat": 0.0,
+    "segments": 12,
+    "bevel": 0.025
+  },
+  "renderSeconds": 182.7,
+  "atlas": "arcade/atlas.png",
+  "atlasMetadata": "arcade/atlas.json"
+}

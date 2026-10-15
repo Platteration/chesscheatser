@@ -1,0 +1,568 @@
+{
+  "style": "porcelain",
+  "name": "Porcelain Studio",
+  "description": "Warm ivory, glazed blue pieces and brushed brass details.",
+  "generator": "Blender 4.3.2",
+  "renderEngine": "Cycles CPU",
+  "source": "source/porcelain.blend",
+  "sprites": [
+    {
+      "id": "chess-white-pawn",
+      "family": "chess",
+      "file": "porcelain/sprites/chess-white-pawn.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "392e75b5a67b94e30435fe823b5f84c68f0feebb8ff307d33cabc80fe03314d5",
+      "visibleBounds": {
+        "x": 80,
+        "y": 82,
+        "width": 96,
+        "height": 157
+      }
+    },
+    {
+      "id": "chess-white-knight",
+      "family": "chess",
+      "file": "porcelain/sprites/chess-white-knight.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "c0d89b6f8a0d310f8059014d66b0364ba5a1549a642064b8342cc8798432b79e",
+      "visibleBounds": {
+        "x": 80,
+        "y": 45,
+        "width": 100,
+        "height": 194
+      }
+    },
+    {
+      "id": "chess-white-bishop",
+      "family": "chess",
+      "file": "porcelain/sprites/chess-white-bishop.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "0205b251105aa587fe71b1b3d4cb84c945893e587c71508605bbc8b3f888a343",
+      "visibleBounds": {
+        "x": 80,
+        "y": 52,
+        "width": 96,
+        "height": 187
+      }
+    },
+    {
+      "id": "chess-white-rook",
+      "family": "chess",
+      "file": "porcelain/sprites/chess-white-rook.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "5558c3767e05ce6a30cac6ed943d1c57b375b9b15f628ff78e9d145261b1c18d",
+      "visibleBounds": {
+        "x": 80,
+        "y": 38,
+        "width": 96,
+        "height": 201
+      }
+    },
+    {
+      "id": "chess-white-queen",
+      "family": "chess",
+      "file": "porcelain/sprites/chess-white-queen.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "ff0fc12e3964a770b19c946339cc4eada7db726d32df9947328943def3362ce3",
+      "visibleBounds": {
+        "x": 80,
+        "y": 38,
+        "width": 96,
+        "height": 201
+      }
+    },
+    {
+      "id": "chess-white-king",
+      "family": "chess",
+      "file": "porcelain/sprites/chess-white-king.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "ae7c1b5e40de671cf6124e64e7cbadd6f93950ebb74862a264a0ad26ef16ee80",
+      "visibleBounds": {
+        "x": 80,
+        "y": 19,
+        "width": 96,
+        "height": 220
+      }
+    },
+    {
+      "id": "chess-black-pawn",
+      "family": "chess",
+      "file": "porcelain/sprites/chess-black-pawn.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "2490a55725ed50aad9198e91c011ae476c6ad7ed80026f5431a869594f2b631e",
+      "visibleBounds": {
+        "x": 80,
+        "y": 82,
+        "width": 96,
+        "height": 157
+      }
+    },
+    {
+      "id": "chess-black-knight",
+      "family": "chess",
+      "file": "porcelain/sprites/chess-black-knight.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "ba0d9376396fdd2c845e640cf10850f715f17f39f90edfa30826b5c6c3dd4ddf",
+      "visibleBounds": {
+        "x": 80,
+        "y": 45,
+        "width": 100,
+        "height": 194
+      }
+    },
+    {
+      "id": "chess-black-bishop",
+      "family": "chess",
+      "file": "porcelain/sprites/chess-black-bishop.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "6dff53ed219017d3ea393b30e9a449386c66fe51792f161d3c1172762c7036c0",
+      "visibleBounds": {
+        "x": 80,
+        "y": 52,
+        "width": 96,
+        "height": 187
+      }
+    },
+    {
+      "id": "chess-black-rook",
+      "family": "chess",
+      "file": "porcelain/sprites/chess-black-rook.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "dfab43acfcbee86bbe67b488875bd96f82d5ec065c0ba9d056696a74c5df37cd",
+      "visibleBounds": {
+        "x": 80,
+        "y": 38,
+        "width": 96,
+        "height": 201
+      }
+    },
+    {
+      "id": "chess-black-queen",
+      "family": "chess",
+      "file": "porcelain/sprites/chess-black-queen.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "c4e9e4a6b819e6721b1cbad904d0b5d7dbaf18e9710b5a0526f5148e04c7a6e6",
+      "visibleBounds": {
+        "x": 80,
+        "y": 38,
+        "width": 96,
+        "height": 201
+      }
+    },
+    {
+      "id": "chess-black-king",
+      "family": "chess",
+      "file": "porcelain/sprites/chess-black-king.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "45b4761b8bbbd6acc5295fa593b91fca162eb82b4b153704473a7a9b7ce7b7b0",
+      "visibleBounds": {
+        "x": 80,
+        "y": 19,
+        "width": 96,
+        "height": 220
+      }
+    },
+    {
+      "id": "checkers-red-man",
+      "family": "checkers",
+      "file": "porcelain/sprites/checkers-red-man.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "44a164d8743429ba8e36bd8a61362cb473b3e2827fb028d4534506dde3a12a8b",
+      "visibleBounds": {
+        "x": 34,
+        "y": 40,
+        "width": 189,
+        "height": 181
+      }
+    },
+    {
+      "id": "checkers-red-king",
+      "family": "checkers",
+      "file": "porcelain/sprites/checkers-red-king.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "6df523b3caa9bd40713401717ef5661e08909196085608bd03501877e945cded",
+      "visibleBounds": {
+        "x": 34,
+        "y": 40,
+        "width": 189,
+        "height": 181
+      }
+    },
+    {
+      "id": "checkers-black-man",
+      "family": "checkers",
+      "file": "porcelain/sprites/checkers-black-man.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "bdbb2acdf1861179bc6a33e18f92f892348fa40e2879f2999cbab868a3d5f1d8",
+      "visibleBounds": {
+        "x": 34,
+        "y": 40,
+        "width": 189,
+        "height": 181
+      }
+    },
+    {
+      "id": "checkers-black-king",
+      "family": "checkers",
+      "file": "porcelain/sprites/checkers-black-king.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "64f984cf9ebdf9df23f3bcf4ed761a376f3ec4fac93c6a8db5c77ff49495c267",
+      "visibleBounds": {
+        "x": 34,
+        "y": 40,
+        "width": 189,
+        "height": 181
+      }
+    },
+    {
+      "id": "connect4-red-disc",
+      "family": "connect4",
+      "file": "porcelain/sprites/connect4-red-disc.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "e21a9f559bc52507262e6252639c8f8f61b6b49c65014ef81a3021c9395c1586",
+      "visibleBounds": {
+        "x": 34,
+        "y": 40,
+        "width": 189,
+        "height": 181
+      }
+    },
+    {
+      "id": "connect4-yellow-disc",
+      "family": "connect4",
+      "file": "porcelain/sprites/connect4-yellow-disc.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "5ac67d7772a0dc965d96d1f302b8281344e8cd510bc98336acc49d3682a37886",
+      "visibleBounds": {
+        "x": 34,
+        "y": 40,
+        "width": 189,
+        "height": 181
+      }
+    },
+    {
+      "id": "sudoku-digit-1",
+      "family": "sudoku",
+      "file": "porcelain/sprites/sudoku-digit-1.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "0e8b084f1872c904e4f6d30cd3a6e8a261815d4473d1a2260698b0e3a1e24485",
+      "visibleBounds": {
+        "x": 25,
+        "y": 26,
+        "width": 206,
+        "height": 205
+      }
+    },
+    {
+      "id": "sudoku-digit-2",
+      "family": "sudoku",
+      "file": "porcelain/sprites/sudoku-digit-2.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "b6f8ef05b58ae834cdfe5d6e6dd54be333435b2d3a9db1af09d7e6fb18bba5e7",
+      "visibleBounds": {
+        "x": 25,
+        "y": 26,
+        "width": 206,
+        "height": 205
+      }
+    },
+    {
+      "id": "sudoku-digit-3",
+      "family": "sudoku",
+      "file": "porcelain/sprites/sudoku-digit-3.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "77100512092c66fbb8a1035daae7e9cb1850b18f4857c16caf740a3feab42454",
+      "visibleBounds": {
+        "x": 25,
+        "y": 26,
+        "width": 206,
+        "height": 205
+      }
+    },
+    {
+      "id": "sudoku-digit-4",
+      "family": "sudoku",
+      "file": "porcelain/sprites/sudoku-digit-4.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "3811d720b183a1c833d4521c13f1ac633a9b775d364a8da0407b676ed14ddda8",
+      "visibleBounds": {
+        "x": 25,
+        "y": 26,
+        "width": 206,
+        "height": 205
+      }
+    },
+    {
+      "id": "sudoku-digit-5",
+      "family": "sudoku",
+      "file": "porcelain/sprites/sudoku-digit-5.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "3937189d44e1aed10008a354422f2f1a98946ac1c019a4221bd91be1d603ff59",
+      "visibleBounds": {
+        "x": 25,
+        "y": 26,
+        "width": 206,
+        "height": 205
+      }
+    },
+    {
+      "id": "sudoku-digit-6",
+      "family": "sudoku",
+      "file": "porcelain/sprites/sudoku-digit-6.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "bf7dbfc670dabe357cfb9911b3ad1a4ddb0c629c4440a34c7e65abfdd2eb0c92",
+      "visibleBounds": {
+        "x": 25,
+        "y": 26,
+        "width": 206,
+        "height": 205
+      }
+    },
+    {
+      "id": "sudoku-digit-7",
+      "family": "sudoku",
+      "file": "porcelain/sprites/sudoku-digit-7.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "bdef767ccf48074e4382e9717377c30de95732681e04a185a9c571e1c5303824",
+      "visibleBounds": {
+        "x": 25,
+        "y": 26,
+        "width": 206,
+        "height": 205
+      }
+    },
+    {
+      "id": "sudoku-digit-8",
+      "family": "sudoku",
+      "file": "porcelain/sprites/sudoku-digit-8.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "c8d9af634a3115780fcf381de1dc965f5007c53d07697838cbe83301484f6d07",
+      "visibleBounds": {
+        "x": 25,
+        "y": 26,
+        "width": 206,
+        "height": 205
+      }
+    },
+    {
+      "id": "sudoku-digit-9",
+      "family": "sudoku",
+      "file": "porcelain/sprites/sudoku-digit-9.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "c260c425c2eead2629db1b63c394e938bb22382e35ee185b1447dfcc4351742d",
+      "visibleBounds": {
+        "x": 25,
+        "y": 26,
+        "width": 206,
+        "height": 205
+      }
+    },
+    {
+      "id": "sudoku-blank",
+      "family": "sudoku",
+      "file": "porcelain/sprites/sudoku-blank.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "11658f65a17e9f1ba3e22010310b9874ae56113893b0215e20efacc3a167ae6d",
+      "visibleBounds": {
+        "x": 25,
+        "y": 26,
+        "width": 206,
+        "height": 205
+      }
+    },
+    {
+      "id": "sudoku-selected",
+      "family": "sudoku",
+      "file": "porcelain/sprites/sudoku-selected.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "767d2cab7ef1cadc24805ddd9e24ad73458db7c87062aee9d67a8b8ca941fb04",
+      "visibleBounds": {
+        "x": 25,
+        "y": 26,
+        "width": 206,
+        "height": 205
+      }
+    },
+    {
+      "id": "sudoku-notes",
+      "family": "sudoku",
+      "file": "porcelain/sprites/sudoku-notes.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "7f5e2e5d27f9aca9b602c2c21fcbd9b285506a1e321f057c5659c37883899a56",
+      "visibleBounds": {
+        "x": 25,
+        "y": 26,
+        "width": 206,
+        "height": 205
+      }
+    },
+    {
+      "id": "sudoku-error",
+      "family": "sudoku",
+      "file": "porcelain/sprites/sudoku-error.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "2342a3cbb8fe4f5a93867dbd6cf6fe15dcb92ee56a6753c8638d1a3cd1bfa4f2",
+      "visibleBounds": {
+        "x": 25,
+        "y": 26,
+        "width": 206,
+        "height": 205
+      }
+    },
+    {
+      "id": "fx-selection-ring",
+      "family": "effects",
+      "file": "porcelain/sprites/fx-selection-ring.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "b4298e4388aed27f0b3a8619cfe771d4a3ff7ea16ff7ba43612d4e7164bdacc5",
+      "visibleBounds": {
+        "x": 9,
+        "y": 25,
+        "width": 238,
+        "height": 218
+      }
+    },
+    {
+      "id": "fx-timeline-portal",
+      "family": "effects",
+      "file": "porcelain/sprites/fx-timeline-portal.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "155cdbfe8ab43ffbc7899555e03310e34c4e611dbe2ff9c33ad5f3c097985319",
+      "visibleBounds": {
+        "x": 22,
+        "y": 37,
+        "width": 212,
+        "height": 194
+      }
+    },
+    {
+      "id": "fx-shift-arrows",
+      "family": "effects",
+      "file": "porcelain/sprites/fx-shift-arrows.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "d7f254f69efd59387aaff2a97bb07e3624ee6d8d35fdb511243171e0576576b0",
+      "visibleBounds": {
+        "x": 26,
+        "y": 48,
+        "width": 204,
+        "height": 172
+      }
+    },
+    {
+      "id": "fx-crown-badge",
+      "family": "effects",
+      "file": "porcelain/sprites/fx-crown-badge.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "24a5c7e9426a3b480b624ccf3f4c1ba048b7ea9d2d5f1a7f8e3868b7f793b231",
+      "visibleBounds": {
+        "x": 27,
+        "y": 39,
+        "width": 202,
+        "height": 188
+      }
+    }
+  ],
+  "boards": [
+    {
+      "game": "chess",
+      "file": "porcelain/boards/chess.png",
+      "width": 1024,
+      "height": 1024,
+      "position": "Mirror armies, full size, two kings per side, seed 1; initial state.",
+      "kind": "Concept render",
+      "sha256": "47c878d07e3e9fd67fec8539a99d12648b658817740bc91bb49f14b27e59c6ba"
+    },
+    {
+      "game": "checkers",
+      "file": "porcelain/boards/checkers.png",
+      "width": 1024,
+      "height": 1024,
+      "position": "After b3-a4, g6-h5, d3-c4, e6-f5; turn 4.",
+      "kind": "Concept render",
+      "sha256": "863b48d10d666ec48cff522a01d67d0b61e320b0505622b7c8eb3a4a718e7d54"
+    },
+    {
+      "game": "connect4",
+      "file": "porcelain/boards/connect4.png",
+      "width": 1024,
+      "height": 1024,
+      "position": "After drops into columns 1, 7, 2, 7; turn 4.",
+      "kind": "Concept render",
+      "sha256": "406a148423484ff41ceffde77e2a9a0accf0098737880b451b9a8f96fa3ef427"
+    },
+    {
+      "game": "sudoku",
+      "file": "porcelain/boards/sudoku.png",
+      "width": 1024,
+      "height": 1024,
+      "position": "Seed 20261011; selected cell has pencil notes 1, 3, 7.",
+      "kind": "Concept render",
+      "sha256": "c0507cd611b765e9a1dcae2f16e30442bc5380521ab6a5cbb5994ec17e3df9fb"
+    }
+  ],
+  "palette": {
+    "name": "Porcelain Studio",
+    "description": "Warm ivory, glazed blue pieces and brushed brass details.",
+    "background": "#e9e0d1",
+    "frame": "#72564a",
+    "light": "#eee0c7",
+    "dark": "#a18070",
+    "white": "#fff1dc",
+    "black": "#31596b",
+    "whiteEdge": "#c49a5b",
+    "blackEdge": "#e2bc79",
+    "red": "#d46359",
+    "yellow": "#e5bb62",
+    "accent": "#71b7a4",
+    "secondary": "#b397ba",
+    "ink": "#323c43",
+    "surface": "#fff5e4",
+    "muted": "#646c70",
+    "blue": "#456b91",
+    "selected": "#abdbcc",
+    "error": "#b74648",
+    "roughness": 0.24,
+    "metallic": 0.0,
+    "coat": 0.45,
+    "segments": 64,
+    "bevel": 0.055
+  },
+  "renderSeconds": 198.5,
+  "atlas": "porcelain/atlas.png",
+  "atlasMetadata": "porcelain/atlas.json"
+}

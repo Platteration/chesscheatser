@@ -1,0 +1,28 @@
+{
+  "styles": 3,
+  "spriteFamilies": 5,
+  "spritesLoaded": 105,
+  "boardsLoaded": 12,
+  "backgroundOptions": [
+    "light",
+    "dark",
+    "checkerboard"
+  ],
+  "sizeOptions": [
+    48,
+    96,
+    160,
+    256
+  ],
+  "viewportWidths": [
+    1440,
+    390
+  ],
+  "checkedGalleryLinks": 39,
+  "browserErrors": [],
+  "failedRequests": [],
+  "externalRequests": [],
+  "originalBundleFilesPreserved": 87,
+  "repositoriesPreserved": true,
+  "galleryServingMode": "Local static HTTP; the gallery uses relative files and no external dependencies."
+}

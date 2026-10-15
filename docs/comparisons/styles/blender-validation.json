@@ -1,0 +1,29 @@
+[
+  {
+    "style": "arcade",
+    "scenes": 5,
+    "namedAssets": 35,
+    "objects": 962,
+    "externalImages": [],
+    "externalFonts": [],
+    "bytes": 369243
+  },
+  {
+    "style": "neon",
+    "scenes": 5,
+    "namedAssets": 35,
+    "objects": 956,
+    "externalImages": [],
+    "externalFonts": [],
+    "bytes": 645871
+  },
+  {
+    "style": "porcelain",
+    "scenes": 5,
+    "namedAssets": 35,
+    "objects": 956,
+    "externalImages": [],
+    "externalFonts": [],
+    "bytes": 675847
+  }
+]

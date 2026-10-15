@@ -1,0 +1,568 @@
+{
+  "style": "neon",
+  "name": "Neon Circuit",
+  "description": "Midnight surfaces, luminous rims and cyan-violet pieces.",
+  "generator": "Blender 4.3.2",
+  "renderEngine": "Cycles CPU",
+  "source": "source/neon.blend",
+  "sprites": [
+    {
+      "id": "chess-white-pawn",
+      "family": "chess",
+      "file": "neon/sprites/chess-white-pawn.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "7a53ac7473bf3b666af4fae7c634a7d14a9c5d8e06025dcef6e2ceb6e028bb1a",
+      "visibleBounds": {
+        "x": 80,
+        "y": 82,
+        "width": 96,
+        "height": 157
+      }
+    },
+    {
+      "id": "chess-white-knight",
+      "family": "chess",
+      "file": "neon/sprites/chess-white-knight.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "d3098f025052800d0bce0234d73701272be710641509cfe0e0c4918d0a35550c",
+      "visibleBounds": {
+        "x": 80,
+        "y": 45,
+        "width": 100,
+        "height": 194
+      }
+    },
+    {
+      "id": "chess-white-bishop",
+      "family": "chess",
+      "file": "neon/sprites/chess-white-bishop.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "4fb831ad1d0e0176efa87a9fd248b1cb5cb95ba301a151249623be85b9298354",
+      "visibleBounds": {
+        "x": 80,
+        "y": 52,
+        "width": 96,
+        "height": 187
+      }
+    },
+    {
+      "id": "chess-white-rook",
+      "family": "chess",
+      "file": "neon/sprites/chess-white-rook.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "193d19a5c456a137c3c2eea4e96c8077c968a1809a656b69c7a5c0abac32cf33",
+      "visibleBounds": {
+        "x": 80,
+        "y": 38,
+        "width": 96,
+        "height": 201
+      }
+    },
+    {
+      "id": "chess-white-queen",
+      "family": "chess",
+      "file": "neon/sprites/chess-white-queen.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "9e2d998c6ba891ce6709235f15040f8499263f56f5595d352b6ff4cc14ae0933",
+      "visibleBounds": {
+        "x": 80,
+        "y": 38,
+        "width": 96,
+        "height": 201
+      }
+    },
+    {
+      "id": "chess-white-king",
+      "family": "chess",
+      "file": "neon/sprites/chess-white-king.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "f27cab2288b7c92e6e10d1b1174c64aadcd84f6b4c92849562a0641dac65f931",
+      "visibleBounds": {
+        "x": 80,
+        "y": 19,
+        "width": 96,
+        "height": 220
+      }
+    },
+    {
+      "id": "chess-black-pawn",
+      "family": "chess",
+      "file": "neon/sprites/chess-black-pawn.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "72c1709dd4cbb6c5ba339e70690e87c5ecb2c69d8bea2f6218bbb29a4e9fcaa3",
+      "visibleBounds": {
+        "x": 80,
+        "y": 82,
+        "width": 96,
+        "height": 157
+      }
+    },
+    {
+      "id": "chess-black-knight",
+      "family": "chess",
+      "file": "neon/sprites/chess-black-knight.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "5ed33867cbb4544ff66bbe525831ec60e933100c66505e8ab458030dde3295fb",
+      "visibleBounds": {
+        "x": 80,
+        "y": 45,
+        "width": 100,
+        "height": 194
+      }
+    },
+    {
+      "id": "chess-black-bishop",
+      "family": "chess",
+      "file": "neon/sprites/chess-black-bishop.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "1feb766e9b960a9add4402ede476a4856b7009a7f9aa48280e3b048b3f3480bf",
+      "visibleBounds": {
+        "x": 80,
+        "y": 52,
+        "width": 96,
+        "height": 187
+      }
+    },
+    {
+      "id": "chess-black-rook",
+      "family": "chess",
+      "file": "neon/sprites/chess-black-rook.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "da3ce848713a0a6c513027c6360181737b5869cc9b0f2610a2963d5824f6c33b",
+      "visibleBounds": {
+        "x": 80,
+        "y": 38,
+        "width": 96,
+        "height": 201
+      }
+    },
+    {
+      "id": "chess-black-queen",
+      "family": "chess",
+      "file": "neon/sprites/chess-black-queen.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "1d3b50eecce384d748f76d508b3c361bb0f0ad400a51955da47f3feb57b40839",
+      "visibleBounds": {
+        "x": 80,
+        "y": 38,
+        "width": 96,
+        "height": 201
+      }
+    },
+    {
+      "id": "chess-black-king",
+      "family": "chess",
+      "file": "neon/sprites/chess-black-king.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "1636edfcd87f6a5a3cb091d25564f558068367e9aaf6edd2f26abef4432e716a",
+      "visibleBounds": {
+        "x": 80,
+        "y": 19,
+        "width": 96,
+        "height": 220
+      }
+    },
+    {
+      "id": "checkers-red-man",
+      "family": "checkers",
+      "file": "neon/sprites/checkers-red-man.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "442f8a163954c96e097590d9fb8c57983314a0bd2042e06d1b98145fff61804e",
+      "visibleBounds": {
+        "x": 34,
+        "y": 41,
+        "width": 189,
+        "height": 180
+      }
+    },
+    {
+      "id": "checkers-red-king",
+      "family": "checkers",
+      "file": "neon/sprites/checkers-red-king.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "50eb4ee9544a5838d34e242e36f8320cb25ca479d6edff296c88306449775e11",
+      "visibleBounds": {
+        "x": 34,
+        "y": 41,
+        "width": 189,
+        "height": 180
+      }
+    },
+    {
+      "id": "checkers-black-man",
+      "family": "checkers",
+      "file": "neon/sprites/checkers-black-man.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "761ecfbf58ee44a4bb3ba40888049fcf970e43994443e0405cb049941dd745b7",
+      "visibleBounds": {
+        "x": 34,
+        "y": 41,
+        "width": 189,
+        "height": 180
+      }
+    },
+    {
+      "id": "checkers-black-king",
+      "family": "checkers",
+      "file": "neon/sprites/checkers-black-king.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "49e3e6c2e127e65d6b4e82b073ae3c465fe53f10779f94fcfb4bed508acdbc7e",
+      "visibleBounds": {
+        "x": 34,
+        "y": 41,
+        "width": 189,
+        "height": 180
+      }
+    },
+    {
+      "id": "connect4-red-disc",
+      "family": "connect4",
+      "file": "neon/sprites/connect4-red-disc.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "cf4bc95094e756fed4aee1b27dd30b7a10357630b6fc92b5623c38f2d6c2266f",
+      "visibleBounds": {
+        "x": 34,
+        "y": 41,
+        "width": 189,
+        "height": 180
+      }
+    },
+    {
+      "id": "connect4-yellow-disc",
+      "family": "connect4",
+      "file": "neon/sprites/connect4-yellow-disc.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "e632a2d332a7fa43974cea6c22e5ea64c5a89a418c981708388bb86c8db2c309",
+      "visibleBounds": {
+        "x": 34,
+        "y": 41,
+        "width": 189,
+        "height": 180
+      }
+    },
+    {
+      "id": "sudoku-digit-1",
+      "family": "sudoku",
+      "file": "neon/sprites/sudoku-digit-1.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "fcac6671590a5ae03d0c142ce3e5c10f811a76a498d7a1420b75076f05eafb7d",
+      "visibleBounds": {
+        "x": 25,
+        "y": 25,
+        "width": 206,
+        "height": 206
+      }
+    },
+    {
+      "id": "sudoku-digit-2",
+      "family": "sudoku",
+      "file": "neon/sprites/sudoku-digit-2.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "8a55ea5655a1be1e8d3b562c4fbd477376b0aa40156228190248ceb6cefa70cf",
+      "visibleBounds": {
+        "x": 25,
+        "y": 25,
+        "width": 206,
+        "height": 206
+      }
+    },
+    {
+      "id": "sudoku-digit-3",
+      "family": "sudoku",
+      "file": "neon/sprites/sudoku-digit-3.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "2abfc334aab0e8a26e312dcd25a7e3ba77853ad07a1fc9c8c374ca5d75fee03e",
+      "visibleBounds": {
+        "x": 25,
+        "y": 25,
+        "width": 206,
+        "height": 206
+      }
+    },
+    {
+      "id": "sudoku-digit-4",
+      "family": "sudoku",
+      "file": "neon/sprites/sudoku-digit-4.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "202283bb4b29267677c80cc8173c4cda8fe514ce202b76d5e11beb168e58ce8d",
+      "visibleBounds": {
+        "x": 25,
+        "y": 25,
+        "width": 206,
+        "height": 206
+      }
+    },
+    {
+      "id": "sudoku-digit-5",
+      "family": "sudoku",
+      "file": "neon/sprites/sudoku-digit-5.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "dae6780d1f63cd25c0b1622a56172312713fa3a42cc1c70b23e33b7a4d0e91e6",
+      "visibleBounds": {
+        "x": 25,
+        "y": 25,
+        "width": 206,
+        "height": 206
+      }
+    },
+    {
+      "id": "sudoku-digit-6",
+      "family": "sudoku",
+      "file": "neon/sprites/sudoku-digit-6.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "a0a61c7bf6a64adbbfbacea13e56fae5ee6dceb726db2b38c8c6c1ce99e0b5ec",
+      "visibleBounds": {
+        "x": 25,
+        "y": 25,
+        "width": 206,
+        "height": 206
+      }
+    },
+    {
+      "id": "sudoku-digit-7",
+      "family": "sudoku",
+      "file": "neon/sprites/sudoku-digit-7.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "923c51ef3ed345da57967c5a63aec48e1396d014b1d27eb7b0bc42a9e6244340",
+      "visibleBounds": {
+        "x": 25,
+        "y": 25,
+        "width": 206,
+        "height": 206
+      }
+    },
+    {
+      "id": "sudoku-digit-8",
+      "family": "sudoku",
+      "file": "neon/sprites/sudoku-digit-8.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "db4a73754ed802da1df621c091e19e65be3a07e2f7b39355f77b6c8d437c7e0c",
+      "visibleBounds": {
+        "x": 25,
+        "y": 25,
+        "width": 206,
+        "height": 206
+      }
+    },
+    {
+      "id": "sudoku-digit-9",
+      "family": "sudoku",
+      "file": "neon/sprites/sudoku-digit-9.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "955935733b43e390f0f74688f7b45fb47d272af3ccbfdb1338eb9c10206a135c",
+      "visibleBounds": {
+        "x": 25,
+        "y": 25,
+        "width": 206,
+        "height": 206
+      }
+    },
+    {
+      "id": "sudoku-blank",
+      "family": "sudoku",
+      "file": "neon/sprites/sudoku-blank.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "05dc7c214bfb95c4b50111878328a955223a077a80f728842002a152f813d74a",
+      "visibleBounds": {
+        "x": 25,
+        "y": 25,
+        "width": 206,
+        "height": 206
+      }
+    },
+    {
+      "id": "sudoku-selected",
+      "family": "sudoku",
+      "file": "neon/sprites/sudoku-selected.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "61b8dcdfd7871478886030b86bde463e4a930187921dbb8157f092cf0b177b54",
+      "visibleBounds": {
+        "x": 25,
+        "y": 25,
+        "width": 206,
+        "height": 206
+      }
+    },
+    {
+      "id": "sudoku-notes",
+      "family": "sudoku",
+      "file": "neon/sprites/sudoku-notes.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "c0cc2d76c9e8d7525b74fe2dc2b1002461abcd8911da3668b4f3a9a5a6cfdcc4",
+      "visibleBounds": {
+        "x": 25,
+        "y": 25,
+        "width": 206,
+        "height": 206
+      }
+    },
+    {
+      "id": "sudoku-error",
+      "family": "sudoku",
+      "file": "neon/sprites/sudoku-error.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "f765aedb8a672ab6ba2a06cd8bb0a62cd4c514b9a11e56c49a00ab91c3437c8b",
+      "visibleBounds": {
+        "x": 25,
+        "y": 25,
+        "width": 206,
+        "height": 206
+      }
+    },
+    {
+      "id": "fx-selection-ring",
+      "family": "effects",
+      "file": "neon/sprites/fx-selection-ring.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "0dde21869092b25bfe65513b6a3abdee9b6893f6aff9159405e364ef05e0806e",
+      "visibleBounds": {
+        "x": 9,
+        "y": 25,
+        "width": 238,
+        "height": 218
+      }
+    },
+    {
+      "id": "fx-timeline-portal",
+      "family": "effects",
+      "file": "neon/sprites/fx-timeline-portal.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "f70fcc6dac22623e0cdefadadb11f460b552804bb61e4dcb1502f91201355078",
+      "visibleBounds": {
+        "x": 22,
+        "y": 37,
+        "width": 212,
+        "height": 194
+      }
+    },
+    {
+      "id": "fx-shift-arrows",
+      "family": "effects",
+      "file": "neon/sprites/fx-shift-arrows.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "2817cc90c91882d9bf461c75471926ca1cf7da00777c65295a7111cb128108ca",
+      "visibleBounds": {
+        "x": 26,
+        "y": 48,
+        "width": 204,
+        "height": 172
+      }
+    },
+    {
+      "id": "fx-crown-badge",
+      "family": "effects",
+      "file": "neon/sprites/fx-crown-badge.png",
+      "width": 256,
+      "height": 256,
+      "sha256": "4ecccafed15906421ef5dc6ac7ae89463a4667c04fbf964dcefdfe60bda3892f",
+      "visibleBounds": {
+        "x": 27,
+        "y": 39,
+        "width": 202,
+        "height": 188
+      }
+    }
+  ],
+  "boards": [
+    {
+      "game": "chess",
+      "file": "neon/boards/chess.png",
+      "width": 1024,
+      "height": 1024,
+      "position": "Mirror armies, full size, two kings per side, seed 1; initial state.",
+      "kind": "Concept render",
+      "sha256": "b22d5b2b723310d66a37bf80f868eb3f83464de042e04a4fa19fbe22990cc949"
+    },
+    {
+      "game": "checkers",
+      "file": "neon/boards/checkers.png",
+      "width": 1024,
+      "height": 1024,
+      "position": "After b3-a4, g6-h5, d3-c4, e6-f5; turn 4.",
+      "kind": "Concept render",
+      "sha256": "94d991ca382b1294779e921b5f21eae2b1ee3b428fc1b0281137bafa4900b58d"
+    },
+    {
+      "game": "connect4",
+      "file": "neon/boards/connect4.png",
+      "width": 1024,
+      "height": 1024,
+      "position": "After drops into columns 1, 7, 2, 7; turn 4.",
+      "kind": "Concept render",
+      "sha256": "f955c16b802f30f57d5ce7cf17d1f42ee6eb72e3f9085ae72858911d7f078ad4"
+    },
+    {
+      "game": "sudoku",
+      "file": "neon/boards/sudoku.png",
+      "width": 1024,
+      "height": 1024,
+      "position": "Seed 20261011; selected cell has pencil notes 1, 3, 7.",
+      "kind": "Concept render",
+      "sha256": "375d06c4fe34966265ad45a0721caaa49acb05d21eeddfa7e3e6ad27e8a96595"
+    }
+  ],
+  "palette": {
+    "name": "Neon Circuit",
+    "description": "Midnight surfaces, luminous rims and cyan-violet pieces.",
+    "background": "#101529",
+    "frame": "#342858",
+    "light": "#473568",
+    "dark": "#222944",
+    "white": "#dfcbff",
+    "black": "#268fa9",
+    "whiteEdge": "#ff83dc",
+    "blackEdge": "#71ffe0",
+    "red": "#ff559b",
+    "yellow": "#dcf76a",
+    "accent": "#67f5db",
+    "secondary": "#c094ff",
+    "ink": "#122c42",
+    "surface": "#202c4b",
+    "muted": "#bbcbef",
+    "blue": "#5146a3",
+    "selected": "#67f5db",
+    "error": "#ff6d9e",
+    "roughness": 0.27,
+    "metallic": 0.2,
+    "coat": 0.3,
+    "segments": 48,
+    "bevel": 0.035
+  },
+  "renderSeconds": 202.6,
+  "atlas": "neon/atlas.png",
+  "atlasMetadata": "neon/atlas.json"
+}
