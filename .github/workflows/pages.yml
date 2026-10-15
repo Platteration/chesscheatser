@@ -22,7 +22,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           # Nothing after the checkout uses git; without this the job's token is
           # left in .git/config for every later step to read.
@@ -40,14 +41,16 @@ jobs:
       - name: Build the website for GitHub Pages
         run: node scripts/build-web.mjs --host github-pages --base-url "/$REPOSITORY" --output-dir dist-web
         env:
-          REPOSITORY: ${{ github.event.repository.name }}
-      # From v4 the upload leaves out every path that starts with a dot unless told otherwise,
-      # and the site's .well-known/security.txt is one.
-      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+          CI: 1
+      - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
         with:
           path: dist-web
           include-hidden-files: true
   deploy:
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
     needs: build
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -59,4 +62,4 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
-        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4
