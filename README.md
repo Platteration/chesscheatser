@@ -153,6 +153,16 @@ copy of the page show one; that gates a cosmetic, not a secret, and nothing of
 value is behind it. The phone app has no shop of its own (the App Store and
 Google Play want theirs) and no network code.
 
+## Design comparisons
+
+The [versioned comparison bundle](docs/comparisons/GIT.md) contains the dated before-and-after screenshots for all four games, the Arcade Pop, Neon Circuit and Porcelain Studio concept sprites, and editable Blender projects.
+
+- [Chess phone comparison](docs/comparisons/comparisons/chesscheatser-phone-light-game.png)
+- [Sprite style overview](docs/comparisons/styles/comparisons/sprite-styles-light.png)
+- [Board style comparisons](docs/comparisons/styles/comparisons/board-styles.png)
+
+After cloning, open `docs/comparisons/index.html` for the screenshots or `docs/comparisons/styles/index.html` for the sprite gallery. The screenshot labels and manifests record the 11 October 2026 capture commits; the style concepts were added on 13 October.
+
 ## Running it
 
 ```sh

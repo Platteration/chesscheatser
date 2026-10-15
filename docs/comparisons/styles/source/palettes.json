@@ -1,0 +1,32 @@
+{
+  "arcade": {
+    "name": "Arcade Pop",
+    "description": "Bold colours, faceted chess pieces and simple enamel tokens.",
+    "background": "#f4efdf", "frame": "#223859", "light": "#f4e4bf", "dark": "#40729e",
+    "white": "#fff3d8", "black": "#19364e", "whiteEdge": "#dbab52", "blackEdge": "#7de1c8",
+    "red": "#f24f57", "yellow": "#ffd452", "accent": "#33c8b1", "secondary": "#8059bf",
+    "ink": "#192e45", "surface": "#fff8e6", "muted": "#56656b", "blue": "#3a73c9",
+    "selected": "#8ce4d0", "error": "#d53250", "roughness": 0.7, "metallic": 0.0, "coat": 0.0,
+    "segments": 12, "bevel": 0.025
+  },
+  "neon": {
+    "name": "Neon Circuit",
+    "description": "Midnight surfaces, luminous rims and cyan-violet pieces.",
+    "background": "#101529", "frame": "#342858", "light": "#473568", "dark": "#222944",
+    "white": "#dfcbff", "black": "#268fa9", "whiteEdge": "#ff83dc", "blackEdge": "#71ffe0",
+    "red": "#ff559b", "yellow": "#dcf76a", "accent": "#67f5db", "secondary": "#c094ff",
+    "ink": "#122c42", "surface": "#202c4b", "muted": "#bbcbef", "blue": "#5146a3",
+    "selected": "#67f5db", "error": "#ff6d9e", "roughness": 0.27, "metallic": 0.2, "coat": 0.3,
+    "segments": 48, "bevel": 0.035
+  },
+  "porcelain": {
+    "name": "Porcelain Studio",
+    "description": "Warm ivory, glazed blue pieces and brushed brass details.",
+    "background": "#e9e0d1", "frame": "#72564a", "light": "#eee0c7", "dark": "#a18070",
+    "white": "#fff1dc", "black": "#31596b", "whiteEdge": "#c49a5b", "blackEdge": "#e2bc79",
+    "red": "#d46359", "yellow": "#e5bb62", "accent": "#71b7a4", "secondary": "#b397ba",
+    "ink": "#323c43", "surface": "#fff5e4", "muted": "#646c70", "blue": "#456b91",
+    "selected": "#abdbcc", "error": "#b74648", "roughness": 0.24, "metallic": 0.0, "coat": 0.45,
+    "segments": 64, "bevel": 0.055
+  }
+}

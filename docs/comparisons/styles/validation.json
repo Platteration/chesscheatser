@@ -1,0 +1,593 @@
+{
+  "styles": 3,
+  "sprites": 105,
+  "boards": 12,
+  "alphaPadding": "passed",
+  "files": [
+    {
+      "file": "arcade/sprites/chess-white-pawn.png",
+      "kind": "sprite",
+      "sha256": "03d0e73ee9006e51a6d26ca446484f9a8778aae748358712f4d75d1d3cdf5289"
+    },
+    {
+      "file": "arcade/sprites/chess-white-knight.png",
+      "kind": "sprite",
+      "sha256": "f1dc39669bb669ee86a494f54c1c777b4e99c93959f5bda0d5186577c387899e"
+    },
+    {
+      "file": "arcade/sprites/chess-white-bishop.png",
+      "kind": "sprite",
+      "sha256": "5b439a4f19ba1c695cb1ebeb4c5e7c5610f5ad93f2ce3b4c5fb9c0d1f4ffa9ff"
+    },
+    {
+      "file": "arcade/sprites/chess-white-rook.png",
+      "kind": "sprite",
+      "sha256": "4a974eefdcf34cd0e7a8f22e4f0ea39d6a21cc06e8c40a2b3163d63e51f3fef3"
+    },
+    {
+      "file": "arcade/sprites/chess-white-queen.png",
+      "kind": "sprite",
+      "sha256": "f19eecb1d65948d82ce021c44b31b2442a7e591d68251aa87931a17975582c0a"
+    },
+    {
+      "file": "arcade/sprites/chess-white-king.png",
+      "kind": "sprite",
+      "sha256": "ed7c40b5210757062acc3fd40273a5d934e54b83259b972090334882b0f6c6b0"
+    },
+    {
+      "file": "arcade/sprites/chess-black-pawn.png",
+      "kind": "sprite",
+      "sha256": "acd5ae1fe2036bee3d4db1933f47e972b6209a160e66eef3b8d5669f868074b7"
+    },
+    {
+      "file": "arcade/sprites/chess-black-knight.png",
+      "kind": "sprite",
+      "sha256": "dc3ce9559fe1fbc0692106c75d217da51d7cdd4d3df508ff043d0903296cf4f4"
+    },
+    {
+      "file": "arcade/sprites/chess-black-bishop.png",
+      "kind": "sprite",
+      "sha256": "3db96c5bc226c6c57c2682f83fabbd18fc4366b2bf8a4d35bba94aaa01caf2e7"
+    },
+    {
+      "file": "arcade/sprites/chess-black-rook.png",
+      "kind": "sprite",
+      "sha256": "c6ad13bd638c502f9948145966a57bb767df8aa8ae72046c25bc353d0f3d10e7"
+    },
+    {
+      "file": "arcade/sprites/chess-black-queen.png",
+      "kind": "sprite",
+      "sha256": "7bd73b61a4f486a02015a29cecaee8bd5e9751fe551140d2b98b9eab9f8bd173"
+    },
+    {
+      "file": "arcade/sprites/chess-black-king.png",
+      "kind": "sprite",
+      "sha256": "355bca3e47b06db5aea8ff7025ee6667fab429c8ce6b9fdb361e4274692d0473"
+    },
+    {
+      "file": "arcade/sprites/checkers-red-man.png",
+      "kind": "sprite",
+      "sha256": "c1c97c5518851d97191de57115a8715d3ebc611280918e18c360e98b84100eeb"
+    },
+    {
+      "file": "arcade/sprites/checkers-red-king.png",
+      "kind": "sprite",
+      "sha256": "70670f5fb1dcd0f7fde14cfd1d454319a02f2322836758274500e5cd012fc742"
+    },
+    {
+      "file": "arcade/sprites/checkers-black-man.png",
+      "kind": "sprite",
+      "sha256": "7ff8c041baf678d0f9d635c057b093b0011968b27243814b9ced1f514d7dc89a"
+    },
+    {
+      "file": "arcade/sprites/checkers-black-king.png",
+      "kind": "sprite",
+      "sha256": "e15b0d7d6c9180affecde55e0123a41d6012173d0dd9eabdb21a48756f8375bb"
+    },
+    {
+      "file": "arcade/sprites/connect4-red-disc.png",
+      "kind": "sprite",
+      "sha256": "ff210042546a59a7a4c8d4c93dfb2fc47832dc8f4a599595ec3b4eb256a6779f"
+    },
+    {
+      "file": "arcade/sprites/connect4-yellow-disc.png",
+      "kind": "sprite",
+      "sha256": "2e1452652c02b6674babf26ac2cf3775613d5c95c1d168be8614906f6f597641"
+    },
+    {
+      "file": "arcade/sprites/sudoku-digit-1.png",
+      "kind": "sprite",
+      "sha256": "483e8ceea342f3cd1ac74b36e0d0c67f82d6cce3cb76ad901a19e02e912e0ca4"
+    },
+    {
+      "file": "arcade/sprites/sudoku-digit-2.png",
+      "kind": "sprite",
+      "sha256": "cb27c516812a8b753c193b6d06262b7dafcf2d599d8beb22467824bc9c10d7ea"
+    },
+    {
+      "file": "arcade/sprites/sudoku-digit-3.png",
+      "kind": "sprite",
+      "sha256": "7414497e3ae5cb56f9faea2f6fea9a02a311168515dbfd738517134b5951ec88"
+    },
+    {
+      "file": "arcade/sprites/sudoku-digit-4.png",
+      "kind": "sprite",
+      "sha256": "cf4daee7cfb6eecd91bb57da0320b1aa827d105d32338cea530a2d1ad3d9c689"
+    },
+    {
+      "file": "arcade/sprites/sudoku-digit-5.png",
+      "kind": "sprite",
+      "sha256": "33f4ad572ebdfa289d5f1b9e2ccec7f5d2207003ede4fadace4448ce04f1ffe3"
+    },
+    {
+      "file": "arcade/sprites/sudoku-digit-6.png",
+      "kind": "sprite",
+      "sha256": "222190c7a42ab8360cef7237fac2cfdb8a24d0b6ebbe7abbe95f974922c7e43f"
+    },
+    {
+      "file": "arcade/sprites/sudoku-digit-7.png",
+      "kind": "sprite",
+      "sha256": "3aeac7a634f580155ada43eb850929f8068d66169361a310a45728d6c8f84a39"
+    },
+    {
+      "file": "arcade/sprites/sudoku-digit-8.png",
+      "kind": "sprite",
+      "sha256": "deff8a656e8bdba508aac93bd30d07e3f514031d90f17b8c64e1e62f60f46387"
+    },
+    {
+      "file": "arcade/sprites/sudoku-digit-9.png",
+      "kind": "sprite",
+      "sha256": "801d503c147202718cb9fa1c6a7382e7c0d6e8ce42c81a2e977172adcf2155e7"
+    },
+    {
+      "file": "arcade/sprites/sudoku-blank.png",
+      "kind": "sprite",
+      "sha256": "73dede5e5c09037144fde475ce38947f5dfa7188d69319b770c6e7f0f9b43df3"
+    },
+    {
+      "file": "arcade/sprites/sudoku-selected.png",
+      "kind": "sprite",
+      "sha256": "276a9a29a1df38b1167e63bf899d67a664edf54c425b57a99452300e67676ab6"
+    },
+    {
+      "file": "arcade/sprites/sudoku-notes.png",
+      "kind": "sprite",
+      "sha256": "cbe09c23256bdc1f13d627da07617f9fe9b869ccc5bf3a688e5ceeccbc0560ca"
+    },
+    {
+      "file": "arcade/sprites/sudoku-error.png",
+      "kind": "sprite",
+      "sha256": "e8bacd366c4729185a3803fe968e2b765e51a331abda1fbd2d3019ca27e00e03"
+    },
+    {
+      "file": "arcade/sprites/fx-selection-ring.png",
+      "kind": "sprite",
+      "sha256": "03bdaa979ab39654eb7fa464172658f0ff790e98c8b016bb7ca3f6e48d80aaab"
+    },
+    {
+      "file": "arcade/sprites/fx-timeline-portal.png",
+      "kind": "sprite",
+      "sha256": "eaa0117122957f439195e95578f5c4e4a2378f5a89a8a07644fcbbb798994327"
+    },
+    {
+      "file": "arcade/sprites/fx-shift-arrows.png",
+      "kind": "sprite",
+      "sha256": "50e1bc09a5acb0181e3faf074bf9c1733383dd74fe3ecd964fecb3849ae3e00d"
+    },
+    {
+      "file": "arcade/sprites/fx-crown-badge.png",
+      "kind": "sprite",
+      "sha256": "a47ba316c1fd4e8a38351de75cb628e6672ea7fe50adddf9f2ee16503607691b"
+    },
+    {
+      "file": "arcade/boards/chess.png",
+      "kind": "concept board",
+      "sha256": "b566f95a16ff44a569fd56151f6748b08d9ab127692bd50c974cd779d80c790a"
+    },
+    {
+      "file": "arcade/boards/checkers.png",
+      "kind": "concept board",
+      "sha256": "a192ed6472ab683cd7a4902b11ae355d21a9336e17248e1373ad869fde97b01e"
+    },
+    {
+      "file": "arcade/boards/connect4.png",
+      "kind": "concept board",
+      "sha256": "bb45e3c5ba7df65461d79da8df6903534d33ea71369b0b5de18a7ff60442686a"
+    },
+    {
+      "file": "arcade/boards/sudoku.png",
+      "kind": "concept board",
+      "sha256": "d44d72ce88f4ad226f21c728bbc608bc54db97c2efb573c4ba585a40ef52eab9"
+    },
+    {
+      "file": "neon/sprites/chess-white-pawn.png",
+      "kind": "sprite",
+      "sha256": "7a53ac7473bf3b666af4fae7c634a7d14a9c5d8e06025dcef6e2ceb6e028bb1a"
+    },
+    {
+      "file": "neon/sprites/chess-white-knight.png",
+      "kind": "sprite",
+      "sha256": "d3098f025052800d0bce0234d73701272be710641509cfe0e0c4918d0a35550c"
+    },
+    {
+      "file": "neon/sprites/chess-white-bishop.png",
+      "kind": "sprite",
+      "sha256": "4fb831ad1d0e0176efa87a9fd248b1cb5cb95ba301a151249623be85b9298354"
+    },
+    {
+      "file": "neon/sprites/chess-white-rook.png",
+      "kind": "sprite",
+      "sha256": "193d19a5c456a137c3c2eea4e96c8077c968a1809a656b69c7a5c0abac32cf33"
+    },
+    {
+      "file": "neon/sprites/chess-white-queen.png",
+      "kind": "sprite",
+      "sha256": "9e2d998c6ba891ce6709235f15040f8499263f56f5595d352b6ff4cc14ae0933"
+    },
+    {
+      "file": "neon/sprites/chess-white-king.png",
+      "kind": "sprite",
+      "sha256": "f27cab2288b7c92e6e10d1b1174c64aadcd84f6b4c92849562a0641dac65f931"
+    },
+    {
+      "file": "neon/sprites/chess-black-pawn.png",
+      "kind": "sprite",
+      "sha256": "72c1709dd4cbb6c5ba339e70690e87c5ecb2c69d8bea2f6218bbb29a4e9fcaa3"
+    },
+    {
+      "file": "neon/sprites/chess-black-knight.png",
+      "kind": "sprite",
+      "sha256": "5ed33867cbb4544ff66bbe525831ec60e933100c66505e8ab458030dde3295fb"
+    },
+    {
+      "file": "neon/sprites/chess-black-bishop.png",
+      "kind": "sprite",
+      "sha256": "1feb766e9b960a9add4402ede476a4856b7009a7f9aa48280e3b048b3f3480bf"
+    },
+    {
+      "file": "neon/sprites/chess-black-rook.png",
+      "kind": "sprite",
+      "sha256": "da3ce848713a0a6c513027c6360181737b5869cc9b0f2610a2963d5824f6c33b"
+    },
+    {
+      "file": "neon/sprites/chess-black-queen.png",
+      "kind": "sprite",
+      "sha256": "1d3b50eecce384d748f76d508b3c361bb0f0ad400a51955da47f3feb57b40839"
+    },
+    {
+      "file": "neon/sprites/chess-black-king.png",
+      "kind": "sprite",
+      "sha256": "1636edfcd87f6a5a3cb091d25564f558068367e9aaf6edd2f26abef4432e716a"
+    },
+    {
+      "file": "neon/sprites/checkers-red-man.png",
+      "kind": "sprite",
+      "sha256": "442f8a163954c96e097590d9fb8c57983314a0bd2042e06d1b98145fff61804e"
+    },
+    {
+      "file": "neon/sprites/checkers-red-king.png",
+      "kind": "sprite",
+      "sha256": "50eb4ee9544a5838d34e242e36f8320cb25ca479d6edff296c88306449775e11"
+    },
+    {
+      "file": "neon/sprites/checkers-black-man.png",
+      "kind": "sprite",
+      "sha256": "761ecfbf58ee44a4bb3ba40888049fcf970e43994443e0405cb049941dd745b7"
+    },
+    {
+      "file": "neon/sprites/checkers-black-king.png",
+      "kind": "sprite",
+      "sha256": "49e3e6c2e127e65d6b4e82b073ae3c465fe53f10779f94fcfb4bed508acdbc7e"
+    },
+    {
+      "file": "neon/sprites/connect4-red-disc.png",
+      "kind": "sprite",
+      "sha256": "cf4bc95094e756fed4aee1b27dd30b7a10357630b6fc92b5623c38f2d6c2266f"
+    },
+    {
+      "file": "neon/sprites/connect4-yellow-disc.png",
+      "kind": "sprite",
+      "sha256": "e632a2d332a7fa43974cea6c22e5ea64c5a89a418c981708388bb86c8db2c309"
+    },
+    {
+      "file": "neon/sprites/sudoku-digit-1.png",
+      "kind": "sprite",
+      "sha256": "fcac6671590a5ae03d0c142ce3e5c10f811a76a498d7a1420b75076f05eafb7d"
+    },
+    {
+      "file": "neon/sprites/sudoku-digit-2.png",
+      "kind": "sprite",
+      "sha256": "8a55ea5655a1be1e8d3b562c4fbd477376b0aa40156228190248ceb6cefa70cf"
+    },
+    {
+      "file": "neon/sprites/sudoku-digit-3.png",
+      "kind": "sprite",
+      "sha256": "2abfc334aab0e8a26e312dcd25a7e3ba77853ad07a1fc9c8c374ca5d75fee03e"
+    },
+    {
+      "file": "neon/sprites/sudoku-digit-4.png",
+      "kind": "sprite",
+      "sha256": "202283bb4b29267677c80cc8173c4cda8fe514ce202b76d5e11beb168e58ce8d"
+    },
+    {
+      "file": "neon/sprites/sudoku-digit-5.png",
+      "kind": "sprite",
+      "sha256": "dae6780d1f63cd25c0b1622a56172312713fa3a42cc1c70b23e33b7a4d0e91e6"
+    },
+    {
+      "file": "neon/sprites/sudoku-digit-6.png",
+      "kind": "sprite",
+      "sha256": "a0a61c7bf6a64adbbfbacea13e56fae5ee6dceb726db2b38c8c6c1ce99e0b5ec"
+    },
+    {
+      "file": "neon/sprites/sudoku-digit-7.png",
+      "kind": "sprite",
+      "sha256": "923c51ef3ed345da57967c5a63aec48e1396d014b1d27eb7b0bc42a9e6244340"
+    },
+    {
+      "file": "neon/sprites/sudoku-digit-8.png",
+      "kind": "sprite",
+      "sha256": "db4a73754ed802da1df621c091e19e65be3a07e2f7b39355f77b6c8d437c7e0c"
+    },
+    {
+      "file": "neon/sprites/sudoku-digit-9.png",
+      "kind": "sprite",
+      "sha256": "955935733b43e390f0f74688f7b45fb47d272af3ccbfdb1338eb9c10206a135c"
+    },
+    {
+      "file": "neon/sprites/sudoku-blank.png",
+      "kind": "sprite",
+      "sha256": "05dc7c214bfb95c4b50111878328a955223a077a80f728842002a152f813d74a"
+    },
+    {
+      "file": "neon/sprites/sudoku-selected.png",
+      "kind": "sprite",
+      "sha256": "61b8dcdfd7871478886030b86bde463e4a930187921dbb8157f092cf0b177b54"
+    },
+    {
+      "file": "neon/sprites/sudoku-notes.png",
+      "kind": "sprite",
+      "sha256": "c0cc2d76c9e8d7525b74fe2dc2b1002461abcd8911da3668b4f3a9a5a6cfdcc4"
+    },
+    {
+      "file": "neon/sprites/sudoku-error.png",
+      "kind": "sprite",
+      "sha256": "f765aedb8a672ab6ba2a06cd8bb0a62cd4c514b9a11e56c49a00ab91c3437c8b"
+    },
+    {
+      "file": "neon/sprites/fx-selection-ring.png",
+      "kind": "sprite",
+      "sha256": "0dde21869092b25bfe65513b6a3abdee9b6893f6aff9159405e364ef05e0806e"
+    },
+    {
+      "file": "neon/sprites/fx-timeline-portal.png",
+      "kind": "sprite",
+      "sha256": "f70fcc6dac22623e0cdefadadb11f460b552804bb61e4dcb1502f91201355078"
+    },
+    {
+      "file": "neon/sprites/fx-shift-arrows.png",
+      "kind": "sprite",
+      "sha256": "2817cc90c91882d9bf461c75471926ca1cf7da00777c65295a7111cb128108ca"
+    },
+    {
+      "file": "neon/sprites/fx-crown-badge.png",
+      "kind": "sprite",
+      "sha256": "4ecccafed15906421ef5dc6ac7ae89463a4667c04fbf964dcefdfe60bda3892f"
+    },
+    {
+      "file": "neon/boards/chess.png",
+      "kind": "concept board",
+      "sha256": "b22d5b2b723310d66a37bf80f868eb3f83464de042e04a4fa19fbe22990cc949"
+    },
+    {
+      "file": "neon/boards/checkers.png",
+      "kind": "concept board",
+      "sha256": "94d991ca382b1294779e921b5f21eae2b1ee3b428fc1b0281137bafa4900b58d"
+    },
+    {
+      "file": "neon/boards/connect4.png",
+      "kind": "concept board",
+      "sha256": "f955c16b802f30f57d5ce7cf17d1f42ee6eb72e3f9085ae72858911d7f078ad4"
+    },
+    {
+      "file": "neon/boards/sudoku.png",
+      "kind": "concept board",
+      "sha256": "375d06c4fe34966265ad45a0721caaa49acb05d21eeddfa7e3e6ad27e8a96595"
+    },
+    {
+      "file": "porcelain/sprites/chess-white-pawn.png",
+      "kind": "sprite",
+      "sha256": "392e75b5a67b94e30435fe823b5f84c68f0feebb8ff307d33cabc80fe03314d5"
+    },
+    {
+      "file": "porcelain/sprites/chess-white-knight.png",
+      "kind": "sprite",
+      "sha256": "c0d89b6f8a0d310f8059014d66b0364ba5a1549a642064b8342cc8798432b79e"
+    },
+    {
+      "file": "porcelain/sprites/chess-white-bishop.png",
+      "kind": "sprite",
+      "sha256": "0205b251105aa587fe71b1b3d4cb84c945893e587c71508605bbc8b3f888a343"
+    },
+    {
+      "file": "porcelain/sprites/chess-white-rook.png",
+      "kind": "sprite",
+      "sha256": "5558c3767e05ce6a30cac6ed943d1c57b375b9b15f628ff78e9d145261b1c18d"
+    },
+    {
+      "file": "porcelain/sprites/chess-white-queen.png",
+      "kind": "sprite",
+      "sha256": "ff0fc12e3964a770b19c946339cc4eada7db726d32df9947328943def3362ce3"
+    },
+    {
+      "file": "porcelain/sprites/chess-white-king.png",
+      "kind": "sprite",
+      "sha256": "ae7c1b5e40de671cf6124e64e7cbadd6f93950ebb74862a264a0ad26ef16ee80"
+    },
+    {
+      "file": "porcelain/sprites/chess-black-pawn.png",
+      "kind": "sprite",
+      "sha256": "2490a55725ed50aad9198e91c011ae476c6ad7ed80026f5431a869594f2b631e"
+    },
+    {
+      "file": "porcelain/sprites/chess-black-knight.png",
+      "kind": "sprite",
+      "sha256": "ba0d9376396fdd2c845e640cf10850f715f17f39f90edfa30826b5c6c3dd4ddf"
+    },
+    {
+      "file": "porcelain/sprites/chess-black-bishop.png",
+      "kind": "sprite",
+      "sha256": "6dff53ed219017d3ea393b30e9a449386c66fe51792f161d3c1172762c7036c0"
+    },
+    {
+      "file": "porcelain/sprites/chess-black-rook.png",
+      "kind": "sprite",
+      "sha256": "dfab43acfcbee86bbe67b488875bd96f82d5ec065c0ba9d056696a74c5df37cd"
+    },
+    {
+      "file": "porcelain/sprites/chess-black-queen.png",
+      "kind": "sprite",
+      "sha256": "c4e9e4a6b819e6721b1cbad904d0b5d7dbaf18e9710b5a0526f5148e04c7a6e6"
+    },
+    {
+      "file": "porcelain/sprites/chess-black-king.png",
+      "kind": "sprite",
+      "sha256": "45b4761b8bbbd6acc5295fa593b91fca162eb82b4b153704473a7a9b7ce7b7b0"
+    },
+    {
+      "file": "porcelain/sprites/checkers-red-man.png",
+      "kind": "sprite",
+      "sha256": "44a164d8743429ba8e36bd8a61362cb473b3e2827fb028d4534506dde3a12a8b"
+    },
+    {
+      "file": "porcelain/sprites/checkers-red-king.png",
+      "kind": "sprite",
+      "sha256": "6df523b3caa9bd40713401717ef5661e08909196085608bd03501877e945cded"
+    },
+    {
+      "file": "porcelain/sprites/checkers-black-man.png",
+      "kind": "sprite",
+      "sha256": "bdbb2acdf1861179bc6a33e18f92f892348fa40e2879f2999cbab868a3d5f1d8"
+    },
+    {
+      "file": "porcelain/sprites/checkers-black-king.png",
+      "kind": "sprite",
+      "sha256": "64f984cf9ebdf9df23f3bcf4ed761a376f3ec4fac93c6a8db5c77ff49495c267"
+    },
+    {
+      "file": "porcelain/sprites/connect4-red-disc.png",
+      "kind": "sprite",
+      "sha256": "e21a9f559bc52507262e6252639c8f8f61b6b49c65014ef81a3021c9395c1586"
+    },
+    {
+      "file": "porcelain/sprites/connect4-yellow-disc.png",
+      "kind": "sprite",
+      "sha256": "5ac67d7772a0dc965d96d1f302b8281344e8cd510bc98336acc49d3682a37886"
+    },
+    {
+      "file": "porcelain/sprites/sudoku-digit-1.png",
+      "kind": "sprite",
+      "sha256": "0e8b084f1872c904e4f6d30cd3a6e8a261815d4473d1a2260698b0e3a1e24485"
+    },
+    {
+      "file": "porcelain/sprites/sudoku-digit-2.png",
+      "kind": "sprite",
+      "sha256": "b6f8ef05b58ae834cdfe5d6e6dd54be333435b2d3a9db1af09d7e6fb18bba5e7"
+    },
+    {
+      "file": "porcelain/sprites/sudoku-digit-3.png",
+      "kind": "sprite",
+      "sha256": "77100512092c66fbb8a1035daae7e9cb1850b18f4857c16caf740a3feab42454"
+    },
+    {
+      "file": "porcelain/sprites/sudoku-digit-4.png",
+      "kind": "sprite",
+      "sha256": "3811d720b183a1c833d4521c13f1ac633a9b775d364a8da0407b676ed14ddda8"
+    },
+    {
+      "file": "porcelain/sprites/sudoku-digit-5.png",
+      "kind": "sprite",
+      "sha256": "3937189d44e1aed10008a354422f2f1a98946ac1c019a4221bd91be1d603ff59"
+    },
+    {
+      "file": "porcelain/sprites/sudoku-digit-6.png",
+      "kind": "sprite",
+      "sha256": "bf7dbfc670dabe357cfb9911b3ad1a4ddb0c629c4440a34c7e65abfdd2eb0c92"
+    },
+    {
+      "file": "porcelain/sprites/sudoku-digit-7.png",
+      "kind": "sprite",
+      "sha256": "bdef767ccf48074e4382e9717377c30de95732681e04a185a9c571e1c5303824"
+    },
+    {
+      "file": "porcelain/sprites/sudoku-digit-8.png",
+      "kind": "sprite",
+      "sha256": "c8d9af634a3115780fcf381de1dc965f5007c53d07697838cbe83301484f6d07"
+    },
+    {
+      "file": "porcelain/sprites/sudoku-digit-9.png",
+      "kind": "sprite",
+      "sha256": "c260c425c2eead2629db1b63c394e938bb22382e35ee185b1447dfcc4351742d"
+    },
+    {
+      "file": "porcelain/sprites/sudoku-blank.png",
+      "kind": "sprite",
+      "sha256": "11658f65a17e9f1ba3e22010310b9874ae56113893b0215e20efacc3a167ae6d"
+    },
+    {
+      "file": "porcelain/sprites/sudoku-selected.png",
+      "kind": "sprite",
+      "sha256": "767d2cab7ef1cadc24805ddd9e24ad73458db7c87062aee9d67a8b8ca941fb04"
+    },
+    {
+      "file": "porcelain/sprites/sudoku-notes.png",
+      "kind": "sprite",
+      "sha256": "7f5e2e5d27f9aca9b602c2c21fcbd9b285506a1e321f057c5659c37883899a56"
+    },
+    {
+      "file": "porcelain/sprites/sudoku-error.png",
+      "kind": "sprite",
+      "sha256": "2342a3cbb8fe4f5a93867dbd6cf6fe15dcb92ee56a6753c8638d1a3cd1bfa4f2"
+    },
+    {
+      "file": "porcelain/sprites/fx-selection-ring.png",
+      "kind": "sprite",
+      "sha256": "b4298e4388aed27f0b3a8619cfe771d4a3ff7ea16ff7ba43612d4e7164bdacc5"
+    },
+    {
+      "file": "porcelain/sprites/fx-timeline-portal.png",
+      "kind": "sprite",
+      "sha256": "155cdbfe8ab43ffbc7899555e03310e34c4e611dbe2ff9c33ad5f3c097985319"
+    },
+    {
+      "file": "porcelain/sprites/fx-shift-arrows.png",
+      "kind": "sprite",
+      "sha256": "d7f254f69efd59387aaff2a97bb07e3624ee6d8d35fdb511243171e0576576b0"
+    },
+    {
+      "file": "porcelain/sprites/fx-crown-badge.png",
+      "kind": "sprite",
+      "sha256": "24a5c7e9426a3b480b624ccf3f4c1ba048b7ea9d2d5f1a7f8e3868b7f793b231"
+    },
+    {
+      "file": "porcelain/boards/chess.png",
+      "kind": "concept board",
+      "sha256": "47c878d07e3e9fd67fec8539a99d12648b658817740bc91bb49f14b27e59c6ba"
+    },
+    {
+      "file": "porcelain/boards/checkers.png",
+      "kind": "concept board",
+      "sha256": "863b48d10d666ec48cff522a01d67d0b61e320b0505622b7c8eb3a4a718e7d54"
+    },
+    {
+      "file": "porcelain/boards/connect4.png",
+      "kind": "concept board",
+      "sha256": "406a148423484ff41ceffde77e2a9a0accf0098737880b451b9a8f96fa3ef427"
+    },
+    {
+      "file": "porcelain/boards/sudoku.png",
+      "kind": "concept board",
+      "sha256": "c0507cd611b765e9a1dcae2f16e30442bc5380521ab6a5cbb5994ec17e3df9fb"
+    }
+  ]
+}

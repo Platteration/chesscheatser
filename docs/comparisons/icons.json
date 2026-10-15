@@ -1,0 +1,34 @@
+[
+  {
+    "repo": "multidcheckers",
+    "version": "original",
+    "commit": "0f1a00aafeaf8845754e4f6229c510bc607030d9",
+    "file": "icons/multidcheckers-original.png",
+    "sourcePath": "assets/icon.png",
+    "sha256": "456109c1620608a0c2683e0677ac8e002dd70c2c3e4ce635c325724bb688ce01"
+  },
+  {
+    "repo": "multidcheckers",
+    "version": "current",
+    "commit": "1c92b873eeee2f7c8d227cee84a93c85db52eb7e",
+    "file": "icons/multidcheckers-current.png",
+    "sourcePath": "assets/icon.png",
+    "sha256": "766be53dcc99c106177584827816cd290f0dd314fb875cc8aac9cc954dcc035c"
+  },
+  {
+    "repo": "multidconnect4",
+    "version": "original",
+    "commit": "4912ffd8c584ec2f58afe8143317926c5e262d65",
+    "file": "icons/multidconnect4-original.png",
+    "sourcePath": "assets/icon.png",
+    "sha256": "4239e78996b06e71bf5577af5aa2a600e7cb3bdeca89aeb3535932a253ac33a9"
+  },
+  {
+    "repo": "multidconnect4",
+    "version": "current",
+    "commit": "4564742cdd0f9814ac9edd4b165a007fe2e23f9b",
+    "file": "icons/multidconnect4-current.png",
+    "sourcePath": "assets/icon.png",
+    "sha256": "893b6d69467bf25f93333b60153530855429de0502bf3e4906c1a2caf51a7149"
+  }
+]

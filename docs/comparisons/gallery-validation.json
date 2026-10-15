@@ -1,0 +1,15 @@
+{
+  "pairs": 24,
+  "galleryModeChecks": [
+    "side by side",
+    "overlay slider"
+  ],
+  "galleryViewportWidths": [
+    1440,
+    390
+  ],
+  "browserErrors": [],
+  "externalRequests": [],
+  "archiveIntegrity": "passed",
+  "galleryServingMode": "Local static HTTP; managed browser policy blocks file:// navigation."
+}
